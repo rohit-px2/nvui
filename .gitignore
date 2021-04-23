@@ -1,0 +1,6 @@
+.exe
+.txt 
+build/ 
+vcpkg/ 
+.cache/
+.vscode/

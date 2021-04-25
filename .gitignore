@@ -4,3 +4,4 @@ build/
 vcpkg/ 
 .cache/
 .vscode/
+compile_commands.json

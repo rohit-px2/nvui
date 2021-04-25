@@ -1,9 +1,22 @@
 cmake_minimum_required(VERSION 3.2)
 project(nvui)
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_PREFIX_PATH "${PROJECT_SOURCE_DIR}/vcpkg/packages")
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+set(PACKAGE_DIR $ENV(CPP_PACKAGE_DIR))
+set(CMAKE_CXX_STANDARD 17)
 find_package(msgpack CONFIG REQUIRED)
-add_executable(nvui "src/main.cpp")
+file(GLOB_RECURSE SOURCES
+  src/*.h
+  src/*.cpp
+)
+find_package(Boost COMPONENTS filesystem REQUIRED)
+add_executable(nvui "src/main.cpp" ${SOURCES})
 target_link_libraries(nvui PRIVATE msgpackc msgpackc-cxx)
+target_include_directories(nvui PRIVATE
+  "${PROJECT_SOURCE_DIR}/src"
+)
+if (Boost_FOUND)
+  include_directories(${Boost_INCLUDE_DIR})
+endif()
+target_link_libraries(${PROJECT_NAME} PRIVATE
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_LIBRARIES}
+)

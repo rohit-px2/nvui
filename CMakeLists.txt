@@ -7,7 +7,7 @@ file(GLOB_RECURSE SOURCES
   src/*.h
   src/*.cpp
 )
-find_package(Boost COMPONENTS filesystem REQUIRED)
+find_package(Boost COMPONENTS filesystem thread REQUIRED)
 add_executable(nvui "src/main.cpp" ${SOURCES})
 target_link_libraries(nvui PRIVATE msgpackc msgpackc-cxx)
 target_include_directories(nvui PRIVATE
@@ -18,5 +18,6 @@ if (Boost_FOUND)
 endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE
   ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_THREAD_LIBRARY}
   ${Boost_LIBRARIES}
 )

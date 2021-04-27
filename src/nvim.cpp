@@ -9,7 +9,9 @@
 #include <boost/winapi/access_rights.hpp>
 #include <chrono>
 #include <initializer_list>
+#include <ios>
 #include <memory>
+#include <ostream>
 #include <sstream>
 #include <tuple>
 #include <windows.h>
@@ -23,7 +25,7 @@
 #include <cassert>
 
 namespace bp = boost::process;
-namespace ba = boost::asio;
+//namespace ba = boost::asio;
 // ######################## SETTING UP ####################################
 // constexpr const std::initializer_list<char> EMPTY_LIST {};
 const std::vector<int> EMPTY_LIST {};
@@ -45,7 +47,7 @@ enum Request : std::uint8_t {
   nvim_command = 4 
 };
 
-constexpr const char *RequestNames[] {
+static const std::string RequestNames[] = {
   "nvim_get_api_info",
   "nvim_input",
   "nvim_input_mouse",
@@ -53,37 +55,58 @@ constexpr const char *RequestNames[] {
   "nvim_command"
 };
 
+// Override packing of std::string to pack as binary string (like Neovim wants)
+namespace msgpack {
+  namespace adaptor {
+    template<>
+    struct pack<std::string> {
+      template<typename Stream>
+      msgpack::packer<Stream>& operator()(msgpack::packer<Stream>& o, std::string const& v) const {
+        o.pack_bin(v.size());
+        o.pack_bin_body(v.data(), v.size());
+        return o;
+      }
+    };
+  }
+}
+
 constexpr const int MPACK_MAX_SIZE = 4096;
 // ###################### DONE SETTING UP ##################################
 
+static inline std::uint32_t to_uint(char ch)
+{
+  return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
+}
+
 template<typename T>
-void Nvim::send_request(const std::string& method, const T& params)
+void Nvim::send_request(const std::string& method, const T& params, int size)
 {
   const int msg_type = Type::Request;
-  auto msg = std::make_tuple(msg_type, current_msgid, method, params);
   std::stringstream ss;
+  const auto msg = std::make_tuple(msg_type, current_msgid, method, params);
   msgpack::pack(ss, msg);
-  //std::string s = ss.str();
   std::cout << ss.str() << std::endl;
-  //std::cout << s << std::endl;
-  auto oh = msgpack::unpack(ss.str().data(), ss.str().size());
-  std::cout << "Unpacked: " << oh.get() << std::endl;
-  //MessageBoxA(NULL, s.c_str(), "msgptest", 0);
-  ++current_msgid;
-  // Maybe this works?
+  std::cout << std::hex;
+  for(const auto& c : ss.str())
+  {
+    std::cout << "0x" << to_uint(c) << ", ";
+  }
   write << ss.str() << std::endl;
 }
 
 template<typename T>
 void Nvim::send_notification(const std::string& method, const T& params)
 {
-  // When we send a message it should only be a request or a notification.
   const int msg_type = Type::Notification;
-  auto msg = std::make_tuple(msg_type, method, params);
   std::stringstream ss;
+  const auto msg = std::make_tuple(msg_type, method, params);
   msgpack::pack(ss, msg);
-  std::string s(ss.str());
   std::cout << ss.str() << std::endl;
+  std::cout << std::hex;
+  for(const auto& c : ss.str())
+  {
+    std::cout << "0x" << to_uint(c) << ", ";
+  }
   write << ss.str() << std::endl;
 }
 
@@ -93,60 +116,83 @@ static const std::unordered_map<std::string, bool> capabilities {
   {"ext_cmdline", true}
 };
 
-
-void Nvim::read_output(boost::process::async_pipe& p, boost::asio::mutable_buffer& buf)
+void Nvim::read_output_sync()
 {
-  p.async_read_some(
-    buf,
-    [&](const boost::system::error_code& ec, const std::size_t size)
-    {
-      std::cout << "Received " << size << " bytes (" << ec.message() << ")";
-      std::cout.write(boost::asio::buffer_cast<const char *>(buf), size) << std::endl;
-      if (!ec)
-      {
-        read_output(p, buf);
-      }
-    }
-  );
+  std::string line;
+  std::cout << "Does this keep getting activated? " << std::endl;
+  while(std::getline(output, line))
+  {
+    //std::cout << "NEW LINE:\n" << line << "\n" << std::endl;
+    //std::cout << line << std::endl;
+    const auto oh = msgpack::unpack(line.data(), line.size());
+    std::cout << oh.get() << std::endl;
+  }
 }
 
 void Nvim::attach_ui(const int rows, const int cols)
 {
   std::cout << "Attaching UI. Please wait..." << std::endl;
-  auto params = std::make_tuple(rows, cols, capabilities);
+  const auto params = std::make_tuple(rows, cols, capabilities);
   send_notification("nvim_ui_attach", params);
   std::cout << "All Done!" << std::endl;
 }
 
-Nvim::Nvim()
-: ios(), write(), read(ios), current_msgid(0), output()
+void Nvim::read_error_sync()
 {
-  read_buffer.reserve(MAX_MSG_SIZE);
-  reader = std::thread([&] {
-    std::string line;
-    while(std::getline(output, line))
-    {
-      auto oh = msgpack::unpack(line.data(), line.size());
-      std::cout << "NEW LINE:\n" << oh.get() << "\n" << std::endl;
-      //std::cout << line << std::endl;
-    }
-  });
+  std::string line;
+  while(std::getline(error, line))
+  {
+    std::cout << "ERROR:\n" << line << "\n" << std::endl;
+  }
+}
+
+int Nvim::exit_code()
+{
+  if (nvim.running())
+  {
+    return INT_MIN;
+  }
+  return nvim.exit_code();
+}
+
+Nvim::Nvim()
+: write(),
+  output(),
+  error(),
+  current_msgid(0)
+{
+  // Everything is going to get detached because we're keeping the process running,
+  // the message processing thread running so that it doesn't get destroyed.
+  //read_buffer.reserve(MAX_MSG_SIZE);
+  err_reader = std::thread(boost::bind(&Nvim::read_error_sync, this));
+  err_reader.detach();
+  out_reader = std::thread(boost::bind(&Nvim::read_output_sync, this));
+  out_reader.detach();
   auto nvim_path = bp::search_path("nvim");
   nvim = bp::child(
-    nvim_path,
-    "--embed",
+    "nvim --headless --cmd \"call stdioopen({'rpc': v:true})\"",
     bp::std_out > output,
-    bp::std_in < write
+    bp::std_in < write,
+    bp::std_err > error
   );
-  try
-  {
-    //send_request("nvim_get_api_info", EMPTY_LIST);
-    send_request("nvim_eval", std::vector<std::string>({"stdpath('config')"}));
-  }
-  catch(std::exception const& e)
-  {
-    std::cout << "An error occurred: " << e.what() << std::endl;
-  }
+  //StartupInfo start_info {
+    //.cb = sizeof(StartupInfo),
+    //.dwFlags = STARTF_USESTDHANDLES,
+    //.hStdInput = handles.stdin_read,
+    //.hStdOutput = handles.stdout_write,
+    //.hStdError = handles.stdout_write
+  //};
+  //SecAttribs s {
+    //.nLength = sizeof(SecAttribs),
+    //.bInheritHandle = true
+  //};
+  //CreatePipe(&handles.stdin_read, &handles.stdin_write, &s, 0);
+  //CreatePipe(&handles.stdout_read, &handles.stdout_write, &s, 0);
+  nvim.detach();
+  //const auto default_params = std::make_tuple(200, 50, capabilities);
+  //send_notification("nvim_ui_attach", default_params);
+  //send_request("nvim_get_api_info", EMPTY_LIST);
+  send_request("nvim_eval", std::make_tuple(std::string("1 + 2")));
 }
 
 bool Nvim::nvim_running()
@@ -158,6 +204,7 @@ Nvim::~Nvim()
 {
   // Close I/O Pipes, join threads, delete anything that is remaining
   nvim.terminate();
+  error.pipe().close();
   output.pipe().close();
-  reader.join();
+  write.pipe().close();
 }

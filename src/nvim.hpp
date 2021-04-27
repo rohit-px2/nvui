@@ -9,6 +9,8 @@
 #include <boost/thread.hpp>
 #include <optional>
 using Handle = HANDLE;
+using StartupInfo = STARTUPINFO;
+using SecAttribs = SECURITY_ATTRIBUTES;
 enum Type : std::uint8_t {
   Request = 0,
   Response = 1,
@@ -22,12 +24,13 @@ enum Request : std::uint8_t;
 /// All communication between the GUI and Neovim is to use the Nvim class.
 class Nvim
 {
-  std::uint64_t current_msgid;
-  std::vector<char> read_buffer;
+  std::uint32_t current_msgid;
+  //std::vector<char> read_buffer;
   boost::process::child nvim;
-  boost::asio::io_service ios;
-  boost::asio::mutable_buffer mut_buf;
-  boost::process::async_pipe read;
+  //boost::asio::io_service ios;
+  //boost::asio::mutable_buffer mut_buf;
+  //boost::process::async_pipe read;
+  boost::process::ipstream error;
   boost::process::ipstream output;
   boost::process::opstream write;
   struct {
@@ -38,16 +41,25 @@ class Nvim
   } handles;
   void decide(const std::string& msg);
   template<typename T>
-  void send_request(const std::string& method, const T& params);
+  void send_request(const std::string& method, const T& params, int size = 1);
   template<typename T>
   void send_notification(const std::string& method, const T& params);
   void read_output(boost::process::async_pipe& p, boost::asio::mutable_buffer& buf);
+  void read_output_sync();
+  void read_error_sync();
 public:
-  std::thread reader;
+  std::thread err_reader;
+  std::thread out_reader;
   ~Nvim();
   Nvim();
+  int exit_code();
   bool nvim_running();
   void nvim_resize(const int new_rows, const int new_cols);
   void nvim_send_input(const bool shift, const bool ctrl, const std::uint16_t key);
   void attach_ui(const int rows, const int cols);
 };
+
+// This is needed for msgpack (Neovim expects byte-strings, which are non-UTF8,
+// while msgpack automatically packs strings into UTF-8 strings).
+// Converts the string str into a vector of characters.
+std::vector<char> stov(const std::string& str);

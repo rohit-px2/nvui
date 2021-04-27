@@ -24,10 +24,15 @@ std::vector<string> get_args(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+  std::ios_base::sync_with_stdio(false);
   auto nvim = std::make_shared<Nvim>();
-  nvim->attach_ui(DEFAULT_ROWS, DEFAULT_COLS);
-  while(true)
+  //nvim->attach_ui(DEFAULT_ROWS, DEFAULT_COLS);
+  //std::cout << "Is nvim running? " << nvim->nvim_running() << "." << std::endl;
+  while(nvim->nvim_running())
   {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << "Still Running..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
+  std::cout << "Closing..." << std::endl;
+  std::cout << "Process exited with exit code " << nvim->exit_code() << std::endl;
 }

@@ -16,6 +16,11 @@ target_include_directories(nvui PRIVATE
 if (Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIR})
 endif()
+if(MSVC)
+  add_compile_options(/W4 /WX)
+else()
+  add_compile_options(-Wall -Wextra -Werror -pedantic)
+endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE
   ${Boost_FILESYSTEM_LIBRARY}
   ${Boost_THREAD_LIBRARY}

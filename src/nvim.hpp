@@ -11,6 +11,7 @@
 using Handle = HANDLE;
 using StartupInfo = STARTUPINFO;
 using SecAttribs = SECURITY_ATTRIBUTES;
+using DWord = DWORD;
 enum Type : std::uint8_t {
   Request = 0,
   Response = 1,
@@ -24,12 +25,12 @@ enum Request : std::uint8_t;
 /// All communication between the GUI and Neovim is to use the Nvim class.
 class Nvim
 {
+  std::uint32_t num_responses;
   std::uint32_t current_msgid;
-  //std::vector<char> read_buffer;
+  boost::process::group proc_group;
   boost::process::child nvim;
-  //boost::asio::io_service ios;
-  //boost::asio::mutable_buffer mut_buf;
-  //boost::process::async_pipe read;
+  boost::process::pipe stdout_pipe;
+  boost::process::pipe stdin_pipe;
   boost::process::ipstream error;
   boost::process::ipstream output;
   boost::process::opstream write;

@@ -51,6 +51,7 @@ enum Request : std::uint8_t {
   nvim_command = 4 
 };
 
+constexpr const auto one_ms = std::chrono::milliseconds(1);
 static const std::string RequestNames[] = {
   "nvim_get_api_info",
   "nvim_input",
@@ -104,16 +105,18 @@ void Nvim::send_request(const std::string& method, const T& params, int size)
   const auto oh = msgpack::unpack(sbuf.data(), sbuf.size());
   std::cout << "Unpacked: " << oh.get() << std::endl;
   std::cout << "Buffer size: " << sbuf.size() << std::endl;
+#ifdef _WIN32
   DWORD bytes_written;
   std::cout << "WTF" << std::endl;
   DWORD bytes_to_write = static_cast<DWORD>(sbuf.size());
   std::cout << "Writing.." << std::endl;
   bool success = WriteFile(stdin_pipe.native_sink(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
-  WriteFile(stdin_pipe.native_source(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
+  //WriteFile(stdin_pipe.native_source(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
   assert(success);
   std::cout << "Bytes written: " << bytes_written << std::endl;
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
   ++current_msgid;
+#endif
 }
 
 template<typename T>
@@ -134,12 +137,15 @@ void Nvim::send_notification(const std::string& method, const T& params)
     std::cout << "0x" << to_uint(c) << ", ";
   }
   std::cout << "Buffer size: " << sbuf.size() << std::endl;
+#ifdef _WIN32
   DWORD bytes_written;
   DWORD bytes_to_write = static_cast<DWORD>(sbuf.size());
   bool success = WriteFile(stdin_pipe.native_sink(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
   assert(success);
+  std::cout << "Bytes written: " << bytes_written << std::endl;
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
   ++current_msgid;
+#endif
 }
 
 static const std::unordered_map<std::string, bool> capabilities {
@@ -155,6 +161,9 @@ void Nvim::read_output_sync()
   std::string message_buffer;
   std::string line;
   msgpack::object_handle oh;
+  std::cout << std::dec;
+  // TODO Get the output unpacking working (doesn't work if the message isn't written in a single line,
+  // or if there are multiple messages packed in one line)
   while(std::getline(output, line))
   {
     ++num_responses;
@@ -180,7 +189,7 @@ void Nvim::read_output_sync()
       {
         oh = msgpack::unpack(line.data(), line.size());
         std::cout << "Unpacked: " << oh.get() << std::endl;
-        std::cout << output.eof() << std::endl;
+        std::cout << "Original: " << line << std::endl;
       }
     }
     catch(...)
@@ -242,33 +251,10 @@ Nvim::Nvim()
     bp::std_in < stdin_pipe,
     proc_group
   );
-  //StartupInfo start_info {
-    //.cb = sizeof(StartupInfo),
-    //.dwFlags = STARTF_USESTDHANDLES,
-    //.hStdInput = handles.stdin_read,
-    //.hStdOutput = handles.stdout_write,
-    //.hStdError = handles.stdout_write
-  //};
-  //SecAttribs s {
-    //.nLength = sizeof(SecAttribs),
-    //.bInheritHandle = true
-  //};
-  //CreatePipe(&handles.stdin_read, &handles.stdin_write, &s, 0);
-  //CreatePipe(&handles.stdout_read, &handles.stdout_write, &s, 0);
   nvim.detach();
+  send_request("nvim_eval", std::make_tuple("stdpath('config')"));
   const auto default_params = std::make_tuple(200, 50, capabilities);
   send_notification("nvim_ui_attach", default_params);
-  //send_request("nvim_get_api_info", EMPTY_LIST);
-  //std::cout << "Eval done?" << std::endl;
-
-  //send_request("nvim_get_api_info", EMPTY_LIST);
-  //send_request("nvim_get_api_info", EMPTY_LIST);
-  //send_request("nvim_get_api_info", EMPTY_LIST);
-  //send_request("nvim_get_api_info", EMPTY_LIST);
-  //send_request("nvim_get_api_info", EMPTY_LIST);
-  //send_request("nvim_get_api_info", EMPTY_LIST);
-  //send_request("nvim_eval", std::make_tuple("1 + 2"));
-  //send_request("nvim_get_api_info", EMPTY_LIST);
 }
 
 bool Nvim::nvim_running()
@@ -283,4 +269,6 @@ Nvim::~Nvim()
   error.pipe().close();
   output.pipe().close();
   write.pipe().close();
+  stdout_pipe.close();
+  stdin_pipe.close();
 }

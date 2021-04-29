@@ -11,7 +11,6 @@
 using Handle = HANDLE;
 using StartupInfo = STARTUPINFO;
 using SecAttribs = SECURITY_ATTRIBUTES;
-using DWord = DWORD;
 enum Type : std::uint8_t {
   Request = 0,
   Response = 1,

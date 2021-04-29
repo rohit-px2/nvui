@@ -8,8 +8,10 @@
 #include <boost/process/search_path.hpp>
 #include <boost/thread/win32/thread_primitives.hpp>
 #include <boost/winapi/access_rights.hpp>
+#include <boost/winapi/file_management.hpp>
 #include <chrono>
 #include <cstdlib>
+#include <fileapi.h>
 #include <initializer_list>
 #include <ios>
 #include <limits.h>
@@ -96,20 +98,16 @@ void Nvim::send_request(const std::string& method, const T& params, int size)
   //std::cout << ss.str() << std::endl;
   //std::cout << std::hex;
   const char *d = sbuf.data();
-  std::cout << std::hex;
+  //std::cout << std::hex;
   for(int i = 0; i < sbuf.size(); i++)
   {
     const char c = d[i];
     std::cout << "0x" << to_uint(c) << ", ";
   }
   const auto oh = msgpack::unpack(sbuf.data(), sbuf.size());
-  std::cout << "Unpacked: " << oh.get() << std::endl;
-  std::cout << "Buffer size: " << sbuf.size() << std::endl;
 #ifdef _WIN32
   DWORD bytes_written;
-  std::cout << "WTF" << std::endl;
   DWORD bytes_to_write = static_cast<DWORD>(sbuf.size());
-  std::cout << "Writing.." << std::endl;
   bool success = WriteFile(stdin_pipe.native_sink(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
   //WriteFile(stdin_pipe.native_source(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
   assert(success);
@@ -130,7 +128,7 @@ void Nvim::send_notification(const std::string& method, const T& params)
   //std::cout << ss.str() << std::endl;
   //std::cout << std::hex;
   const char *d = sbuf.data();
-  std::cout << std::hex;
+  //std::cout << std::hex;
   for(int i = 0; i < sbuf.size(); i++)
   {
     const char c = d[i];
@@ -158,46 +156,42 @@ static const std::unordered_map<std::string, bool> capabilities {
 void Nvim::read_output_sync()
 {
   bool message_not_complete;
-  std::string message_buffer;
-  std::string line;
   msgpack::object_handle oh;
   std::cout << std::dec;
-  // TODO Get the output unpacking working (doesn't work if the message isn't written in a single line,
-  // or if there are multiple messages packed in one line)
-  while(std::getline(output, line))
+  constexpr const int buffer_maxsize = 1024 * 1024;
+#ifdef _WIN32
+  // On Windows we can use Readfile to get the underlying data, working with ipstream
+  // has not been going well.
+  std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
+  DWORD bytes_written;
+  while(true)
   {
-    ++num_responses;
-    std::cout << "Response #" << num_responses << std::endl;
-    //std::cout << "NEW LINE:\n" << line << "\n" << std::endl;
-    //std::cout << line << std::endl;
-    // The string could be a standlone msgpack object or part of another message
-    try
+    size_t bytes_read = ReadFile(
+      output.pipe().native_source(),
+      buffer.get(),
+      buffer_maxsize,
+      &bytes_written,
+      nullptr
+    );
+    if (bytes_read)
     {
-      if (message_not_complete)
+      //std::cout << "Data: " << s << std::endl;
+      try
       {
-        message_buffer.append(line);
-        // Try to unpack now.
-        oh = msgpack::unpack(message_buffer.data(), message_buffer.size());
-        std::cout << oh.get() << std::endl;
-        // If we successfully unpacked, then msgpack::unpack won't throw an exception
-        // and this will trigger
-        message_not_complete = false;
-        // Now we're done with the data
-        message_buffer.clear();
-      }
-      else
-      {
-        oh = msgpack::unpack(line.data(), line.size());
+        oh = msgpack::unpack(buffer.get(), bytes_written);
         std::cout << "Unpacked: " << oh.get() << std::endl;
-        std::cout << "Original: " << line << std::endl;
+      } catch(const std::exception& e)
+      {
+        std::cout << "Error occurred: " << e.what() << std::endl;
       }
     }
-    catch(...)
+    else
     {
-      message_not_complete = true;
-      message_buffer.append(line);
+      // Wait for a bit
+      std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
   }
+#endif
   std::cout << "Output closed." << std::endl;
 }
 
@@ -252,9 +246,11 @@ Nvim::Nvim()
     proc_group
   );
   nvim.detach();
+  proc_group.detach();
+  send_notification("nvim_ui_attach", std::make_tuple(200, 50, capabilities));
   send_request("nvim_eval", std::make_tuple("stdpath('config')"));
-  const auto default_params = std::make_tuple(200, 50, capabilities);
-  send_notification("nvim_ui_attach", default_params);
+  //const auto default_params = std::make_tuple(200, 50, capabilities);
+  //send_notification("nvim_ui_attach", default_params);
 }
 
 bool Nvim::nvim_running()

@@ -18,6 +18,8 @@ enum Request : std::uint8_t;
 /// The Nvim class is responsible for communicating with the embedded Neovim instance
 /// through the msgpack-rpc API.
 /// All communication between the GUI and Neovim is to use the Nvim class.
+/// NOTE: Output is read on a separate thread, so you won't be getting the data returned.
+/// (i.e. all functions dealing with communication with Neovim return void).
 class Nvim
 {
 public:
@@ -25,31 +27,31 @@ public:
   std::thread out_reader;
   ~Nvim();
   /**
-    * Constructs an embedded Neovim instance and establishes communication.
-    * The Neovim instance is created with the command "nvim --embed".
-    */
+   * Constructs an embedded Neovim instance and establishes communication.
+   * The Neovim instance is created with the command "nvim --embed".
+   */
   Nvim();
   /**
-    * Get the exit code of the Neovim instance.
-    * If Neovim is still running, the exit code that is return will be INT_MIN.
-    */
+   * Get the exit code of the Neovim instance.
+   * If Neovim is still running, the exit code that is return will be INT_MIN.
+   */
   int exit_code();
   /**
-    * Returns true if the embedded Neovim instance is still running (false otherwise).
-    */
+   * Returns true if the embedded Neovim instance is still running (false otherwise).
+   */
   bool running();
   /**
-    * TODO: Add documentation
-    */
+   * TODO: Add documentation
+   */
   void nvim_resize(const int new_rows, const int new_cols);
   /**
-    * TODO: Add documentation
-    */
+   * TODO: Add documentation
+   */
   void nvim_send_input(const bool shift, const bool ctrl, const std::uint16_t key);
   /**
-    * Sends a "nvim_ui_attach" message to the embedded Neovim instance with
-    * the rows and cols as the parameters, along with the default capabilities.
-    */
+   * Sends a "nvim_ui_attach" message to the embedded Neovim instance with
+   * the rows and cols as the parameters, along with the default capabilities.
+   */
   void attach_ui(const int rows, const int cols);
 private:
   std::uint32_t num_responses;

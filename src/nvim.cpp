@@ -1,39 +1,17 @@
+#define BOOST_PROCESS_WINDOWS_USE_NAMED_PIPE
 #include "nvim.hpp"
-#include <bitset>
-#include <boost/asio/buffer.hpp>
-#include <boost/asio/execution/context.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/system_context.hpp>
-#include <boost/asio/windows/stream_handle.hpp>
-#include <boost/process/search_path.hpp>
-#include <boost/thread/win32/thread_primitives.hpp>
-#include <boost/winapi/access_rights.hpp>
-#include <boost/winapi/file_management.hpp>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <cstdint>
 #include <chrono>
-#include <cstdlib>
-#include <fileapi.h>
-#include <initializer_list>
-#include <ios>
-#include <limits.h>
-#include <memory>
-#include <mutex>
-#include <any>
-#include <ostream>
-#include <sstream>
+#include <string>
 #include <thread>
 #include <tuple>
-#include <windows.h>
-#include <boost/asio.hpp>
-#include <boost/process.hpp>
-#include <boost/bind.hpp>
-#include <iostream>
-#include <boost/thread.hpp>
 #include <msgpack.hpp>
-#define BOOST_PROCESS_WINDOWS_USE_NAMED_PIPE
-#include <cassert>
-#include <fstream>
+#include <boost/process.hpp>
+
 namespace bp = boost::process;
-//namespace ba = boost::asio;
 
 // ######################## SETTING UP ####################################
 
@@ -88,6 +66,32 @@ static inline std::uint32_t to_uint(char ch)
   return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
 }
 
+Nvim::Nvim()
+: error(),
+  proc_group(),
+  stdin_pipe(),
+  stdout_pipe(),
+  current_msgid(0),
+  num_responses(0)
+{
+  // Everything is going to get detached because we're keeping the process running,
+  // the message processing thread running so that it doesn't get destroyed.
+  err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
+  err_reader.detach();
+  out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
+  out_reader.detach();
+  auto nvim_path = bp::search_path("nvim");
+  nvim = bp::child(
+    nvim_path,
+    "--embed",
+    bp::std_out > stdout_pipe,
+    bp::std_in < stdin_pipe,
+    proc_group
+  );
+  nvim.detach();
+  proc_group.detach();
+}
+
 static int file_num = 0;
 static void dump_to_file(const msgpack::object_handle& oh)
 {
@@ -123,7 +127,6 @@ void Nvim::send_request(const std::string& method, const T& params, int size)
   bool success = WriteFile(stdin_pipe.native_sink(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
   assert(success);
   std::cout << "Bytes written: " << bytes_written << std::endl;
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
   ++current_msgid;
 #endif
 }
@@ -149,12 +152,16 @@ void Nvim::send_notification(const std::string& method, const T& params)
 #ifdef _WIN32
   DWORD bytes_written;
   DWORD bytes_to_write = static_cast<DWORD>(sbuf.size());
-  bool success = WriteFile(stdin_pipe.native_sink(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
+  bool success = WriteFile(stdin_pipe.native_sink(), sbuf.data(), bytes_to_write, &bytes_written, nullptr);
   assert(success);
   std::cout << "Bytes written: " << bytes_written << std::endl;
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
   ++current_msgid;
 #endif
+}
+
+void Nvim::resize(const int new_rows, const int new_cols)
+{
+  send_notification("nvim_ui_try_resize", std::make_tuple(new_rows, new_cols));
 }
 
 static const std::unordered_map<std::string, bool> default_capabilities {
@@ -179,11 +186,7 @@ void Nvim::read_output_sync()
   while(true)
   {
     std::size_t bytes_read = ReadFile(
-      output_read,
-      buffer.get(),
-      buffer_maxsize,
-      &bytes_written,
-      nullptr
+      output_read, buffer.get(), buffer_maxsize, &bytes_written, nullptr
     );
     if (bytes_read)
     {
@@ -230,31 +233,6 @@ int Nvim::exit_code()
   return nvim.exit_code();
 }
 
-Nvim::Nvim()
-: error(),
-  proc_group(),
-  stdin_pipe(),
-  stdout_pipe(),
-  current_msgid(0),
-  num_responses(0)
-{
-  // Everything is going to get detached because we're keeping the process running,
-  // the message processing thread running so that it doesn't get destroyed.
-  err_reader = std::thread(boost::bind(&Nvim::read_error_sync, this));
-  err_reader.detach();
-  out_reader = std::thread(boost::bind(&Nvim::read_output_sync, this));
-  out_reader.detach();
-  auto nvim_path = bp::search_path("nvim");
-  nvim = bp::child(
-    nvim_path,
-    "--embed",
-    bp::std_out > stdout_pipe,
-    bp::std_in < stdin_pipe,
-    proc_group
-  );
-  nvim.detach();
-  proc_group.detach();
-}
 
 bool Nvim::running()
 {
@@ -263,11 +241,9 @@ bool Nvim::running()
 
 Nvim::~Nvim()
 {
-  // Close I/O Pipes, join threads, delete anything that is remaining
+  // Close I/O Pipes and terminate process
   nvim.terminate();
   error.pipe().close();
-  output.pipe().close();
-  //write.pipe().close();
   stdout_pipe.close();
   stdin_pipe.close();
 }

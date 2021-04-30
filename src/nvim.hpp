@@ -43,11 +43,11 @@ public:
   /**
    * TODO: Add documentation
    */
-  void nvim_resize(const int new_rows, const int new_cols);
+  void resize(const int new_rows, const int new_cols);
   /**
    * TODO: Add documentation
    */
-  void nvim_send_input(const bool shift, const bool ctrl, const std::uint16_t key);
+  void send_input(const bool shift, const bool ctrl, const std::uint16_t key);
   /**
    * Sends a "nvim_ui_attach" message to the embedded Neovim instance with
    * the rows and cols as the parameters, along with the default capabilities.
@@ -61,7 +61,6 @@ private:
   boost::process::pipe stdout_pipe;
   boost::process::pipe stdin_pipe;
   boost::process::ipstream error;
-  boost::process::ipstream output;
   void decide(const std::string& msg);
   template<typename T>
   void send_request(const std::string& method, const T& params, int size = 1);

@@ -26,11 +26,9 @@ int main(int argc, char **argv)
 {
   std::ios_base::sync_with_stdio(false);
   auto nvim = std::make_shared<Nvim>();
-  //nvim->attach_ui(DEFAULT_ROWS, DEFAULT_COLS);
-  //std::cout << "Is nvim running? " << nvim->nvim_running() << "." << std::endl;
-  while(nvim->nvim_running())
+  nvim->attach_ui(DEFAULT_ROWS, DEFAULT_COLS);
+  while(nvim->running())
   {
-    //std::cout << "Still Running..." << std::endl;
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
   std::cout << "Closing..." << std::endl;

@@ -17,6 +17,7 @@
 #include <limits.h>
 #include <memory>
 #include <mutex>
+#include <any>
 #include <ostream>
 #include <sstream>
 #include <thread>
@@ -30,11 +31,13 @@
 #include <msgpack.hpp>
 #define BOOST_PROCESS_WINDOWS_USE_NAMED_PIPE
 #include <cassert>
+#include <fstream>
 namespace bp = boost::process;
 //namespace ba = boost::asio;
+
 // ######################## SETTING UP ####################################
-// constexpr const std::initializer_list<char> EMPTY_LIST {};
-const std::vector<int> EMPTY_LIST {};
+
+static const std::vector<int> EMPTY_LIST {};
 enum Notifications : std::uint8_t {
   nvim_ui_attach = 0,
   nvim_try_resize = 1,
@@ -85,12 +88,22 @@ static inline std::uint32_t to_uint(char ch)
   return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
 }
 
-std::mutex m;
+static int file_num = 0;
+static void dump_to_file(const msgpack::object_handle& oh)
+{
+  std::string fname = std::to_string(file_num) + ".json"; // Should be valid json once decoded
+  std::ofstream out {fname};
+  out << oh.get();
+  out.close();
+  ++file_num;
+}
+
+static std::mutex write_mutex;
 template<typename T>
 void Nvim::send_request(const std::string& method, const T& params, int size)
 {
-  using Packer = msgpack::packer<msgpack::sbuffer>;
-  std::lock_guard<std::mutex> lock {m};
+  //using Packer = msgpack::packer<msgpack::sbuffer>;
+  std::lock_guard<std::mutex> lock {write_mutex};
   const std::uint64_t msg_type = Type::Request;
   msgpack::sbuffer sbuf;
   const auto msg = std::make_tuple(msg_type, current_msgid, method, params);
@@ -98,7 +111,6 @@ void Nvim::send_request(const std::string& method, const T& params, int size)
   //std::cout << ss.str() << std::endl;
   //std::cout << std::hex;
   const char *d = sbuf.data();
-  //std::cout << std::hex;
   for(int i = 0; i < sbuf.size(); i++)
   {
     const char c = d[i];
@@ -109,7 +121,6 @@ void Nvim::send_request(const std::string& method, const T& params, int size)
   DWORD bytes_written;
   DWORD bytes_to_write = static_cast<DWORD>(sbuf.size());
   bool success = WriteFile(stdin_pipe.native_sink(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
-  //WriteFile(stdin_pipe.native_source(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
   assert(success);
   std::cout << "Bytes written: " << bytes_written << std::endl;
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -120,8 +131,8 @@ void Nvim::send_request(const std::string& method, const T& params, int size)
 template<typename T>
 void Nvim::send_notification(const std::string& method, const T& params)
 {
-  std::lock_guard<std::mutex> lock {m};
-  const int msg_type = Type::Notification;
+  std::lock_guard<std::mutex> lock {write_mutex};
+  const std::uint64_t msg_type = Type::Notification;
   msgpack::sbuffer sbuf;
   const auto msg = std::make_tuple(msg_type, method, params);
   msgpack::pack(sbuf, msg);
@@ -146,7 +157,7 @@ void Nvim::send_notification(const std::string& method, const T& params)
 #endif
 }
 
-static const std::unordered_map<std::string, bool> capabilities {
+static const std::unordered_map<std::string, bool> default_capabilities {
   {"ext_linegrid", true},
   {"ext_popupmenu", true}, 
   {"ext_cmdline", true},
@@ -155,19 +166,20 @@ static const std::unordered_map<std::string, bool> capabilities {
 
 void Nvim::read_output_sync()
 {
-  bool message_not_complete;
   msgpack::object_handle oh;
   std::cout << std::dec;
+  // buffer_maxsize of 1MB
   constexpr const int buffer_maxsize = 1024 * 1024;
 #ifdef _WIN32
   // On Windows we can use Readfile to get the underlying data, working with ipstream
   // has not been going well.
   std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
   DWORD bytes_written;
+  Handle output_read = stdout_pipe.native_source();
   while(true)
   {
-    size_t bytes_read = ReadFile(
-      output.pipe().native_source(),
+    std::size_t bytes_read = ReadFile(
+      output_read,
       buffer.get(),
       buffer_maxsize,
       &bytes_written,
@@ -175,19 +187,14 @@ void Nvim::read_output_sync()
     );
     if (bytes_read)
     {
-      //std::cout << "Data: " << s << std::endl;
-      try
-      {
-        oh = msgpack::unpack(buffer.get(), bytes_written);
-        std::cout << "Unpacked: " << oh.get() << std::endl;
-      } catch(const std::exception& e)
-      {
-        std::cout << "Error occurred: " << e.what() << std::endl;
-      }
+      oh = msgpack::unpack(buffer.get(), bytes_written);
+      std::cout << "Unpacked: " << oh.get() << std::endl;
+      dump_to_file(oh);
     }
     else
     {
-      // Wait for a bit
+      // No bytes were read / ReadFile failed, wait for a bit before trying again.
+      // (Should also help prevent super high CPU usage when idle)
       std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
   }
@@ -198,7 +205,7 @@ void Nvim::read_output_sync()
 void Nvim::attach_ui(const int rows, const int cols)
 {
   std::cout << "Attaching UI. Please wait..." << std::endl;
-  const auto params = std::make_tuple(rows, cols, capabilities);
+  const auto params = std::make_tuple(rows, cols, default_capabilities);
   send_notification("nvim_ui_attach", params);
   std::cout << "All Done!" << std::endl;
 }
@@ -209,6 +216,8 @@ void Nvim::read_error_sync()
   while(std::getline(error, line))
   {
     std::cout << "ERROR:\n" << line << "\n" << std::endl;
+    // Poll every 0.01s
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 }
 
@@ -222,9 +231,7 @@ int Nvim::exit_code()
 }
 
 Nvim::Nvim()
-: write(),
-  output(),
-  error(),
+: error(),
   proc_group(),
   stdin_pipe(),
   stdout_pipe(),
@@ -233,27 +240,23 @@ Nvim::Nvim()
 {
   // Everything is going to get detached because we're keeping the process running,
   // the message processing thread running so that it doesn't get destroyed.
-  //read_buffer.reserve(MAX_MSG_SIZE);
   err_reader = std::thread(boost::bind(&Nvim::read_error_sync, this));
   err_reader.detach();
   out_reader = std::thread(boost::bind(&Nvim::read_output_sync, this));
   out_reader.detach();
   auto nvim_path = bp::search_path("nvim");
   nvim = bp::child(
-    "nvim --embed",
-    bp::std_out > output,
+    nvim_path,
+    "--embed",
+    bp::std_out > stdout_pipe,
     bp::std_in < stdin_pipe,
     proc_group
   );
   nvim.detach();
   proc_group.detach();
-  send_notification("nvim_ui_attach", std::make_tuple(200, 50, capabilities));
-  send_request("nvim_eval", std::make_tuple("stdpath('config')"));
-  //const auto default_params = std::make_tuple(200, 50, capabilities);
-  //send_notification("nvim_ui_attach", default_params);
 }
 
-bool Nvim::nvim_running()
+bool Nvim::running()
 {
   return nvim.running();
 }
@@ -264,7 +267,7 @@ Nvim::~Nvim()
   nvim.terminate();
   error.pipe().close();
   output.pipe().close();
-  write.pipe().close();
+  //write.pipe().close();
   stdout_pipe.close();
   stdin_pipe.close();
 }

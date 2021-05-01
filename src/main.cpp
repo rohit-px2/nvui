@@ -20,6 +20,10 @@ int main(int argc, char **argv)
   std::ios_base::sync_with_stdio(false);
   auto nvim = std::make_shared<Nvim>();
   nvim->attach_ui(DEFAULT_ROWS, DEFAULT_COLS);
+  const auto config = nvim->eval("stdpath('config')");
+  const auto data = nvim->eval("stdpath('data')");
+  std::cout << "Config: " << config.get() << '\n';
+  std::cout << "Data: " << data.get() << '\n';
   while(nvim->running())
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));

@@ -59,7 +59,7 @@ public:
    * Evaluates expr as a VimL expression and returns the result as a msgpack
    * object (must be converted to the result you expect)
    */
-  msgpack::object eval(const std::string& expr);
+  msgpack::object_handle eval(const std::string& expr);
 private:
   // This and last_response, along with response_mutex, are meant for
   // performing a blocking request for the data of the response.
@@ -84,5 +84,5 @@ private:
   void read_output_sync();
   void read_error_sync();
   template<typename T>
-  msgpack::object send_request_sync(const std::string& method, const T& params);
+  msgpack::object_handle send_request_sync(const std::string& method, const T& params);
 };

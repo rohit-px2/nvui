@@ -212,7 +212,7 @@ void Nvim::read_output_sync()
       // Otherwise, we have a request/response, both of which have the same signature.
       std::uint64_t type = arr.ptr[0].as<std::uint64_t>();
       //cout << "Msg type: " << type << "\n";
-      cout << "Object: " << obj << std::endl;
+      //cout << "Object: " << obj << std::endl;
       // The type should only ever be one of Request, Notification, or Response.
       switch(type)
       {
@@ -285,33 +285,39 @@ void Nvim::attach_ui(const int rows, const int cols)
 
 
 template<typename T>
-msgpack::object Nvim::send_request_sync(const std::string& method, const T& params)
+msgpack::object_handle Nvim::send_request_sync(const std::string& method, const T& params)
 {
   const int timeout = 100;
   int count = 0;
   send_request(method, params, true);
-  while(count < timeout)
+  while(true)
   {
     ++count;
     // Locking and unlocking is expensive, checking an atomic is relatively cheaper.
     if (response_received)
     {
+      // To prevent references becoming invalid, copy the data of the object to another
+      // place.
+      msgpack::object_handle new_obj;
       Lock resp_lock {response_mutex};
+      // Copy last_response into new_obj
+      new_obj = msgpack::clone(last_response);
       response_received = false;
-      return last_response;
+      return new_obj; // Returning the clone so that the object doesn't change if we modify
+      // last_response anywhere else
     }
     else
     {
       // I don't know the resolution of this, but the wait should be a couple microseconds
       // at most, which shouldn't introduce a meaningful delay.
-      sleep_for(std::chrono::microseconds(1));
+      sleep_for(std::chrono::microseconds(200));
     }
   }
   std::cout << "Didnt get the result\n";
-  return msgpack::object();
+  return msgpack::object_handle();
 }
 
-msgpack::object Nvim::eval(const std::string& expr)
+msgpack::object_handle Nvim::eval(const std::string& expr)
 {
   return send_request_sync("nvim_eval", std::make_tuple(expr));
 }

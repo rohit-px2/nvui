@@ -5,3 +5,4 @@ vcpkg/
 .cache/
 .vscode/
 compile_commands.json
+CMakeLists.txt.user

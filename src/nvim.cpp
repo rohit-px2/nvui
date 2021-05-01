@@ -1,3 +1,5 @@
+#include <exception>
+#include <mutex>
 #define BOOST_PROCESS_WINDOWS_USE_NAMED_PIPE
 #include "nvim.hpp"
 #include <fstream>
@@ -8,13 +10,14 @@
 #include <string>
 #include <thread>
 #include <tuple>
-#include <msgpack.hpp>
 #include <boost/process.hpp>
-
+#include <algorithm>
 namespace bp = boost::process;
 
 // ######################## SETTING UP ####################################
 
+using Lock = std::lock_guard<std::mutex>;
+using std::this_thread::sleep_for;
 static const std::vector<int> EMPTY_LIST {};
 enum Notifications : std::uint8_t {
   nvim_ui_attach = 0,
@@ -66,6 +69,7 @@ static inline std::uint32_t to_uint(char ch)
   return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
 }
 
+/// Constructor
 Nvim::Nvim()
 : error(),
   proc_group(),
@@ -102,12 +106,12 @@ static void dump_to_file(const msgpack::object_handle& oh)
   ++file_num;
 }
 
-static std::mutex write_mutex;
 template<typename T>
-void Nvim::send_request(const std::string& method, const T& params, int size)
+void Nvim::send_request(const std::string& method, const T& params, bool blocking)
 {
   //using Packer = msgpack::packer<msgpack::sbuffer>;
-  std::lock_guard<std::mutex> lock {write_mutex};
+  is_blocking.push_back(blocking);
+  Lock lock {input_mutex};
   const std::uint64_t msg_type = Type::Request;
   msgpack::sbuffer sbuf;
   const auto msg = std::make_tuple(msg_type, current_msgid, method, params);
@@ -124,7 +128,9 @@ void Nvim::send_request(const std::string& method, const T& params, int size)
 #ifdef _WIN32
   DWORD bytes_written;
   DWORD bytes_to_write = static_cast<DWORD>(sbuf.size());
-  bool success = WriteFile(stdin_pipe.native_sink(), (void *)sbuf.data(), bytes_to_write, &bytes_written, nullptr);
+  bool success = WriteFile(
+    stdin_pipe.native_sink(), sbuf.data(), bytes_to_write, &bytes_written, nullptr
+  );
   assert(success);
   std::cout << "Bytes written: " << bytes_written << std::endl;
   ++current_msgid;
@@ -134,7 +140,7 @@ void Nvim::send_request(const std::string& method, const T& params, int size)
 template<typename T>
 void Nvim::send_notification(const std::string& method, const T& params)
 {
-  std::lock_guard<std::mutex> lock {write_mutex};
+  Lock lock {input_mutex};
   const std::uint64_t msg_type = Type::Notification;
   msgpack::sbuffer sbuf;
   const auto msg = std::make_tuple(msg_type, method, params);
@@ -152,10 +158,11 @@ void Nvim::send_notification(const std::string& method, const T& params)
 #ifdef _WIN32
   DWORD bytes_written;
   DWORD bytes_to_write = static_cast<DWORD>(sbuf.size());
-  bool success = WriteFile(stdin_pipe.native_sink(), sbuf.data(), bytes_to_write, &bytes_written, nullptr);
+  bool success = WriteFile(
+    stdin_pipe.native_sink(), sbuf.data(), bytes_to_write, &bytes_written, nullptr
+  );
   assert(success);
   std::cout << "Bytes written: " << bytes_written << std::endl;
-  ++current_msgid;
 #endif
 }
 
@@ -171,9 +178,12 @@ static const std::unordered_map<std::string, bool> default_capabilities {
   {"ext_hlstate", true}
 };
 
+/// Although this is synchronous, it will be performed on another thread.
 void Nvim::read_output_sync()
 {
   msgpack::object_handle oh;
+  msgpack::object obj;
+  //std::tuple<int, std::string, 
   std::cout << std::dec;
   // buffer_maxsize of 1MB
   constexpr const int buffer_maxsize = 1024 * 1024;
@@ -181,24 +191,84 @@ void Nvim::read_output_sync()
   // On Windows we can use Readfile to get the underlying data, working with ipstream
   // has not been going well.
   std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
-  DWORD bytes_written;
+  DWORD msg_size;
   Handle output_read = stdout_pipe.native_source();
   while(true)
   {
-    std::size_t bytes_read = ReadFile(
-      output_read, buffer.get(), buffer_maxsize, &bytes_written, nullptr
+    bool read_success = ReadFile(
+      output_read, buffer.get(), buffer_maxsize, &msg_size, nullptr
     );
-    if (bytes_read)
+    if (read_success)
     {
-      oh = msgpack::unpack(buffer.get(), bytes_written);
-      std::cout << "Unpacked: " << oh.get() << std::endl;
+      using std::cout;
+      oh = msgpack::unpack(buffer.get(), msg_size);
+      obj = oh.get();
+      // According to msgpack-rpc spec, this must be an array
+      assert(obj.type == msgpack::type::ARRAY);
+      msgpack::object_array arr = obj.via.array;
+      cout << "Size of array: " << arr.size << "\n";
+      // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
+      assert(arr.size == 3 || arr.size == 4);
+      // Otherwise, we have a request/response, both of which have the same signature.
+      std::uint64_t type = arr.ptr[0].as<std::uint64_t>();
+      //cout << "Msg type: " << type << "\n";
+      cout << "Object: " << obj << std::endl;
+      // The type should only ever be one of Request, Notification, or Response.
+      switch(type)
+      {
+        case Type::Request:
+        {
+          cout << "Got a request!\n";
+          break;
+        }
+        case Type::Notification:
+        {
+          cout << "Got a notification!\n";
+          std::string method = arr.ptr[1].as<std::string>();
+          if (method == "redraw")
+          {
+            std::cout << "Time to handle redraw.\n";
+          }
+          break;
+        }
+        case Type::Response:
+        {
+          std::uint64_t msgid = arr.ptr[1].as<std::uint64_t>();
+          std::cout << "Message id: " << msgid << '\n';
+          assert(0 <= msgid && msgid < is_blocking.size());
+          // If it's a blocking request, we set last_response
+          // and update response_received
+          if (is_blocking[msgid])
+          {
+            Lock lock {response_mutex};
+            // Check if we got an error
+            response_received = true;
+            if (!arr.ptr[2].is_nil())
+            {
+              std::cout << "There was an error\n";
+              last_response = arr.ptr[2];
+            }
+            else
+            {
+              std::cout << "No error!\n";
+              last_response = arr.ptr[3];
+            }
+          }
+          break;
+        }
+        default:
+        {
+          throw std::exception("Message was not a valid msgpack-rpc message.");
+          return;
+        }
+      }
       dump_to_file(oh);
     }
     else
     {
       // No bytes were read / ReadFile failed, wait for a bit before trying again.
       // (Should also help prevent super high CPU usage when idle)
-      std::this_thread::sleep_for(std::chrono::microseconds(100));
+      sleep_for(std::chrono::microseconds(100));
     }
   }
 #endif
@@ -213,6 +283,38 @@ void Nvim::attach_ui(const int rows, const int cols)
   std::cout << "All Done!" << std::endl;
 }
 
+
+template<typename T>
+msgpack::object Nvim::send_request_sync(const std::string& method, const T& params)
+{
+  const int timeout = 100;
+  int count = 0;
+  send_request(method, params, true);
+  while(count < timeout)
+  {
+    ++count;
+    // Locking and unlocking is expensive, checking an atomic is relatively cheaper.
+    if (response_received)
+    {
+      Lock resp_lock {response_mutex};
+      response_received = false;
+      return last_response;
+    }
+    else
+    {
+      // I don't know the resolution of this, but the wait should be a couple microseconds
+      // at most, which shouldn't introduce a meaningful delay.
+      sleep_for(std::chrono::microseconds(1));
+    }
+  }
+  std::cout << "Didnt get the result\n";
+  return msgpack::object();
+}
+
+msgpack::object Nvim::eval(const std::string& expr)
+{
+  return send_request_sync("nvim_eval", std::make_tuple(expr));
+}
 void Nvim::read_error_sync()
 {
   std::string line;
@@ -220,7 +322,7 @@ void Nvim::read_error_sync()
   {
     std::cout << "ERROR:\n" << line << "\n" << std::endl;
     // Poll every 0.01s
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    sleep_for(std::chrono::milliseconds(10));
   }
 }
 

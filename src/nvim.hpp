@@ -1,8 +1,12 @@
 #pragma once
 #include <boost/process/pipe.hpp>
 #include <boost/process.hpp>
+#include <msgpack/v3/object_fwd_decl.hpp>
+#include <vector>
 #include <windows.h>
 #include <thread>
+#include <msgpack.hpp>
+#include <atomic>
 using Handle = HANDLE;
 using StartupInfo = STARTUPINFO;
 using SecAttribs = SECURITY_ATTRIBUTES;
@@ -18,8 +22,6 @@ enum Request : std::uint8_t;
 /// The Nvim class is responsible for communicating with the embedded Neovim instance
 /// through the msgpack-rpc API.
 /// All communication between the GUI and Neovim is to use the Nvim class.
-/// NOTE: Output is read on a separate thread, so you won't be getting the data returned.
-/// (i.e. all functions dealing with communication with Neovim return void).
 class Nvim
 {
 public:
@@ -53,7 +55,19 @@ public:
    * the rows and cols as the parameters, along with the default capabilities.
    */
   void attach_ui(const int rows, const int cols);
+  /**
+   * Evaluates expr as a VimL expression and returns the result as a msgpack
+   * object (must be converted to the result you expect)
+   */
+  msgpack::object eval(const std::string& expr);
 private:
+  // This and last_response, along with response_mutex, are meant for
+  // performing a blocking request for the data of the response.
+  std::vector<std::uint8_t> is_blocking;
+  std::atomic<bool> response_received;
+  msgpack::object last_response;
+  std::mutex input_mutex;
+  std::mutex response_mutex;
   std::uint32_t num_responses;
   std::uint32_t current_msgid;
   boost::process::group proc_group;
@@ -63,10 +77,12 @@ private:
   boost::process::ipstream error;
   void decide(const std::string& msg);
   template<typename T>
-  void send_request(const std::string& method, const T& params, int size = 1);
+  void send_request(const std::string& method, const T& params, bool blocking = false);
   template<typename T>
   void send_notification(const std::string& method, const T& params);
   void read_output(boost::process::async_pipe& p, boost::asio::mutable_buffer& buf);
   void read_output_sync();
   void read_error_sync();
+  template<typename T>
+  msgpack::object send_request_sync(const std::string& method, const T& params);
 };

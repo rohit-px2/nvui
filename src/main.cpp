@@ -4,7 +4,6 @@
 #include <ios>
 #include <iostream>
 #include "nvim.hpp"
-
 using std::string;
 using std::vector;
 

@@ -15,7 +15,6 @@ enum Type : std::uint64_t {
   Response = 1,
   Notification = 2
 };
-static constexpr const int MAX_MSG_SIZE = 4096;
 enum Notifications : std::uint8_t;
 enum Request : std::uint8_t;
 
@@ -57,17 +56,22 @@ public:
   void attach_ui(const int rows, const int cols);
   /**
    * Evaluates expr as a VimL expression and returns the result as a msgpack
-   * object (must be converted to the result you expect)
+   * object handle. The underlying msgpack object can be obtained using
+   * msgpack::object_handle::get(), and can then be converted into the
+   * desired type using msgpack::object::as<T>() (if it is possible to convert
+   * it, otherwise it will throw an exception).
    */
   msgpack::object_handle eval(const std::string& expr);
 private:
+  // Condition variable to check if we are closing
+  std::atomic<bool> closed;
   // This and last_response, along with response_mutex, are meant for
   // performing a blocking request for the data of the response.
   std::vector<std::uint8_t> is_blocking;
   std::atomic<bool> response_received;
   msgpack::object last_response;
-  std::mutex input_mutex;
   std::mutex response_mutex;
+  std::mutex input_mutex;
   std::uint32_t num_responses;
   std::uint32_t current_msgid;
   boost::process::group proc_group;

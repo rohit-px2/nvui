@@ -18,15 +18,12 @@ namespace bp = boost::process;
 
 using Lock = std::lock_guard<std::mutex>;
 using std::this_thread::sleep_for;
+
 static const std::vector<int> EMPTY_LIST {};
 enum Notifications : std::uint8_t {
   nvim_ui_attach = 0,
   nvim_try_resize = 1,
   nvim_set_var = 2
-};
-
-static const std::string NotificationNames[] = {
-  "nvim_ui_attach", "nvim_try_resize", "nvim_set_var"
 };
 
 enum Request : std::uint8_t {
@@ -37,14 +34,7 @@ enum Request : std::uint8_t {
   nvim_command = 4 
 };
 
-constexpr const auto one_ms = std::chrono::milliseconds(1);
-static const std::string RequestNames[] = {
-  "nvim_get_api_info",
-  "nvim_input",
-  "nvim_input_mouse",
-  "nvim_eval",
-  "nvim_command"
-};
+constexpr auto one_ms = std::chrono::milliseconds(1);
 
 // Override packing of std::string to pack as binary string (like Neovim wants)
 namespace msgpack {
@@ -61,7 +51,6 @@ namespace msgpack {
   }
 }
 
-constexpr const int MPACK_MAX_SIZE = 4096;
 // ###################### DONE SETTING UP ##################################
 
 static inline std::uint32_t to_uint(char ch)
@@ -76,7 +65,8 @@ Nvim::Nvim()
   stdin_pipe(),
   stdout_pipe(),
   current_msgid(0),
-  num_responses(0)
+  num_responses(0),
+  closed(false)
 {
   // Everything is going to get detached because we're keeping the process running,
   // the message processing thread running so that it doesn't get destroyed.
@@ -186,14 +176,14 @@ void Nvim::read_output_sync()
   //std::tuple<int, std::string, 
   std::cout << std::dec;
   // buffer_maxsize of 1MB
-  constexpr const int buffer_maxsize = 1024 * 1024;
+  constexpr int buffer_maxsize = 1024 * 1024;
 #ifdef _WIN32
   // On Windows we can use Readfile to get the underlying data, working with ipstream
   // has not been going well.
   std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
   DWORD msg_size;
   Handle output_read = stdout_pipe.native_source();
-  while(true)
+  while(!closed)
   {
     bool read_success = ReadFile(
       output_read, buffer.get(), buffer_maxsize, &msg_size, nullptr
@@ -210,7 +200,7 @@ void Nvim::read_output_sync()
       // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
       assert(arr.size == 3 || arr.size == 4);
       // Otherwise, we have a request/response, both of which have the same signature.
-      std::uint64_t type = arr.ptr[0].as<std::uint64_t>();
+      const std::uint64_t type = arr.ptr[0].as<std::uint64_t>();
       //cout << "Msg type: " << type << "\n";
       //cout << "Object: " << obj << std::endl;
       // The type should only ever be one of Request, Notification, or Response.
@@ -224,7 +214,7 @@ void Nvim::read_output_sync()
         case Type::Notification:
         {
           cout << "Got a notification!\n";
-          std::string method = arr.ptr[1].as<std::string>();
+          const std::string method = arr.ptr[1].as<std::string>();
           if (method == "redraw")
           {
             std::cout << "Time to handle redraw.\n";
@@ -233,13 +223,17 @@ void Nvim::read_output_sync()
         }
         case Type::Response:
         {
-          std::uint64_t msgid = arr.ptr[1].as<std::uint64_t>();
+          const std::uint64_t msgid = arr.ptr[1].as<std::uint64_t>();
           std::cout << "Message id: " << msgid << '\n';
           assert(0 <= msgid && msgid < is_blocking.size());
-          // If it's a blocking request, we set last_response
-          // and update response_received
+          // If it's a blocking request, the other thread is waiting for
+          // response_received
           if (is_blocking[msgid])
           {
+            // We'll lock just to be safe.
+            // I think if we set response_received = true after
+            // setting the data, it might allow for thread-safe behaviour
+            // without locking, but we'll t(h)read on the safe side for now
             Lock lock {response_mutex};
             // Check if we got an error
             response_received = true;
@@ -268,7 +262,7 @@ void Nvim::read_output_sync()
     {
       // No bytes were read / ReadFile failed, wait for a bit before trying again.
       // (Should also help prevent super high CPU usage when idle)
-      sleep_for(std::chrono::microseconds(100));
+      //sleep_for(std::chrono::microseconds(100));
     }
   }
 #endif
@@ -287,7 +281,7 @@ void Nvim::attach_ui(const int rows, const int cols)
 template<typename T>
 msgpack::object_handle Nvim::send_request_sync(const std::string& method, const T& params)
 {
-  const int timeout = 100;
+  constexpr int timeout = 100;
   int count = 0;
   send_request(method, params, true);
   while(true)
@@ -303,14 +297,7 @@ msgpack::object_handle Nvim::send_request_sync(const std::string& method, const 
       // Copy last_response into new_obj
       new_obj = msgpack::clone(last_response);
       response_received = false;
-      return new_obj; // Returning the clone so that the object doesn't change if we modify
-      // last_response anywhere else
-    }
-    else
-    {
-      // I don't know the resolution of this, but the wait should be a couple microseconds
-      // at most, which shouldn't introduce a meaningful delay.
-      sleep_for(std::chrono::microseconds(200));
+      return new_obj;
     }
   }
   std::cout << "Didnt get the result\n";
@@ -324,7 +311,7 @@ msgpack::object_handle Nvim::eval(const std::string& expr)
 void Nvim::read_error_sync()
 {
   std::string line;
-  while(std::getline(error, line))
+  while(std::getline(error, line) && !closed)
   {
     std::cout << "ERROR:\n" << line << "\n" << std::endl;
     // Poll every 0.01s
@@ -350,8 +337,17 @@ bool Nvim::running()
 Nvim::~Nvim()
 {
   // Close I/O Pipes and terminate process
+  closed = true;
   nvim.terminate();
   error.pipe().close();
   stdout_pipe.close();
   stdin_pipe.close();
+  if (out_reader.joinable())
+  {
+    out_reader.join();
+  }
+  if (err_reader.joinable())
+  {
+    err_reader.join();
+  }
 }

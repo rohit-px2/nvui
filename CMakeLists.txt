@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 3.2)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 project(nvui)
 set(PACKAGE_DIR $ENV(CPP_PACKAGE_DIR))
 set(CMAKE_CXX_STANDARD 20)

@@ -99,61 +99,28 @@ static void dump_to_file(const msgpack::object_handle& oh)
 template<typename T>
 void Nvim::send_request(const std::string& method, const T& params, bool blocking)
 {
-  //using Packer = msgpack::packer<msgpack::sbuffer>;
   is_blocking.push_back(blocking);
   Lock lock {input_mutex};
   const std::uint64_t msg_type = Type::Request;
   msgpack::sbuffer sbuf;
   const auto msg = std::make_tuple(msg_type, current_msgid, method, params);
   msgpack::pack(sbuf, msg);
-  //std::cout << ss.str() << std::endl;
-  //std::cout << std::hex;
-  const char *d = sbuf.data();
-  for(int i = 0; i < sbuf.size(); i++)
-  {
-    const char c = d[i];
-    std::cout << "0x" << to_uint(c) << ", ";
-  }
-  const auto oh = msgpack::unpack(sbuf.data(), sbuf.size());
-#ifdef _WIN32
-  DWORD bytes_written;
-  DWORD bytes_to_write = static_cast<DWORD>(sbuf.size());
-  bool success = WriteFile(
-    stdin_pipe.native_sink(), sbuf.data(), bytes_to_write, &bytes_written, nullptr
-  );
-  assert(success);
-  std::cout << "Bytes written: " << bytes_written << std::endl;
+  int written = stdin_pipe.write(sbuf.data(), sbuf.size());
   ++current_msgid;
-#endif
+  assert(written);
 }
 
 template<typename T>
 void Nvim::send_notification(const std::string& method, const T& params)
 {
+  // Same deal as Nvim::send_request, but for a notification this time
   Lock lock {input_mutex};
   const std::uint64_t msg_type = Type::Notification;
   msgpack::sbuffer sbuf;
   const auto msg = std::make_tuple(msg_type, method, params);
   msgpack::pack(sbuf, msg);
-  //std::cout << ss.str() << std::endl;
-  //std::cout << std::hex;
-  const char *d = sbuf.data();
-  //std::cout << std::hex;
-  for(int i = 0; i < sbuf.size(); i++)
-  {
-    const char c = d[i];
-    std::cout << "0x" << to_uint(c) << ", ";
-  }
-  std::cout << "Buffer size: " << sbuf.size() << std::endl;
-#ifdef _WIN32
-  DWORD bytes_written;
-  DWORD bytes_to_write = static_cast<DWORD>(sbuf.size());
-  bool success = WriteFile(
-    stdin_pipe.native_sink(), sbuf.data(), bytes_to_write, &bytes_written, nullptr
-  );
-  assert(success);
-  std::cout << "Bytes written: " << bytes_written << std::endl;
-#endif
+  int written = stdin_pipe.write(sbuf.data(), sbuf.size());
+  assert(written);
 }
 
 void Nvim::resize(const int new_rows, const int new_cols)
@@ -196,7 +163,6 @@ void Nvim::read_output_sync()
       // According to msgpack-rpc spec, this must be an array
       assert(obj.type == msgpack::type::ARRAY);
       msgpack::object_array arr = obj.via.array;
-      cout << "Size of array: " << arr.size << "\n";
       // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
       assert(arr.size == 3 || arr.size == 4);
       // Otherwise, we have a request/response, both of which have the same signature.

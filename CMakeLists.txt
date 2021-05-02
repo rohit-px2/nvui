@@ -7,6 +7,7 @@ project(nvui)
 set(PACKAGE_DIR $ENV(CPP_PACKAGE_DIR))
 set(CMAKE_CXX_STANDARD 20)
 find_package(msgpack CONFIG REQUIRED)
+find_package(Catch2 CONFIG REQUIRED)
 file(GLOB_RECURSE SOURCES
   src/*.h
   src/*.cpp
@@ -14,6 +15,7 @@ file(GLOB_RECURSE SOURCES
 find_package(Boost COMPONENTS filesystem thread REQUIRED)
 add_executable(nvui "src/main.cpp" ${SOURCES})
 target_link_libraries(nvui PRIVATE msgpackc msgpackc-cxx)
+target_link_libraries(nvui PRIVATE Catch2::Catch2)
 target_include_directories(nvui PRIVATE
   "${PROJECT_SOURCE_DIR}/src"
 )

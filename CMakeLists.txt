@@ -37,6 +37,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 file(GLOB TEST_SOURCES
   src/nvim.hpp
   src/nvim.cpp
+  test/*.cpp
 )
 add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
 target_link_libraries(nvui_test PRIVATE msgpackc msgpackc-cxx)
@@ -53,3 +54,6 @@ target_link_libraries(nvui_test PRIVATE
   ${Boost_THREAD_LIBRARY}
   ${Boost_LIBRARIES}
 )
+include(CTest)
+include(Catch)
+catch_discover_tests(nvui_test)

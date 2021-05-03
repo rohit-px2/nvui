@@ -33,7 +33,7 @@ enum Request : std::uint8_t {
   nvim_command = 4 
 };
 
-constexpr auto one_ms = std::chrono::milliseconds(1);
+//constexpr auto one_ms = std::chrono::milliseconds(1);
 
 // Override packing of std::string to pack as binary string (like Neovim wants)
 namespace msgpack {
@@ -52,10 +52,11 @@ namespace msgpack {
 
 // ###################### DONE SETTING UP ##################################
 
-static inline std::uint32_t to_uint(char ch)
-{
-  return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
-}
+//// Useful for logging char data
+//static inline std::uint32_t to_uint(char ch)
+//{
+  //return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
+//}
 
 /// Constructor
 Nvim::Nvim()

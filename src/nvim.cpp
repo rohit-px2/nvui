@@ -17,7 +17,6 @@ namespace bp = boost::process;
 // ######################## SETTING UP ####################################
 
 using Lock = std::lock_guard<std::mutex>;
-using std::this_thread::sleep_for;
 
 static const std::vector<int> EMPTY_LIST {};
 enum Notifications : std::uint8_t {
@@ -60,21 +59,23 @@ static inline std::uint32_t to_uint(char ch)
 
 /// Constructor
 Nvim::Nvim()
-: error(),
-  proc_group(),
-  stdin_pipe(),
-  stdout_pipe(),
-  current_msgid(0),
+: closed(false),
   num_responses(0),
-  closed(false)
+  current_msgid(0),
+  proc_group(),
+  stdout_pipe(),
+  stdin_pipe(),
+  error()
 {
-  // Everything is going to get detached because we're keeping the process running,
-  // the message processing thread running so that it doesn't get destroyed.
   err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
   //err_reader.detach();
   out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
   //out_reader.detach();
   auto nvim_path = bp::search_path("nvim");
+  if (nvim_path.empty())
+  {
+    throw std::exception("Neovim not found in PATH");
+  }
   nvim = bp::child(
     nvim_path,
     "--embed",
@@ -129,8 +130,17 @@ void Nvim::send_notification(const std::string& method, const T& params)
   const auto msg = std::make_tuple(msg_type, method, params);
   msgpack::pack(sbuf, msg);
   // Potential for an exception when calling below code
-  int written = stdin_pipe.write(sbuf.data(), sbuf.size());
-  assert(written);
+  try
+  {
+    int written = stdin_pipe.write(sbuf.data(), sbuf.size());
+    assert(written);
+    ++current_msgid;
+  }
+  catch (const std::exception& e)
+  {
+    std::cout << "Exception occurred: " << e.what() << '\n';
+    ++current_msgid;
+  }
 }
 
 void Nvim::resize(const int new_rows, const int new_cols)
@@ -251,7 +261,6 @@ void Nvim::attach_ui(const int rows, const int cols)
 template<typename T>
 msgpack::object_handle Nvim::send_request_sync(const std::string& method, const T& params)
 {
-  constexpr int timeout = 100;
   int count = 0;
   send_request(method, params, true);
   while(true)
@@ -278,15 +287,17 @@ msgpack::object_handle Nvim::eval(const std::string& expr)
 {
   return send_request_sync("nvim_eval", std::make_tuple(expr));
 }
+
 void Nvim::read_error_sync()
 {
   // 500KB should be enough for stderr (not receving any huge input)
   constexpr int buffer_maxsize = 512 * 1024;
   std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
   std::uint32_t bytes_read;
+  bp::pipe& err_pipe = error.pipe();
   while(!closed)
   {
-    bytes_read = error.pipe().read(buffer.get(), buffer_maxsize);
+    bytes_read = err_pipe.read(buffer.get(), buffer_maxsize);
     if (bytes_read)
     {
       std::string s(buffer.get(), bytes_read);

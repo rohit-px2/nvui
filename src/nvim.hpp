@@ -60,6 +60,10 @@ public:
    * msgpack::object_handle::get(), and can then be converted into the
    * desired type using msgpack::object::as<T>() (if it is possible to convert
    * it, otherwise it will throw an exception).
+   * NOTE: You should either immediately convert the result to a different type,
+   * or keep it as msgpack::object_handle. If you call get() immediately,
+   * the msgpack::object_handle will have no references and will thus destroy
+   * the object data.
    */
   msgpack::object_handle eval(const std::string& expr);
 private:

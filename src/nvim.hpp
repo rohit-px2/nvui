@@ -1,7 +1,6 @@
 #pragma once
 #include <boost/process/pipe.hpp>
 #include <boost/process.hpp>
-#include <msgpack/v3/object_fwd_decl.hpp>
 #include <vector>
 #include <windows.h>
 #include <thread>
@@ -88,7 +87,6 @@ private:
   void send_request(const std::string& method, const T& params, bool blocking = false);
   template<typename T>
   void send_notification(const std::string& method, const T& params);
-  void read_output(boost::process::async_pipe& p, boost::asio::mutable_buffer& buf);
   void read_output_sync();
   void read_error_sync();
   template<typename T>

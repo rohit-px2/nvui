@@ -71,15 +71,16 @@ Nvim::Nvim()
   // Everything is going to get detached because we're keeping the process running,
   // the message processing thread running so that it doesn't get destroyed.
   err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
-  err_reader.detach();
+  //err_reader.detach();
   out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
-  out_reader.detach();
+  //out_reader.detach();
   auto nvim_path = bp::search_path("nvim");
   nvim = bp::child(
     nvim_path,
     "--embed",
     bp::std_out > stdout_pipe,
     bp::std_in < stdin_pipe,
+    bp::std_err > error,
     proc_group
   );
   nvim.detach();
@@ -105,9 +106,17 @@ void Nvim::send_request(const std::string& method, const T& params, bool blockin
   msgpack::sbuffer sbuf;
   const auto msg = std::make_tuple(msg_type, current_msgid, method, params);
   msgpack::pack(sbuf, msg);
-  int written = stdin_pipe.write(sbuf.data(), sbuf.size());
-  ++current_msgid;
-  assert(written);
+  // Potential for an exception when calling below code
+  try
+  {
+    int written = stdin_pipe.write(sbuf.data(), sbuf.size());
+    assert(written);
+    ++current_msgid;
+  }
+  catch (const std::exception& e)
+  {
+    std::cout << "Exception occurred: " << e.what() << '\n';
+  }
 }
 
 template<typename T>
@@ -119,6 +128,7 @@ void Nvim::send_notification(const std::string& method, const T& params)
   msgpack::sbuffer sbuf;
   const auto msg = std::make_tuple(msg_type, method, params);
   msgpack::pack(sbuf, msg);
+  // Potential for an exception when calling below code
   int written = stdin_pipe.write(sbuf.data(), sbuf.size());
   assert(written);
 }
@@ -138,26 +148,23 @@ static const std::unordered_map<std::string, bool> default_capabilities {
 /// Although this is synchronous, it will be performed on another thread.
 void Nvim::read_output_sync()
 {
+  using std::cout;
   msgpack::object_handle oh;
   msgpack::object obj;
   //std::tuple<int, std::string, 
-  std::cout << std::dec;
+  cout << std::dec;
   // buffer_maxsize of 1MB
   constexpr int buffer_maxsize = 1024 * 1024;
-#ifdef _WIN32
   // On Windows we can use Readfile to get the underlying data, working with ipstream
   // has not been going well.
   std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
-  DWORD msg_size;
-  Handle output_read = stdout_pipe.native_source();
+  std::int64_t msg_size;
   while(!closed)
   {
-    bool read_success = ReadFile(
-      output_read, buffer.get(), buffer_maxsize, &msg_size, nullptr
-    );
-    if (read_success)
+    msg_size = stdout_pipe.read(buffer.get(), buffer_maxsize);
+    cout << "Message size: " << msg_size << '\n';
+    if (msg_size)
     {
-      using std::cout;
       oh = msgpack::unpack(buffer.get(), msg_size);
       obj = oh.get();
       // According to msgpack-rpc spec, this must be an array
@@ -165,11 +172,9 @@ void Nvim::read_output_sync()
       msgpack::object_array arr = obj.via.array;
       // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
       assert(arr.size == 3 || arr.size == 4);
-      // Otherwise, we have a request/response, both of which have the same signature.
       const std::uint64_t type = arr.ptr[0].as<std::uint64_t>();
-      //cout << "Msg type: " << type << "\n";
-      //cout << "Object: " << obj << std::endl;
       // The type should only ever be one of Request, Notification, or Response.
+      assert(type == Type::Notification || type == Type::Response || type == Type::Request);
       switch(type)
       {
         case Type::Request:
@@ -183,14 +188,14 @@ void Nvim::read_output_sync()
           const std::string method = arr.ptr[1].as<std::string>();
           if (method == "redraw")
           {
-            std::cout << "Time to handle redraw.\n";
+            cout << "Time to handle redraw.\n";
           }
           break;
         }
         case Type::Response:
         {
           const std::uint64_t msgid = arr.ptr[1].as<std::uint64_t>();
-          std::cout << "Message id: " << msgid << '\n';
+          cout << "Message id: " << msgid << '\n';
           assert(0 <= msgid && msgid < is_blocking.size());
           // If it's a blocking request, the other thread is waiting for
           // response_received
@@ -205,12 +210,12 @@ void Nvim::read_output_sync()
             response_received = true;
             if (!arr.ptr[2].is_nil())
             {
-              std::cout << "There was an error\n";
+              cout << "There was an error\n";
               last_response = arr.ptr[2];
             }
             else
             {
-              std::cout << "No error!\n";
+              cout << "No error!\n";
               last_response = arr.ptr[3];
             }
           }
@@ -231,8 +236,7 @@ void Nvim::read_output_sync()
       //sleep_for(std::chrono::microseconds(100));
     }
   }
-#endif
-  std::cout << "Output closed." << std::endl;
+  cout << "Output closed." << std::endl;
 }
 
 void Nvim::attach_ui(const int rows, const int cols)
@@ -276,13 +280,20 @@ msgpack::object_handle Nvim::eval(const std::string& expr)
 }
 void Nvim::read_error_sync()
 {
-  std::string line;
-  while(std::getline(error, line) && !closed)
+  // 500KB should be enough for stderr (not receving any huge input)
+  constexpr int buffer_maxsize = 512 * 1024;
+  std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
+  std::uint32_t bytes_read;
+  while(!closed)
   {
-    std::cout << "ERROR:\n" << line << "\n" << std::endl;
-    // Poll every 0.01s
-    sleep_for(std::chrono::milliseconds(10));
+    bytes_read = error.pipe().read(buffer.get(), buffer_maxsize);
+    if (bytes_read)
+    {
+      std::string s(buffer.get(), bytes_read);
+      std::cout << "Error occurred: " << s << '\n';
+    }
   }
+  std::cout << "Error closed\n";
 }
 
 int Nvim::exit_code()
@@ -308,12 +319,6 @@ Nvim::~Nvim()
   error.pipe().close();
   stdout_pipe.close();
   stdin_pipe.close();
-  if (out_reader.joinable())
-  {
-    out_reader.join();
-  }
-  if (err_reader.joinable())
-  {
-    err_reader.join();
-  }
+  out_reader.join();
+  err_reader.join();
 }

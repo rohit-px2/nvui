@@ -65,6 +65,13 @@ public:
    * the object data.
    */
   msgpack::object_handle eval(const std::string& expr);
+  /**
+   * Sends an "nvim_set_var" message, setting a global variable (g:var)
+   * with the value val.
+   * Note: Only defined for values of type std::string and int.
+   */
+  template<typename T>
+  void set_var(const std::string& name, const T& val);
 private:
   // Condition variable to check if we are closing
   std::atomic<bool> closed;

@@ -135,12 +135,10 @@ void Nvim::send_notification(const std::string& method, const T& params)
   {
     int written = stdin_pipe.write(sbuf.data(), sbuf.size());
     assert(written);
-    ++current_msgid;
   }
   catch (const std::exception& e)
   {
     std::cout << "Exception occurred: " << e.what() << '\n';
-    ++current_msgid;
   }
 }
 
@@ -166,8 +164,6 @@ void Nvim::read_output_sync()
   cout << std::dec;
   // buffer_maxsize of 1MB
   constexpr int buffer_maxsize = 1024 * 1024;
-  // On Windows we can use Readfile to get the underlying data, working with ipstream
-  // has not been going well.
   std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
   std::int64_t msg_size;
   while(!closed)
@@ -322,6 +318,15 @@ bool Nvim::running()
 {
   return nvim.running();
 }
+
+template<typename T>
+void Nvim::set_var(const std::string &name, const T& val)
+{
+  send_notification("nvim_set_var", std::make_tuple(name, val));
+}
+
+template void Nvim::set_var<int>(const std::string&, const int&);
+template void Nvim::set_var<std::string>(const std::string&, const std::string&);
 
 Nvim::~Nvim()
 {

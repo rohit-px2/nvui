@@ -21,6 +21,7 @@ int main(int argc, char **argv)
   const auto args = get_args(argc, argv);
   const auto nvim = std::make_shared<Nvim>();
   nvim->attach_ui(DEFAULT_ROWS, DEFAULT_COLS);
+  nvim->set_var("nvui", 1);
   while(nvim->running())
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));

@@ -21,11 +21,8 @@ TEST_CASE("nvim_set_var sets variables properly", "[nvim_set_var]")
   {
     bool success = false;
     nvim->set_var("uniquevariable", 253);
-    // Since we send a notification, we don't get a response (although the 
-    // function doesn't send a response anyway).
-    // We'll just wait a little bit and check. If the variable is still not
-    // set then there's a performance issue, which means something else is wrong.
-    sleep(20); // 0.02s
+    // Neovim sets a global (g:) variable with the name we gave,
+    // so we can get the result from an nvim_eval command.
     try
     {
       const auto result = nvim->eval("g:uniquevariable").get().as<int>();
@@ -41,7 +38,6 @@ TEST_CASE("nvim_set_var sets variables properly", "[nvim_set_var]")
   {
     bool success = false;
     nvim->set_var("uniquevariabletwo", std::string("doesthiswork"));
-    sleep(20);
     try
     {
       const auto result = nvim->eval("g:uniquevariabletwo").get().as<std::string>();

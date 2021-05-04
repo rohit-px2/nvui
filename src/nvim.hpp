@@ -1,4 +1,6 @@
-#pragma once
+#ifndef NVUI_NVIM_HPP
+#define NVUI_NVIM_HPP
+
 #include <boost/process/pipe.hpp>
 #include <boost/process.hpp>
 #include <vector>
@@ -17,14 +19,12 @@ enum Type : std::uint64_t {
 enum Notifications : std::uint8_t;
 enum Request : std::uint8_t;
 
-/// The Nvim class is responsible for communicating with the embedded Neovim instance
-/// through the msgpack-rpc API.
-/// All communication between the GUI and Neovim is to use the Nvim class.
+/// The Nvim class contains an embedded Neovim instance and
+/// some useful functions to receive output and send input
+/// using the msgpack-rpc protocol.
 class Nvim
 {
 public:
-  std::thread err_reader;
-  std::thread out_reader;
   ~Nvim();
   /**
    * Constructs an embedded Neovim instance and establishes communication.
@@ -73,6 +73,8 @@ public:
   template<typename T>
   void set_var(const std::string& name, const T& val);
 private:
+  std::thread err_reader;
+  std::thread out_reader;
   // Condition variable to check if we are closing
   std::atomic<bool> closed;
   // This and last_response, along with response_mutex, are meant for
@@ -99,3 +101,5 @@ private:
   template<typename T>
   msgpack::object_handle send_request_sync(const std::string& method, const T& params);
 };
+
+#endif

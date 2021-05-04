@@ -130,7 +130,6 @@ void Nvim::send_notification(const std::string& method, const T& params)
   msgpack::sbuffer sbuf;
   const auto msg = std::make_tuple(msg_type, method, params);
   msgpack::pack(sbuf, msg);
-  // Potential for an exception when calling below code
   try
   {
     int written = stdin_pipe.write(sbuf.data(), sbuf.size());
@@ -149,7 +148,8 @@ void Nvim::resize(const int new_rows, const int new_cols)
 
 static const std::unordered_map<std::string, bool> default_capabilities {
   {"ext_linegrid", true},
-  {"ext_popupmenu", true}, 
+  {"ext_popupmenu", true},
+  {"ext_multigrid", true},
   {"ext_cmdline", true},
   {"ext_hlstate", true}
 };
@@ -165,21 +165,22 @@ void Nvim::read_output_sync()
   // buffer_maxsize of 1MB
   constexpr int buffer_maxsize = 1024 * 1024;
   std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
+  auto buf = buffer.get();
   std::int64_t msg_size;
   while(!closed)
   {
-    msg_size = stdout_pipe.read(buffer.get(), buffer_maxsize);
+    msg_size = stdout_pipe.read(buf, buffer_maxsize);
     cout << "Message size: " << msg_size << '\n';
     if (msg_size)
     {
-      oh = msgpack::unpack(buffer.get(), msg_size);
+      oh = msgpack::unpack(buf, msg_size);
       obj = oh.get();
       // According to msgpack-rpc spec, this must be an array
       assert(obj.type == msgpack::type::ARRAY);
-      msgpack::object_array arr = obj.via.array;
+      const msgpack::object_array arr = obj.via.array;
       // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
       assert(arr.size == 3 || arr.size == 4);
-      const std::uint64_t type = arr.ptr[0].as<std::uint64_t>();
+      const std::uint32_t type = arr.ptr[0].as<std::uint32_t>();
       // The type should only ever be one of Request, Notification, or Response.
       assert(type == Type::Notification || type == Type::Response || type == Type::Request);
       switch(type)
@@ -191,6 +192,7 @@ void Nvim::read_output_sync()
         }
         case Type::Notification:
         {
+          assert(arr.size == 3);
           cout << "Got a notification!\n";
           const std::string method = arr.ptr[1].as<std::string>();
           if (method == "redraw")
@@ -201,7 +203,8 @@ void Nvim::read_output_sync()
         }
         case Type::Response:
         {
-          const std::uint64_t msgid = arr.ptr[1].as<std::uint64_t>();
+          assert(arr.size == 4);
+          const std::uint32_t msgid = arr.ptr[1].as<std::uint32_t>();
           cout << "Message id: " << msgid << '\n';
           assert(0 <= msgid && msgid < is_blocking.size());
           // If it's a blocking request, the other thread is waiting for
@@ -230,11 +233,10 @@ void Nvim::read_output_sync()
         }
         default:
         {
-          throw std::exception("Message was not a valid msgpack-rpc message.");
-          return;
+          // Should never happen
+          assert(!"Message was not a valid msgpack-rpc message");
         }
       }
-      dump_to_file(oh);
     }
     else
     {
@@ -320,7 +322,7 @@ bool Nvim::running()
 }
 
 template<typename T>
-void Nvim::set_var(const std::string &name, const T& val)
+void Nvim::set_var(const std::string& name, const T& val)
 {
   send_notification("nvim_set_var", std::make_tuple(name, val));
 }

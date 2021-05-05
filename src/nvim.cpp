@@ -90,11 +90,12 @@ Nvim::Nvim()
 }
 
 static int file_num = 0;
-static void dump_to_file(const msgpack::object_handle& oh)
+template<typename T>
+static void dump_to_file(const T& oh)
 {
-  std::string fname = std::to_string(file_num) + ".json"; // Should be valid json once decoded
+  std::string fname = std::to_string(file_num) + ".txt";
   std::ofstream out {fname};
-  out << oh.get();
+  out << oh;
   out.close();
   ++file_num;
 }
@@ -237,6 +238,7 @@ void Nvim::read_output_sync()
           assert(!"Message was not a valid msgpack-rpc message");
         }
       }
+      dump_to_file(std::string(buf, msg_size));
     }
     else
     {

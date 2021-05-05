@@ -24,6 +24,9 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 file(GLOB SOURCES
   src/nvim.hpp
   src/nvim.cpp
+  src/hlstate.hpp
+  src/hlstate.cpp
+  src/window.hpp
 )
 find_package(Boost COMPONENTS filesystem thread REQUIRED)
 add_executable(nvui "src/main.cpp" ${SOURCES})
@@ -43,11 +46,15 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 file(GLOB TEST_SOURCES
   src/nvim.hpp
   src/nvim.cpp
+  src/window.hpp
+  src/hlstate.hpp
+  src/hlstate.cpp
   test/*.cpp
 )
 add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
 target_link_libraries(nvui_test PRIVATE msgpackc msgpackc-cxx)
 target_link_libraries(nvui_test PRIVATE Catch2::Catch2)
+target_link_libraries(nvui_test PRIVATE Qt::Core Qt::Gui Qt::Widgets)
 target_include_directories(nvui_test PRIVATE
   "${PROJECT_SOURCE_DIR}/test"
   "${PROJECT_SOURCE_DIR}/src"

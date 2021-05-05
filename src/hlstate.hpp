@@ -8,15 +8,21 @@
 #include <msgpack.hpp>
 
 using std::unordered_map;
-using std::vector;
 using std::string;
 using hval = std::variant<int, bool>;
 
 /// Data for a single highlight attribute
-struct HLAttr
+class HLAttr
 {
+public:
   int hl_id;
-  unordered_map<string, bool> font_opts;
+  unordered_map<string, bool> font_opts {
+    {"underline", false},
+    {"italic", false},
+    {"undercurl", false},
+    {"bold", false},
+    {"strikethrough", false}
+  };
   unordered_map<string, int> color_opts;
   /// Keeps keys "kind", "ui_name", "hi_name"
   unordered_map<string, string> info;
@@ -32,27 +38,36 @@ struct HLAttr
 class HLState
 {
 public:
+  HLState() = default;
   /**
    * Maps name to hl_id.
    * This function maps to "hl_group_set".
    */
-  void set_name_id(const std::string& name, std::uint32_t hl_id)
-  {
-    name_to_id[name] = hl_id;
-  }
-  void set_id_attr(int id, HLAttr attr)
-  {
-    id_to_attr[id] = attr;
-  }
-  HLAttr& attr_for_id(int id)
-  {
-    return id_to_attr[id];
-  }
-  int id_for_name(const std::string& name)
-  {
-    return name_to_id[name];
-  }
+  void set_name_id(const std::string& name, std::uint32_t hl_id);
+  /**
+   * Maps id to attr.
+   */
+  void set_id_attr(int id, HLAttr attr);
+  /**
+   * Returns the highlight attribute for the given id.
+   */
+  const HLAttr& attr_for_id(int id) const;
+  /**
+   * Returns the name of the highlight group for the given id.
+   */
+  int id_for_name(const std::string& name) const;
+  /**
+   * Manages an "hl_attr_define" call, with obj
+   * being the parameters of the call.
+   */
+  void define(const msgpack::object& obj);
+  /**
+   * Sets the default colors.
+   */
+  void default_colors_set(const msgpack::object& obj);
+  const HLAttr& default_colors_get() const;
 private:
+  HLAttr default_colors;
   unordered_map<string, std::uint32_t> name_to_id;
   unordered_map<int, HLAttr> id_to_attr;
 };

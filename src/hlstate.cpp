@@ -65,6 +65,10 @@ namespace hl
   }
 }
 
+/*
+   HLAttr Implementation
+*/
+
 HLAttr::HLAttr()
 : hl_id(0),
   font_opts(),
@@ -83,4 +87,61 @@ HLAttr::HLAttr(const HLAttr& other)
   font_opts = other.font_opts;
   color_opts = other.color_opts;
   info = other.info;
+}
+
+/*
+   HLState Implementation
+*/
+
+
+const HLAttr& HLState::attr_for_id(int id) const
+{
+  const auto it = id_to_attr.find(id);
+  if (it != id_to_attr.end())
+  {
+    return it->second;
+  }
+  return default_colors;
+}
+
+int HLState::id_for_name(const std::string &name) const
+{
+  const auto it = name_to_id.find(name);
+  if (it != name_to_id.end())
+  {
+    return it->second;
+  }
+  return 0;
+}
+
+void HLState::set_name_id(const std::string &name, std::uint32_t hl_id)
+{
+  name_to_id[name] = hl_id;
+}
+
+void HLState::set_id_attr(int id, HLAttr attr)
+{
+  id_to_attr[id] = attr;
+}
+
+void HLState::default_colors_set(const msgpack::object &obj)
+{
+  // We only look at the first three values (the others are ctermfg
+  // and ctermbg, which we don't care about)
+  assert(obj.type == msgpack::type::ARRAY);
+  const msgpack::object_array& params = obj.via.array;
+  assert(params.size >= 3);
+  HLAttr attr {0}; // 0 for default?
+  int foreground = params.ptr[0].as<int>();
+  int background = params.ptr[1].as<int>();
+  int special = params.ptr[2].as<int>();
+  attr.color_opts["foreground"] = foreground;
+  attr.color_opts["background"] = background;
+  attr.color_opts["special"] = special;
+  default_colors = std::move(attr);
+}
+
+const HLAttr& HLState::default_colors_get() const
+{
+  return default_colors;
 }

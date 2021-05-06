@@ -17,6 +17,7 @@ class Window : public QMainWindow
 {
 public:
   Window(QWidget *parent = nullptr, std::shared_ptr<Nvim> nv = nullptr);
+  void register_handlers();
 public slots:
   /**
    * Handles a 'redraw' Neovim notification.

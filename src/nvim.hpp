@@ -117,7 +117,6 @@ private:
   boost::process::pipe stdout_pipe;
   boost::process::pipe stdin_pipe;
   boost::process::ipstream error;
-  void decide(const std::string& msg);
   template<typename T>
   void send_request(const std::string& method, const T& params, bool blocking = false);
   template<typename T>

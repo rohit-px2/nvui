@@ -29,16 +29,11 @@ int main(int argc, char **argv)
   const auto nvim = std::make_shared<Nvim>();
   Window w {nullptr, nvim};
   w.show();
+  w.register_handlers();
   // Register msgpack::object to Qt
   qRegisterMetaType<msgpack::object>();
   // We have to register msgpack::object
-  nvim->set_notification_handler("redraw", [&](msgpack::object obj) {
-    // Call the slot method "handle_redraw"
-    QMetaObject::invokeMethod(
-      &w, "handle_redraw", Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
-    );
-  });
-  nvim->attach_ui(DEFAULT_ROWS, DEFAULT_COLS);
   nvim->set_var("nvui", 1);
+  nvim->attach_ui(DEFAULT_ROWS, DEFAULT_COLS);
   return app.exec();
 }

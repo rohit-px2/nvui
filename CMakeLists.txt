@@ -27,6 +27,7 @@ file(GLOB SOURCES
   src/hlstate.hpp
   src/hlstate.cpp
   src/window.hpp
+  src/window.cpp
 )
 find_package(Boost COMPONENTS filesystem thread REQUIRED)
 add_executable(nvui "src/main.cpp" ${SOURCES})
@@ -47,6 +48,7 @@ file(GLOB TEST_SOURCES
   src/nvim.hpp
   src/nvim.cpp
   src/window.hpp
+  src/window.cpp
   src/hlstate.hpp
   src/hlstate.cpp
   test/*.cpp

@@ -60,7 +60,9 @@ namespace msgpack {
 
 /// Constructor
 Nvim::Nvim()
-: closed(false),
+: notification_handlers(),
+  request_handlers(),
+  closed(false),
   num_responses(0),
   current_msgid(0),
   proc_group(),
@@ -89,16 +91,16 @@ Nvim::Nvim()
   proc_group.detach();
 }
 
-static int file_num = 0;
-template<typename T>
-static void dump_to_file(const T& oh)
-{
-  std::string fname = std::to_string(file_num) + ".txt";
-  std::ofstream out {fname};
-  out << oh;
-  out.close();
-  ++file_num;
-}
+//static int file_num = 0;
+//template<typename T>
+//static void dump_to_file(const T& oh)
+//{
+  //std::string fname = std::to_string(file_num) + ".txt";
+  //std::ofstream out {fname};
+  //out << oh;
+  //out.close();
+  //++file_num;
+//}
 
 template<typename T>
 void Nvim::send_request(const std::string& method, const T& params, bool blocking)
@@ -160,7 +162,6 @@ void Nvim::read_output_sync()
 {
   using std::cout;
   msgpack::object_handle oh;
-  msgpack::object obj;
   //std::tuple<int, std::string, 
   cout << std::dec;
   // buffer_maxsize of 1MB
@@ -175,7 +176,7 @@ void Nvim::read_output_sync()
     if (msg_size)
     {
       oh = msgpack::unpack(buf, msg_size);
-      obj = oh.get();
+      const msgpack::object& obj = oh.get();
       // According to msgpack-rpc spec, this must be an array
       assert(obj.type == msgpack::type::ARRAY);
       const msgpack::object_array arr = obj.via.array;
@@ -188,7 +189,14 @@ void Nvim::read_output_sync()
       {
         case Type::Request:
         {
-          cout << "Got a request!\n";
+          assert(arr.size == 4);
+          const std::string method = arr.ptr[2].as<std::string>();
+          const auto func_it = request_handlers.find(method);
+          if (func_it != request_handlers.end())
+          {
+            // Params is the last element in the 4-long array
+            func_it->second(arr.ptr[3]);
+          }
           break;
         }
         case Type::Notification:
@@ -196,9 +204,11 @@ void Nvim::read_output_sync()
           assert(arr.size == 3);
           cout << "Got a notification!\n";
           const std::string method = arr.ptr[1].as<std::string>();
-          if (method == "redraw")
+          const auto func_it = notification_handlers.find(method);
+          if (func_it != notification_handlers.end())
           {
-            cout << "Time to handle redraw.\n";
+            // Call handler on the 3rd object (params)
+            func_it->second(arr.ptr[2]);
           }
           break;
         }
@@ -238,7 +248,7 @@ void Nvim::read_output_sync()
           assert(!"Message was not a valid msgpack-rpc message");
         }
       }
-      dump_to_file(std::string(buf, msg_size));
+      //dump_to_file(oh.get());
     }
     else
     {
@@ -281,7 +291,9 @@ msgpack::object_handle Nvim::send_request_sync(const std::string& method, const 
     }
   }
   std::cout << "Didnt get the result\n";
-  return msgpack::object_handle();
+  // This shouldn't ever activate since we'll just block forever
+  // if we don't receive
+  throw std::exception("Message not received");
 }
 
 msgpack::object_handle Nvim::eval(const std::string& expr)
@@ -331,6 +343,22 @@ void Nvim::set_var(const std::string& name, const T& val)
 
 template void Nvim::set_var<int>(const std::string&, const int&);
 template void Nvim::set_var<std::string>(const std::string&, const std::string&);
+
+void Nvim::set_notification_handler(
+  const std::string& method,
+  msgpack_callback handler
+)
+{
+  notification_handlers.emplace(method, handler);
+}
+
+void Nvim::set_request_handler(
+  const std::string& method,
+  msgpack_callback handler
+)
+{
+  request_handlers.emplace(method, handler);
+}
 
 Nvim::~Nvim()
 {

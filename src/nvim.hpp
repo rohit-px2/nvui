@@ -3,8 +3,10 @@
 
 #include <boost/process/pipe.hpp>
 #include <boost/process.hpp>
+#include <unordered_map>
 #include <vector>
 #include <windows.h>
+#include <functional>
 #include <thread>
 #include <msgpack.hpp>
 #include <atomic>
@@ -18,7 +20,7 @@ enum Type : std::uint64_t {
 };
 enum Notifications : std::uint8_t;
 enum Request : std::uint8_t;
-
+using msgpack_callback = std::function<void (msgpack::object)>;
 /// The Nvim class contains an embedded Neovim instance and
 /// some useful functions to receive output and send input
 /// using the msgpack-rpc protocol.
@@ -72,7 +74,31 @@ public:
    */
   template<typename T>
   void set_var(const std::string& name, const T& val);
+  /**
+   * Sets the notification handler for the given method.
+   * When a notification is sent, and the method matches the name
+   * of the method passed, the corresponding function will be called
+   * with the parameters of the message.
+   * NOTE: For redraw events, you should call this before
+   * calling attach_ui (so that you don't miss redraw events).
+   * Another NOTE: The handler will be called on a separate thread,
+   * so make sure it's thread-safe.
+   */
+  void set_notification_handler(
+    const std::string& method,
+    std::function<void (msgpack::object)> handler
+  );
+  /**
+   * Sets a request handler for the given method.
+   * Same as set_notification_handler, but for requests.
+   */
+  void set_request_handler(
+    const std::string& method,
+    std::function<void (msgpack::object)> handler
+  );
 private:
+  std::unordered_map<std::string, msgpack_callback> notification_handlers;
+  std::unordered_map<std::string, msgpack_callback> request_handlers;
   std::thread err_reader;
   std::thread out_reader;
   // Condition variable to check if we are closing

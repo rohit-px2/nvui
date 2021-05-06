@@ -1,24 +1,33 @@
 #ifndef NVUI_GUI_HPP
 #define NVUI_GUI_HPP
 
-#include <QApplication>
+#include <QObject>
+#include <QMainWindow>
 #include <QWidget>
 #include <QFont>
 #include "nvim.hpp"
-
+#include <iostream>
+#include <memory>
+#include <msgpack.hpp>
 /// The main window class which holds the rest of the GUI components.
 /// Fundamentally, the Neovim area is just 1 big text box.
 /// However, there are additional features that we are trying to
 /// support.
-class Window : public QApplication
+class Window : public QMainWindow
 {
 public:
+  Window(QWidget *parent = nullptr, std::shared_ptr<Nvim> nv = nullptr);
+public slots:
   /**
-   * Handles a 'redraw' Neovim notification, with 'event'
-   * being the parameters given in the message.
+   * Handles a 'redraw' Neovim notification.
+   * TODO: Decide parameter type and how this will be called
+   * (signals etc.)
    */
-  void HandleRedraw(const msgpack::object& event);
+  void handle_redraw(msgpack::object redraw_args);
+
 private:
+  std::shared_ptr<Nvim> nvim;
+
   Q_OBJECT
 };
 

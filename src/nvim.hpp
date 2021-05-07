@@ -10,9 +10,7 @@
 #include <thread>
 #include <msgpack.hpp>
 #include <atomic>
-using Handle = HANDLE;
-using StartupInfo = STARTUPINFO;
-using SecAttribs = SECURITY_ATTRIBUTES;
+
 enum Type : std::uint64_t {
   Request = 0,
   Response = 1,

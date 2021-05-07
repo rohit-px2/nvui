@@ -7,8 +7,6 @@
 #include <string>
 #include <msgpack.hpp>
 
-using std::unordered_map;
-using std::string;
 using hval = std::variant<int, bool>;
 
 /// Data for a single highlight attribute
@@ -16,16 +14,16 @@ class HLAttr
 {
 public:
   int hl_id;
-  unordered_map<string, bool> font_opts {
+  std::unordered_map<std::string, bool> font_opts {
     {"underline", false},
     {"italic", false},
     {"undercurl", false},
     {"bold", false},
     {"strikethrough", false}
   };
-  unordered_map<string, int> color_opts;
+  std::unordered_map<std::string, int> color_opts;
   /// Keeps keys "kind", "ui_name", "hi_name"
-  unordered_map<string, string> info;
+  std::unordered_map<std::string, std::string> info;
   HLAttr();
   HLAttr(int id);
   HLAttr(const HLAttr& other);
@@ -68,8 +66,8 @@ public:
   const HLAttr& default_colors_get() const;
 private:
   HLAttr default_colors;
-  unordered_map<string, std::uint32_t> name_to_id;
-  unordered_map<int, HLAttr> id_to_attr;
+  std::unordered_map<std::string, std::uint32_t> name_to_id;
+  std::unordered_map<int, HLAttr> id_to_attr;
 };
 
 /// Defining a function to parse "hl_attr_define" data

@@ -63,6 +63,14 @@ public:
    * Sets the default colors.
    */
   void default_colors_set(const msgpack::object& obj);
+  /**
+   * Sets the given highlight group. This should be called with
+   * the parameters of an "hl_group_set" call.
+   */
+  void group_set(const msgpack::object& obj);
+  /**
+   * Returns the default colors.
+   */
   const HLAttr& default_colors_get() const;
 private:
   HLAttr default_colors;

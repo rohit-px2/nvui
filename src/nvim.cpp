@@ -152,7 +152,6 @@ void Nvim::resize(const int new_rows, const int new_cols)
 static const std::unordered_map<std::string, bool> default_capabilities {
   {"ext_linegrid", true},
   {"ext_popupmenu", true},
-  {"ext_multigrid", true},
   {"ext_cmdline", true},
   {"ext_hlstate", true}
 };
@@ -191,6 +190,8 @@ void Nvim::read_output_sync()
         {
           assert(arr.size == 4);
           const std::string method = arr.ptr[2].as<std::string>();
+          // Lock while reading
+          Lock read_lock {request_handlers_mutex};
           const auto func_it = request_handlers.find(method);
           if (func_it != request_handlers.end())
           {
@@ -204,6 +205,8 @@ void Nvim::read_output_sync()
           assert(arr.size == 3);
           cout << "Got a notification!\n";
           const std::string method = arr.ptr[1].as<std::string>();
+          // Lock while reading
+          Lock read_lock {notification_handlers_mutex};
           const auto func_it = notification_handlers.find(method);
           if (func_it != notification_handlers.end())
           {
@@ -349,6 +352,7 @@ void Nvim::set_notification_handler(
   msgpack_callback handler
 )
 {
+  Lock lock {notification_handlers_mutex};
   notification_handlers.emplace(method, handler);
 }
 
@@ -357,6 +361,7 @@ void Nvim::set_request_handler(
   msgpack_callback handler
 )
 {
+  Lock lock {request_handlers_mutex};
   request_handlers.emplace(method, handler);
 }
 

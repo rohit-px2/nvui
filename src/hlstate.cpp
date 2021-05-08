@@ -1,5 +1,6 @@
 #include "hlstate.hpp"
 #include <cassert>
+#include <iostream>
 
 namespace hl
 {
@@ -144,4 +145,22 @@ void HLState::default_colors_set(const msgpack::object &obj)
 const HLAttr& HLState::default_colors_get() const
 {
   return default_colors;
+}
+
+void HLState::define(const msgpack::object& obj)
+{
+  HLAttr attr = hl::hl_attr_from_object(obj);
+  set_id_attr(attr.hl_id, std::move(attr));
+}
+
+void HLState::group_set(const msgpack::object &obj)
+{
+  assert(obj.type == msgpack::type::ARRAY);
+  const auto& arr = obj.via.array;
+  assert(arr.size == 2);
+  assert(arr.ptr[0].type == msgpack::type::STR);
+  assert(arr.ptr[1].type == msgpack::type::POSITIVE_INTEGER);
+  std::string hl_name = arr.ptr[0].as<std::string>();
+  int hl_id = arr.ptr[1].as<int>();
+  set_name_id(hl_name, hl_id);
 }

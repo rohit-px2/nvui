@@ -17,11 +17,14 @@ find_package(Catch2 CONFIG REQUIRED)
 find_package(Qt5Core CONFIG REQUIRED)
 find_package(Qt5Gui CONFIG REQUIRED)
 find_package(Qt5Widgets CONFIG REQUIRED)
+find_package(Qt5Svg CONFIG REQUIRED)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 file(GLOB SOURCES
+  src/titlebar.hpp
+  src/titlebar.cpp
   src/nvim.hpp
   src/nvim.cpp
   src/hlstate.hpp
@@ -32,8 +35,7 @@ file(GLOB SOURCES
 find_package(Boost COMPONENTS filesystem thread REQUIRED)
 add_executable(nvui "src/main.cpp" ${SOURCES})
 target_link_libraries(nvui PRIVATE msgpackc msgpackc-cxx)
-target_link_libraries(nvui PRIVATE Catch2::Catch2)
-target_link_libraries(nvui PRIVATE Qt::Core Qt::Gui Qt::Widgets)
+target_link_libraries(nvui PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg)
 target_include_directories(nvui PRIVATE
   "${PROJECT_SOURCE_DIR}/src"
 )

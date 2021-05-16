@@ -115,17 +115,17 @@ int HLState::id_for_name(const std::string &name) const
   return 0;
 }
 
-void HLState::set_name_id(const std::string &name, std::uint32_t hl_id)
+inline void HLState::set_name_id(const std::string& name, std::uint32_t hl_id)
 {
   name_to_id[name] = hl_id;
 }
 
-void HLState::set_id_attr(int id, HLAttr attr)
+inline void HLState::set_id_attr(int id, HLAttr attr)
 {
   id_to_attr[id] = attr;
 }
 
-void HLState::default_colors_set(const msgpack::object &obj)
+void HLState::default_colors_set(const msgpack::object& obj)
 {
   // We only look at the first three values (the others are ctermfg
   // and ctermbg, which we don't care about)

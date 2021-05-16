@@ -5,23 +5,28 @@
 #include <QMainWindow>
 #include <QWidget>
 #include <QFont>
+#include <QToolBar>
+#include <QLayout>
 #include "nvim.hpp"
+#include "titlebar.hpp"
 #include "hlstate.hpp"
 #include <iostream>
 #include <memory>
-#include <functional>
 #include <msgpack.hpp>
+#include <QEvent>
+#include <unordered_map>
 class Window;
-// Passing in a Window * lets us avoid the overhead of a lambda capture
-using obj_ref_cb = void (*)(Window *, const msgpack::object&);
+
+using obj_ref_cb = void (*)(Window*, const msgpack::object&);
 /// The main window class which holds the rest of the GUI components.
 /// Fundamentally, the Neovim area is just 1 big text box.
 /// However, there are additional features that we are trying to
 /// support.
 class Window : public QMainWindow
 {
+  Q_OBJECT
 public:
-  Window(QWidget *parent = nullptr, std::shared_ptr<Nvim> nv = nullptr);
+  Window(QWidget* parent = nullptr, std::shared_ptr<Nvim> nv = nullptr);
   void register_handlers();
   /**
    * Sets a handler for the corresponding function
@@ -36,10 +41,19 @@ public slots:
    */
   void handle_redraw(msgpack::object redraw_args);
 private:
+  // Taken from the manual test in the "custom window decorations" Qt article
+  void resize_or_move(const QPointF& p);
+  bool resizing;
+  std::unique_ptr<TitleBar> title_bar;
+  float font_size {12.0f};
+  QFont font;
   HLState hl_state;
   std::shared_ptr<Nvim> nvim;
   std::unordered_map<std::string, obj_ref_cb> handlers;
-  Q_OBJECT
+protected:
+  void mousePressEvent(QMouseEvent* event) override;
+  void mouseReleaseEvent(QMouseEvent* event) override;
+  void mouseMoveEvent(QMouseEvent* event) override;
 };
 
 #endif

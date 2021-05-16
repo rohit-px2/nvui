@@ -9,20 +9,21 @@
 #include "nvim.hpp"
 #include "window.hpp"
 #include <msgpack.hpp>
+#include <QStyleFactory>
 using std::string;
 using std::vector;
 
 constexpr int DEFAULT_ROWS = 200;
 constexpr int DEFAULT_COLS = 50;
 
-vector<string> get_args(int argc, char **argv)
+vector<string> get_args(int argc, char** argv)
 {
   return vector<string>(argv + 1, argv + argc);
 }
 
 Q_DECLARE_METATYPE(msgpack::object)
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
   qRegisterMetaType<msgpack::object>();
   std::ios_base::sync_with_stdio(false);

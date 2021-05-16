@@ -1,11 +1,53 @@
 #include "window.hpp"
+#include <cstdio>
 #include <iostream>
-#include <qobjectdefs.h>
+#include <QObject>
+#include <QLabel>
+#include <QHBoxLayout>
+#include <QPushButton>
+#include <QStyle>
+#include <QApplication>
+#include <QPainter>
+#include <QPixmap>
+#include <QIcon>
+#include <QWindow>
+#include <QSizeGrip>
 
-Window::Window(QWidget *parent, std::shared_ptr<Nvim> nv)
+constexpr int tolerance = 10; //10px tolerance for resizing
+
+static void print_rect(const std::string& prefix, const QRect& rect)
+{
+  std::cout << prefix << "\n(" << rect.x() << ", " << rect.y() << ", " << rect.width() << ", " << rect.height() << ")\n";
+}
+static QIcon create_qicon(
+  const QString& text,
+  const int width,
+  const int height,
+  const QColor& fg,
+  const QColor& bg
+)
+{
+  QPixmap pixmap {width, height};
+  QPainter painter(&pixmap);
+  pixmap.fill(bg);
+  painter.setPen(fg);
+  QFont font;
+  font.setPointSizeF(height);
+  painter.setFont(font);
+  painter.drawText(QRect(0, 0, width, height), Qt::AlignCenter, text);
+  return QIcon(pixmap);
+}
+
+Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
 : QMainWindow(parent),
+  resizing(false),
+  title_bar(nullptr),
   nvim(nv)
 {
+  setMouseTracking(true);
+  setWindowFlags(Qt::FramelessWindowHint);
+  resize(640, 480);
+  title_bar = std::make_unique<TitleBar>("nvui", this);
 }
 
 // TODO: Improve thread safety.
@@ -65,18 +107,138 @@ void Window::register_handlers()
 {
   // Set GUI handlers before we set the notification handler (since Nvim runs on a different thread,
   // it can be called any time)
-  set_handler("hl_attr_define", [](Window *w, const msgpack::object& obj) {
+  set_handler("hl_attr_define", [](Window* w, const msgpack::object& obj) {
     w->hl_state.define(obj);
   });
-  set_handler("hl_group_set", [](Window *w, const msgpack::object& obj) {
+  set_handler("hl_group_set", [](Window* w, const msgpack::object& obj) {
     w->hl_state.group_set(obj);
   });
-  // Note: We have to use invokeMethod because these are actually going to be
-  // run on a separate thread.
+  // The lambda will get invoked on the Nvim::read_output thread, we use
+  // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);
   nvim->set_notification_handler("redraw", [this](msgpack::object obj) {
     QMetaObject::invokeMethod(
       this, "handle_redraw", Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
     );
   });
+}
+
+enum ResizeType
+{
+  NoResize = Qt::ArrowCursor,
+  Horizontal = Qt::SizeHorCursor,
+  Vertical = Qt::SizeVerCursor,
+  NorthEast = Qt::SizeBDiagCursor,
+  SouthWest = Qt::SizeFDiagCursor
+};
+
+static ResizeType should_resize(
+  const QRect& win_rect,
+  const int tolerance,
+  const QMouseEvent* event
+)
+{
+  const QRect inner_rect = QRect(
+    win_rect.x() + tolerance, win_rect.y() + tolerance,
+    win_rect.width() - 2 * tolerance, win_rect.height() - 2 * tolerance
+  );
+  const auto& pos = event->pos();
+  std::cout << "\nx: " << pos.x() << ", y: " << pos.y() << '\n';
+  if (inner_rect.contains(pos))
+  {
+    return ResizeType::NoResize;
+  }
+  const int width = win_rect.width();
+  const int height = win_rect.height();
+  const int mouse_x = pos.x();
+  const int mouse_y = pos.y();
+  if (mouse_x > tolerance && mouse_x < (width - tolerance))
+  {
+    return ResizeType::Vertical;
+  }
+  else if (mouse_y > tolerance && mouse_y < (height - tolerance))
+  {
+    return ResizeType::Horizontal;
+  }
+  // Top left
+  else if ((mouse_x <= tolerance && mouse_y <= tolerance))
+  {
+    return ResizeType::SouthWest;
+  }
+  // Bot right
+  else if (mouse_x >= (width - tolerance)
+      && mouse_y >= (height - tolerance))
+  {
+    return ResizeType::SouthWest;
+  }
+  // Bot left
+  else if (mouse_x <= tolerance && mouse_y >= (height - tolerance))
+  {
+    return ResizeType::NorthEast;
+  }
+  // Should only activate for top right
+  else
+  {
+    return ResizeType::NorthEast;
+  }
+}
+
+void Window::resize_or_move(const QPointF& p)
+{
+  Qt::Edges edges;
+  if (p.x() > width() - tolerance)
+  {
+    edges |= Qt::RightEdge;
+  }
+  if (p.x() < tolerance)
+  {
+    edges |= Qt::LeftEdge;
+  }
+  if (p.y() < tolerance)
+  {
+    edges |= Qt::TopEdge;
+  }
+  if (p.y() > height() - tolerance)
+  {
+    edges |= Qt::BottomEdge;
+  }
+  
+  QWindow* handle = windowHandle();
+  if (edges != 0)
+  {
+    if (handle->startSystemResize(edges)) {}
+    else
+    {
+      std::cout << "Resize didn't work\n";
+    }
+  }
+  else
+  {
+    if (handle->startSystemMove()) {}
+    else
+    {
+      std::cout << "Move didnt' work\n";
+    }
+  }
+}
+
+void Window::mousePressEvent(QMouseEvent* event)
+{
+  std::cout << "Move press\n";
+  resize_or_move(event->localPos());
+}
+
+void Window::mouseReleaseEvent(QMouseEvent* event)
+{
+  if (resizing)
+  {
+    resizing = false;
+    setCursor(Qt::ArrowCursor);
+  }
+}
+
+void Window::mouseMoveEvent(QMouseEvent* event)
+{
+  const ResizeType type = should_resize(rect(), tolerance, event);
+  setCursor(Qt::CursorShape(type));
 }

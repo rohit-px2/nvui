@@ -6,3 +6,4 @@ vcpkg/
 .vscode/
 compile_commands.json
 CMakeLists.txt.user
+build.cmd 

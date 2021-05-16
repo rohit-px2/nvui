@@ -5,7 +5,6 @@
 #include <boost/process.hpp>
 #include <unordered_map>
 #include <vector>
-#include <windows.h>
 #include <functional>
 #include <thread>
 #include <msgpack.hpp>
@@ -94,6 +93,11 @@ public:
     const std::string& method,
     std::function<void (msgpack::object)> handler
   );
+  /**
+   * Runs cmd in Neovim.
+   * This can be used to set autocommands, among other things.
+   */
+  void command(const std::string& cmd);
 private:
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
   std::unordered_map<std::string, msgpack_callback> request_handlers;

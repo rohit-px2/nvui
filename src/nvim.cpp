@@ -18,37 +18,7 @@ namespace bp = boost::process;
 
 using Lock = std::lock_guard<std::mutex>;
 
-static const std::vector<int> EMPTY_LIST {};
-enum Notifications : std::uint8_t {
-  nvim_ui_attach = 0,
-  nvim_try_resize = 1,
-  nvim_set_var = 2
-};
-
-enum Request : std::uint8_t {
-  nvim_get_api_info = 0,
-  nvim_input = 1,
-  nvim_input_mouse = 2,
-  nvim_eval = 3,
-  nvim_command = 4 
-};
-
 //constexpr auto one_ms = std::chrono::milliseconds(1);
-
-// Override packing of std::string to pack as binary string (like Neovim wants)
-namespace msgpack {
-  namespace adaptor {
-    template<>
-    struct pack<std::string> {
-      template<typename Stream>
-      msgpack::packer<Stream>& operator()(msgpack::packer<Stream>& o, std::string const& v) const {
-        o.pack_bin(v.size());
-        o.pack_bin_body(v.data(), v.size());
-        return o;
-      }
-    };
-  }
-}
 
 // ###################### DONE SETTING UP ##################################
 
@@ -71,9 +41,7 @@ Nvim::Nvim()
   error()
 {
   err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
-  //err_reader.detach();
   out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
-  //out_reader.detach();
   auto nvim_path = bp::search_path("nvim");
   if (nvim_path.empty())
   {
@@ -161,7 +129,6 @@ void Nvim::read_output_sync()
 {
   using std::cout;
   msgpack::object_handle oh;
-  //std::tuple<int, std::string, 
   cout << std::dec;
   // buffer_maxsize of 1MB
   constexpr int buffer_maxsize = 1024 * 1024;
@@ -363,6 +330,12 @@ void Nvim::set_request_handler(
 {
   Lock lock {request_handlers_mutex};
   request_handlers.emplace(method, handler);
+}
+
+
+void Nvim::command(const std::string& cmd)
+{
+  send_request("nvim_command", std::make_tuple(cmd));
 }
 
 Nvim::~Nvim()

@@ -15,28 +15,10 @@
 
 constexpr int tolerance = 10; //10px tolerance for resizing
 
-static void print_rect(const std::string& prefix, const QRect& rect)
-{
-  std::cout << prefix << "\n(" << rect.x() << ", " << rect.y() << ", " << rect.width() << ", " << rect.height() << ")\n";
-}
-static QIcon create_qicon(
-  const QString& text,
-  const int width,
-  const int height,
-  const QColor& fg,
-  const QColor& bg
-)
-{
-  QPixmap pixmap {width, height};
-  QPainter painter(&pixmap);
-  pixmap.fill(bg);
-  painter.setPen(fg);
-  QFont font;
-  font.setPointSizeF(height);
-  painter.setFont(font);
-  painter.drawText(QRect(0, 0, width, height), Qt::AlignCenter, text);
-  return QIcon(pixmap);
-}
+//static void print_rect(const std::string& prefix, const QRect& rect)
+//{
+  ////std::cout << prefix << "\n(" << rect.x() << ", " << rect.y() << ", " << rect.width() << ", " << rect.height() << ")\n";
+//}
 
 Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
 : QMainWindow(parent),
@@ -143,7 +125,7 @@ static ResizeType should_resize(
     win_rect.width() - 2 * tolerance, win_rect.height() - 2 * tolerance
   );
   const auto& pos = event->pos();
-  std::cout << "\nx: " << pos.x() << ", y: " << pos.y() << '\n';
+  //std::cout << "\nx: " << pos.x() << ", y: " << pos.y() << '\n';
   if (inner_rect.contains(pos))
   {
     return ResizeType::NoResize;
@@ -224,12 +206,12 @@ void Window::resize_or_move(const QPointF& p)
 
 void Window::mousePressEvent(QMouseEvent* event)
 {
-  std::cout << "Move press\n";
   resize_or_move(event->localPos());
 }
 
 void Window::mouseReleaseEvent(QMouseEvent* event)
 {
+  Q_UNUSED(event) // at least, for now
   if (resizing)
   {
     resizing = false;

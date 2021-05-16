@@ -18,13 +18,23 @@ public:
    * Sets the mutable text to text.
    */
   void set_text(QString text);
+  /**
+   * Sets foreground to color if foreground is true,
+   * otherwise sets background to color.
+   */
+  void set_color(QColor color, bool is_foreground = true);
+  /**
+   * Sets the foreground and background color to bg and fg respectively.
+   */
+  void set_color(QColor fg, QColor bg);
   /** Get dimensions */
-  int x() const;
-  int y() const;
-  int width() const;
-  int height() const;
-  QRect rect() const;
 private:
+  /**
+   * Updates the titlebar with new colors.
+   * This should only be called after the colors are updated
+     (not when new text is set).
+   */
+  void update_titlebar();
   QString separator;
   bool maximized;
   QColor foreground;
@@ -34,7 +44,7 @@ private:
   QIcon min_icon;
   QPushButton* close_btn;
   QPushButton* max_btn;
-  QPushButton min_btn;
+  QPushButton* min_btn;
   QMainWindow* win;
   QFont title_font;
   QString constant_text;

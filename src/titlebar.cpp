@@ -91,3 +91,35 @@ void TitleBar::set_text(QString text)
   mutable_text = std::move(text);
   label->setText(constant_text + separator + mutable_text);
 }
+
+void TitleBar::update_titlebar()
+{
+  close_icon = icon_from_svg("../assets/close-windows.svg", foreground, background);
+  min_icon = icon_from_svg("../assets/min-windows.svg", foreground, background);
+  max_icon = icon_from_svg("../assets/max-windows.svg", foreground, background);
+  close_btn->setIcon(close_icon);
+  min_btn->setIcon(min_icon);
+  max_btn->setIcon(max_icon);
+  const QString ss = "background: " + background.name() + "; color: " + foreground.name() + ";";
+  titlebar_widget->setStyleSheet(ss);
+}
+
+void TitleBar::set_color(QColor color, bool is_foreground)
+{
+  if (is_foreground)
+  {
+    foreground = std::move(color);
+  }
+  else
+  {
+    background = std::move(color);
+  }
+  update_titlebar();
+}
+
+void TitleBar::set_color(QColor fg, QColor bg)
+{
+  foreground = std::move(fg);
+  background = std::move(bg);
+  update_titlebar();
+}

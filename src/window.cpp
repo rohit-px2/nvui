@@ -199,7 +199,7 @@ void Window::resize_or_move(const QPointF& p)
     if (handle->startSystemMove()) {}
     else
     {
-      std::cout << "Move didnt' work\n";
+      std::cout << "Move didn't work\n";
     }
   }
 }

@@ -33,10 +33,18 @@ public:
       style(std::move(style_sheet)),
       hov_ss(std::move(hov))
   {
+    setFlat(true);
     setAutoFillBackground(true);
     setMouseTracking(true);
     installEventFilter(this);
     setStyleSheet(style);
+  }
+
+  // Should only be used when we switch from light mode -> dark mode
+  // and vice versa
+  void set_hov_ss(QString new_hov)
+  {
+    hov_ss = std::move(new_hov);
   }
 private:
   QString style;
@@ -92,7 +100,6 @@ private:
       QPushButton::mousePressEvent(event);
     }
   }
-
 protected:
   bool eventFilter(QObject* watched, QEvent* event) override
   {
@@ -162,9 +169,9 @@ QPushButton:hover
 }
 )");
 
-constexpr QLatin1String close_hov_bg = make_string("#ff0000");
-constexpr QLatin1String mm_hov_light = make_string("#665c74");
-constexpr QLatin1String mm_hov_dark = make_string("#afafaf");
+//constexpr QLatin1String close_hov_bg = make_string("#ff0000");
+//constexpr QLatin1String mm_hov_light = make_string("#665c74");
+//constexpr QLatin1String mm_hov_dark = make_string("#afafaf");
 constexpr QLatin1String default_ss = make_string("border: 2px solid transparent;");
 
 TitleBar::TitleBar(QString text, QMainWindow* window)
@@ -180,9 +187,7 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   title_font.setHintingPreference(QFont::HintingPreference::PreferFullHinting);
   title_font.setStyleStrategy(QFont::PreferAntialias);
   layout = new QHBoxLayout();
-  QPushButton* appicon = new MenuButton(nullptr, default_ss, default_ss);
-  appicon->setMouseTracking(true);
-  appicon->setFlat(true);
+  QPushButton* appicon = new MenuButton();
   appicon->setIcon(QIcon("../assets/appicon.png"));
   layout->addWidget(appicon);
   label = new QLabel(left_text);
@@ -201,10 +206,7 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   //max_btn = new QPushButton();
   //min_btn = new QPushButton();
   close_btn->setIcon(close_icon);
-  close_btn->setFlat(true);
   max_btn->setIcon(max_icon);
-  max_btn->setFlat(true);
-  min_btn->setFlat(true);
   //close_btn->setStyleSheet(close_ss);
   //min_btn->setStyleSheet(min_max_ss_dark);
   //max_btn->setStyleSheet(min_max_ss_light);
@@ -214,21 +216,16 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   min_btn->setIcon(min_icon);
   layout->addStretch();
   // If only we could set mouse tracking to true by default...
-  close_btn->setMouseTracking(true);
-  min_btn->setMouseTracking(true);
-  max_btn->setMouseTracking(true);
   layout->addWidget(min_btn);
   layout->addWidget(max_btn);
   layout->addWidget(close_btn);
   titlebar_widget = new QWidget();
   titlebar_widget->setLayout(layout);
   titlebar_widget->setStyleSheet("background-color: " + background.name() + "; color: " + foreground.name() + ";");
-  titlebar_widget->setMouseTracking(true);
   win->setMenuWidget(titlebar_widget);
   const int menu_height = qApp->screens()[0]->size().height() / RATIO;
   const int menu_width = (menu_height * 3) / 2;
-  std::cout << "Menu height: " << menu_height << '\n';
-  const QSize size = QSize(menu_width, menu_height);
+  const QSize size {menu_width, menu_height};
   close_btn->setFixedSize(size);
   min_btn->setFixedSize(size);
   max_btn->setFixedSize(size);
@@ -259,6 +256,11 @@ void TitleBar::set_left_text(QString text)
   update_text();
 }
 
+bool is_light(const QColor& color)
+{
+  return color.lightness() >= 127;
+}
+
 void TitleBar::update_titlebar()
 {
   close_icon = icon_from_svg("../assets/close-windows.svg", foreground);
@@ -268,6 +270,17 @@ void TitleBar::update_titlebar()
   update_maxicon();
   const QString ss = "background: " + background.name() + "; color: " + foreground.name() + ";";
   titlebar_widget->setStyleSheet(ss);
+  // Check the "mode" of the background color
+  if (is_light(background))
+  {
+    min_btn->set_hov_ss(min_max_ss_light);
+    max_btn->set_hov_ss(min_max_ss_light);
+  }
+  else
+  {
+    min_btn->set_hov_ss(min_max_ss_dark);
+    max_btn->set_hov_ss(min_max_ss_dark);
+  }
 }
 
 void TitleBar::update_maxicon()

@@ -10,14 +10,23 @@
 #include <QEvent>
 #include <QLabel>
 #include <QPushButton>
-class TitleBar
+
+
+class MenuButton;
+
+class TitleBar : public QWidget
 {
+  Q_OBJECT
 public:
   TitleBar(QString text, QMainWindow* window);
   /**
-   * Sets the mutable text to text.
+   * Sets the right-side text to text.
    */
-  void set_text(QString text);
+  void set_right_text(QString text);
+  /**
+   * Sets the left text.
+   */
+  void set_left_text(QString text);
   /**
    * Sets foreground to color if foreground is true,
    * otherwise sets background to color.
@@ -27,7 +36,15 @@ public:
    * Sets the foreground and background color to bg and fg respectively.
    */
   void set_color(QColor fg, QColor bg);
-  /** Get dimensions */
+  /**
+   * Set the separator string, which is what separates left_text and
+   * right_text
+   */
+  void set_separator(QString new_sep);
+  /**
+   * Update the icons based on the status of the attached window (win).
+   */
+  void update_maxicon();
 private:
   /**
    * Updates the titlebar with new colors.
@@ -35,6 +52,11 @@ private:
      (not when new text is set).
    */
   void update_titlebar();
+  /**
+   * Updates the titlebar text to the current values of
+   * left_text, separator, and right_text
+   */
+  void update_text();
   QString separator;
   bool maximized;
   QColor foreground;
@@ -42,16 +64,20 @@ private:
   QIcon close_icon;
   QIcon max_icon;
   QIcon min_icon;
-  QPushButton* close_btn;
-  QPushButton* max_btn;
-  QPushButton* min_btn;
+  MenuButton* close_btn;
+  MenuButton* max_btn;
+  MenuButton* min_btn;
+  //QPushButton* close_btn;
+  //QPushButton* max_btn;
+  //QPushButton* min_btn;
   QMainWindow* win;
   QFont title_font;
-  QString constant_text;
-  QString mutable_text;
+  QString left_text;
+  QString right_text;
   QLabel* label;
   QHBoxLayout* layout;
   QWidget* titlebar_widget;
+public slots:
+  void minimize_maximize();
 };
-
 #endif

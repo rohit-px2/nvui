@@ -1,9 +1,8 @@
 <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-
  <g>
   <title>Layer 1</title>
-  <rect stroke-width="5" id="svg_2" height="400" width="400" y="100" x="200" stroke="#000" fill="none"/>
-  <rect stroke-width="5" id="svg_3" height="400" width="400" y="100" x="200" stroke="#000" fill="none"/>
-  <rect id="svg_4" height="400" width="400" y="68" x="236.5" stroke-width="5" stroke="#000" fill="none"/>
+  <rect stroke-width="70" fill="none" stroke="#000" x="166" y="140" width="400" height="400" id="svg_3"/>
+  <rect fill="none" stroke="#000" stroke-width="70" x="265.5" y="42" width="400" height="400" id="svg_4"/>
  </g>
+
 </svg>

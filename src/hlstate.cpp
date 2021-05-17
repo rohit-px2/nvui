@@ -115,12 +115,12 @@ int HLState::id_for_name(const std::string &name) const
   return 0;
 }
 
-inline void HLState::set_name_id(const std::string& name, std::uint32_t hl_id)
+void HLState::set_name_id(const std::string& name, std::uint32_t hl_id)
 {
   name_to_id[name] = hl_id;
 }
 
-inline void HLState::set_id_attr(int id, HLAttr attr)
+void HLState::set_id_attr(int id, HLAttr attr)
 {
   id_to_attr[id] = attr;
 }

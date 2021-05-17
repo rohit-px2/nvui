@@ -31,10 +31,9 @@ int main(int argc, char** argv)
   QApplication app {argc, argv};
   const auto nvim = std::make_shared<Nvim>();
   Window w {nullptr, nvim};
-  w.show();
+  std::cout << "Memloc win: " << &w << ".\n";
   w.register_handlers();
-  // Register msgpack::object to Qt
-  // We have to register msgpack::object
+  w.show();
   nvim->set_var("nvui", 1);
   nvim->attach_ui(DEFAULT_ROWS, DEFAULT_COLS);
   return app.exec();

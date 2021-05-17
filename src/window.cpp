@@ -1,4 +1,5 @@
 #include "window.hpp"
+#include "utils.hpp"
 #include <cstdio>
 #include <iostream>
 #include <QObject>
@@ -13,7 +14,6 @@
 #include <QWindow>
 #include <QSizeGrip>
 
-constexpr int tolerance = 10; //10px tolerance for resizing
 
 //static void print_rect(const std::string& prefix, const QRect& rect)
 //{
@@ -30,6 +30,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
   setWindowFlags(Qt::FramelessWindowHint);
   resize(640, 480);
   title_bar = std::make_unique<TitleBar>("nvui", this);
+  setWindowIcon(QIcon("../assets/appicon.png"));
 }
 
 // TODO: Improve thread safety.
@@ -188,7 +189,8 @@ void Window::resize_or_move(const QPointF& p)
   QWindow* handle = windowHandle();
   if (edges != 0)
   {
-    if (handle->startSystemResize(edges)) {}
+    if (handle->startSystemResize(edges)) {
+    }
     else
     {
       std::cout << "Resize didn't work\n";
@@ -196,12 +198,14 @@ void Window::resize_or_move(const QPointF& p)
   }
   else
   {
-    if (handle->startSystemMove()) {}
+    if (handle->startSystemMove()) {
+    }
     else
     {
       std::cout << "Move didn't work\n";
     }
   }
+  title_bar->update_maxicon();
 }
 
 void Window::mousePressEvent(QMouseEvent* event)
@@ -223,4 +227,16 @@ void Window::mouseMoveEvent(QMouseEvent* event)
 {
   const ResizeType type = should_resize(rect(), tolerance, event);
   setCursor(Qt::CursorShape(type));
+}
+
+void Window::resizeEvent(QResizeEvent* event)
+{
+  title_bar->update_maxicon();
+  QMainWindow::resizeEvent(event);
+}
+
+void Window::moveEvent(QMoveEvent* event)
+{
+  title_bar->update_maxicon();
+  QMainWindow::moveEvent(event);
 }

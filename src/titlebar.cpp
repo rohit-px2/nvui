@@ -49,6 +49,7 @@ public:
 private:
   QString style;
   QString hov_ss;
+
   // At least on my system, the stylesheet's :hover property
   // doesn't detect hovers while the mouse isn't pressed.
   // The MenuButton solves this problem.
@@ -100,6 +101,7 @@ private:
       QPushButton::mousePressEvent(event);
     }
   }
+
 protected:
   bool eventFilter(QObject* watched, QEvent* event) override
   {
@@ -186,39 +188,39 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   title_font.setPointSize(11);
   title_font.setHintingPreference(QFont::HintingPreference::PreferFullHinting);
   title_font.setStyleStrategy(QFont::PreferAntialias);
-  layout = new QHBoxLayout();
-  QPushButton* appicon = new MenuButton();
-  appicon->setIcon(QIcon("../assets/appicon.png"));
-  layout->addWidget(appicon);
-  label = new QLabel(left_text);
-  label->setFont(title_font);
-  layout->addStretch();
-  layout->setMargin(0);
-  layout->addWidget(label);
-  // Create Icons (when we maximize the window we will update max_btn so it's a little special)
   close_icon = icon_from_svg("../assets/close-windows.svg", foreground);
   max_icon = icon_from_svg("../assets/max-windows.svg", foreground);
   min_icon = icon_from_svg("../assets/min-windows.svg", foreground);
   close_btn = new MenuButton(nullptr, default_ss, close_ss);
   max_btn = new MenuButton(nullptr, default_ss, min_max_ss_dark);
   min_btn = new MenuButton(nullptr, default_ss, min_max_ss_dark);
-  //close_btn = new QPushButton();
-  //max_btn = new QPushButton();
-  //min_btn = new QPushButton();
   close_btn->setIcon(close_icon);
   max_btn->setIcon(max_icon);
-  //close_btn->setStyleSheet(close_ss);
-  //min_btn->setStyleSheet(min_max_ss_dark);
-  //max_btn->setStyleSheet(min_max_ss_light);
-  QObject::connect(close_btn, SIGNAL(clicked()), win, SLOT(close()));
-  QObject::connect(min_btn, SIGNAL(clicked()), win, SLOT(showMinimized()));
-  QObject::connect(max_btn, SIGNAL(clicked()), this, SLOT(minimize_maximize()));
   min_btn->setIcon(min_icon);
+  layout = new QHBoxLayout();
+  QPushButton* appicon = new MenuButton();
+  appicon->setIcon(QIcon("../assets/appicon.png"));
+  label = new QLabel(left_text);
+  label->setFont(title_font);
+  // Window buttons on left for non-Windows
+#if !defined(Q_OS_WIN)
+  layout->addWidget(close_btn);
+  layout->addWidget(min_btn);
+  layout->addWidget(max_btn);
+#else
+  layout->addWidget(appicon);
+#endif
+  layout->addStretch();
+  layout->setMargin(0);
+  layout->addWidget(label);
+  // Create Icons (when we maximize the window we will update max_btn so it's a little special)
   layout->addStretch();
   // If only we could set mouse tracking to true by default...
+#if defined(Q_OS_WIN)
   layout->addWidget(min_btn);
   layout->addWidget(max_btn);
   layout->addWidget(close_btn);
+#endif
   titlebar_widget = new QWidget();
   titlebar_widget->setLayout(layout);
   titlebar_widget->setStyleSheet("background-color: " + background.name() + "; color: " + foreground.name() + ";");
@@ -230,6 +232,9 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   min_btn->setFixedSize(size);
   max_btn->setFixedSize(size);
   titlebar_widget->setMouseTracking(true);
+  QObject::connect(close_btn, SIGNAL(clicked()), win, SLOT(close()));
+  QObject::connect(min_btn, SIGNAL(clicked()), win, SLOT(showMinimized()));
+  QObject::connect(max_btn, SIGNAL(clicked()), this, SLOT(minimize_maximize()));
 }
 
 void TitleBar::update_text()

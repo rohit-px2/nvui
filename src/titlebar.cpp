@@ -15,7 +15,7 @@
 #include <QScreen>
 #include <QSize>
 #include <QWindow>
-constexpr int tolerance = 10; // TODO Keep a constants file
+
 constexpr int RATIO = 36; // I think the height of menu bar is 30px on 1080p screen
 
 /// MenuButton class is a wrapper around QPushButton
@@ -229,6 +229,7 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   close_btn->setFixedSize(size);
   min_btn->setFixedSize(size);
   max_btn->setFixedSize(size);
+  titlebar_widget->setMouseTracking(true);
 }
 
 void TitleBar::update_text()

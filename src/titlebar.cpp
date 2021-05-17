@@ -116,7 +116,6 @@ protected:
       }
       case QEvent::MouseButtonPress:
       {
-        std::cout << "Mouse pressed\n";
         mouse_pressed(static_cast<QMouseEvent*>(event));
         return true;
       }

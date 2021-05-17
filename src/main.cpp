@@ -31,7 +31,6 @@ int main(int argc, char** argv)
   QApplication app {argc, argv};
   const auto nvim = std::make_shared<Nvim>();
   Window w {nullptr, nvim};
-  std::cout << "Memloc win: " << &w << ".\n";
   w.register_handlers();
   w.show();
   nvim->set_var("nvui", 1);

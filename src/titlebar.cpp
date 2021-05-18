@@ -1,9 +1,11 @@
 #include "titlebar.hpp"
 #include "utils.hpp"
+#include <cassert>
 #include <QApplication>
 #include <QObject>
 #include <QPalette>
 #include <iostream>
+#include <QLayoutItem>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -185,9 +187,11 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   left_text(std::move(text)),
   right_text("")
 {
-  title_font.setPointSize(11);
-  title_font.setHintingPreference(QFont::HintingPreference::PreferFullHinting);
-  title_font.setStyleStrategy(QFont::PreferAntialias);
+  assert(qApp->screens().size() > 0);
+  const int menu_height = qApp->screens()[0]->size().height() / RATIO;
+  const int menu_width = (menu_height * 3) / 2;
+  title_font.setPointSizeF(9.5);
+  title_font.setHintingPreference(QFont::HintingPreference::PreferVerticalHinting);
   close_icon = icon_from_svg("../assets/close-windows.svg", foreground);
   max_icon = icon_from_svg("../assets/max-windows.svg", foreground);
   min_icon = icon_from_svg("../assets/min-windows.svg", foreground);
@@ -201,6 +205,7 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   QPushButton* appicon = new MenuButton();
   appicon->setIcon(QIcon("../assets/appicon.png"));
   label = new QLabel(left_text);
+  label->setMouseTracking(true);
   label->setFont(title_font);
   // Window buttons on left for non-Windows
 #if !defined(Q_OS_WIN)
@@ -209,6 +214,7 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   layout->addWidget(max_btn);
 #else
   layout->addWidget(appicon);
+  layout->addSpacerItem(new QSpacerItem(2 * menu_width, menu_height));
 #endif
   layout->addStretch();
   layout->setMargin(0);
@@ -220,13 +226,13 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   layout->addWidget(min_btn);
   layout->addWidget(max_btn);
   layout->addWidget(close_btn);
+#else
+  layout->addSpacerItem(new QSpacerItem(3 * menu_width, menu_height));
 #endif
   titlebar_widget = new QWidget();
   titlebar_widget->setLayout(layout);
   titlebar_widget->setStyleSheet("background-color: " + background.name() + "; color: " + foreground.name() + ";");
   win->setMenuWidget(titlebar_widget);
-  const int menu_height = qApp->screens()[0]->size().height() / RATIO;
-  const int menu_width = (menu_height * 3) / 2;
   const QSize size {menu_width, menu_height};
   close_btn->setFixedSize(size);
   min_btn->setFixedSize(size);

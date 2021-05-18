@@ -93,7 +93,7 @@ private:
       // object that contains a resize_or_move function
       QMetaObject::invokeMethod(
         window(), "resize_or_move", Qt::AutoConnection, 
-        Q_ARG(const QPointF&, event->localPos())
+        Q_ARG(const QPointF&, event->windowPos())
       );
     }
     else

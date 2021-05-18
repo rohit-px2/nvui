@@ -42,7 +42,7 @@ Nvim::Nvim()
 {
   err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
   out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
-  auto nvim_path = bp::search_path("nvim");
+  const auto nvim_path = bp::search_path("nvim");
   if (nvim_path.empty())
   {
     throw std::exception("Neovim not found in PATH");

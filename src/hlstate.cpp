@@ -83,12 +83,11 @@ HLAttr::HLAttr(int id)
   info() {}
 
 HLAttr::HLAttr(const HLAttr& other)
-{
-  hl_id = other.hl_id;
-  font_opts = other.font_opts;
-  color_opts = other.color_opts;
-  info = other.info;
-}
+: hl_id(other.hl_id),
+  font_opts(other.font_opts),
+  color_opts(other.color_opts),
+  info(other.info) {}
+
 
 /*
    HLState Implementation
@@ -105,6 +104,7 @@ const HLAttr& HLState::attr_for_id(int id) const
   return default_colors;
 }
 
+
 int HLState::id_for_name(const std::string &name) const
 {
   const auto it = name_to_id.find(name);
@@ -115,15 +115,18 @@ int HLState::id_for_name(const std::string &name) const
   return 0;
 }
 
+
 void HLState::set_name_id(const std::string& name, std::uint32_t hl_id)
 {
   name_to_id[name] = hl_id;
 }
 
+
 void HLState::set_id_attr(int id, HLAttr attr)
 {
-  id_to_attr[id] = attr;
+  id_to_attr[id] = std::move(attr);
 }
+
 
 void HLState::default_colors_set(const msgpack::object& obj)
 {
@@ -142,16 +145,19 @@ void HLState::default_colors_set(const msgpack::object& obj)
   default_colors = std::move(attr);
 }
 
+
 const HLAttr& HLState::default_colors_get() const
 {
   return default_colors;
 }
+
 
 void HLState::define(const msgpack::object& obj)
 {
   HLAttr attr = hl::hl_attr_from_object(obj);
   set_id_attr(attr.hl_id, std::move(attr));
 }
+
 
 void HLState::group_set(const msgpack::object &obj)
 {

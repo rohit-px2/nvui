@@ -1,5 +1,6 @@
 #include "window.hpp"
 #include "utils.hpp"
+#include <cassert>
 #include <cstdio>
 #include <iostream>
 #include <QObject>
@@ -34,6 +35,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
   resize(640, 480);
   title_bar = std::make_unique<TitleBar>("nvui", this);
   setWindowIcon(QIcon("../assets/appicon.png"));
+  title_bar->set_separator(" • ");
 }
 
 // TODO: Improve thread safety.
@@ -84,6 +86,19 @@ void Window::handle_redraw(msgpack::object redraw_args)
   }
 }
 
+void Window::handle_bufenter(msgpack::object redraw_args)
+{
+  const auto oh = msgpack::clone(redraw_args);
+  const auto& obj = oh.get();
+  assert(obj.type == msgpack::type::ARRAY);
+  const auto& arr = obj.via.array;
+  assert(arr.size == 1);
+  const msgpack::object& file_obj = arr.ptr[0];
+  assert(file_obj.type == msgpack::type::STR);
+  const QString file_name = QString::fromStdString(file_obj.as<std::string>());
+  title_bar->set_right_text(file_name);
+}
+
 void Window::set_handler(std::string method, obj_ref_cb handler)
 {
   handlers[method] = handler;
@@ -114,6 +129,12 @@ void Window::register_handlers()
       this, "handle_redraw", Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
     );
   });
+  nvim->set_notification_handler("NVUI_BUFENTER", [this](msgpack::object obj) {
+    QMetaObject::invokeMethod(
+      this, "handle_bufenter", Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
+    );
+  });
+  nvim->command("autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))");
 }
 
 enum ResizeType

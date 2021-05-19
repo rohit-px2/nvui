@@ -29,6 +29,11 @@ class Window : public QMainWindow
   Q_OBJECT
 public:
   Window(QWidget* parent = nullptr, std::shared_ptr<Nvim> nv = nullptr);
+  /**
+   * Registers all of the relevant gui event handlers
+   * for handling Neovim redraw events, as well as a Neovim
+   * notification handler for the 'redraw' method.
+   */
   void register_handlers();
   /**
    * Sets a handler for the corresponding function
@@ -42,13 +47,20 @@ public slots:
    * (signals etc.)
    */
   void handle_redraw(msgpack::object redraw_args);
+  /**
+   * Starts a resizing or moving operation depending on the coordinates
+   * of p.
+   */
   void resize_or_move(const QPointF& p);
+  /**
+   * Handles a Neovim 'BufEnter' event, updating the titlebar with the
+   * current file.
+   */
+  void handle_bufenter(msgpack::object file_args);
 private:
   // Taken from the manual test in the "custom window decorations" Qt article
   bool resizing;
   std::unique_ptr<TitleBar> title_bar;
-  float font_size {12.0f};
-  QFont font;
   HLState hl_state;
   std::shared_ptr<Nvim> nvim;
   std::unordered_map<std::string, obj_ref_cb> handlers;

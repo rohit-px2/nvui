@@ -19,10 +19,27 @@
 constexpr auto default_handler = [](Window* w, const msgpack::object& obj) {
   std::cout << obj << '\n';
 };
+
 //static void print_rect(const std::string& prefix, const QRect& rect)
 //{
   ////std::cout << prefix << "\n(" << rect.x() << ", " << rect.y() << ", " << rect.width() << ", " << rect.height() << ")\n";
 //}
+
+constexpr const char* func_name(const QLatin1String full_name)
+{
+  // Can't use QString/std::string at compile time in c++17
+  if (full_name.startsWith(QLatin1String("Window::")))
+  {
+    const char* s = full_name.latin1();
+    return (new QLatin1String(s + 8, full_name.size() - 8))->latin1();
+  }
+  else
+  {
+    return full_name.latin1();
+  }
+}
+
+#define FUNCNAME(func) (void(&func), func_name(QLatin1String(#func)))
 
 Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
 : QMainWindow(parent),
@@ -99,6 +116,19 @@ void Window::handle_bufenter(msgpack::object redraw_args)
   title_bar->set_right_text(file_name);
 }
 
+void Window::dirchanged_titlebar(msgpack::object dir_args)
+{
+  const auto oh = msgpack::clone(dir_args);
+  const auto& obj = oh.get();
+  const auto& arr = obj.via.array;
+  assert(arr.size == 2); // Local dir name, and full path (we might use later)
+  assert(arr.ptr[0].type == msgpack::type::STR);
+  const QString new_dir = QString::fromStdString(arr.ptr[0].as<std::string>());
+  //assert(arr.ptr[1].type == msgpack::type::STR);
+  //const QString full_dir = QString::fromStdString(arr.ptr[1].as<std::string>());
+  title_bar->set_middle_text(new_dir);
+}
+
 void Window::set_handler(std::string method, obj_ref_cb handler)
 {
   handlers[method] = handler;
@@ -117,24 +147,32 @@ void Window::register_handlers()
   set_handler("default_colors_set", [](Window* w, const msgpack::object& obj) {
     w->hl_state.default_colors_set(obj);
   });
-  set_handler("option_set", [](Window* w, const msgpack::object& obj) {
-    std::cout << "Option_set: " << obj << '\n';
-  });
+  set_handler("option_set", default_handler);
   set_handler("grid_line", default_handler);
+  set_handler("grid_resize", default_handler);
+  set_handler("grid_cursor_goto", default_handler);
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);
   nvim->set_notification_handler("redraw", [this](msgpack::object obj) {
     QMetaObject::invokeMethod(
-      this, "handle_redraw", Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
+      this, FUNCNAME(Window::handle_redraw), Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
     );
   });
   nvim->set_notification_handler("NVUI_BUFENTER", [this](msgpack::object obj) {
     QMetaObject::invokeMethod(
-      this, "handle_bufenter", Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
+      this, FUNCNAME(Window::handle_bufenter), Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
     );
   });
+  nvim->set_notification_handler("NVUI_DIRCHANGED", [this](msgpack::object obj) {
+    QMetaObject::invokeMethod(
+      this, FUNCNAME(Window::dirchanged_titlebar), Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
+    );
+  });
+  /// This is pretty cool: We can receive gui events by running autocomamnds
+  /// and passing in the relevant information
   nvim->command("autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))");
+  nvim->command("autocmd DirChanged * call rpcnotify(1, 'NVUI_DIRCHANGED', fnamemodify(getcwd(), ':t'), getcwd())");
 }
 
 enum ResizeType

@@ -17,6 +17,7 @@
 #include <QScreen>
 #include <QSize>
 #include <QWindow>
+#include <QtCore/QStringBuilder>
 
 constexpr int RATIO = 36; // I think the height of menu bar is 30px on 1080p screen
 
@@ -231,7 +232,7 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
 #endif
   titlebar_widget = new QWidget();
   titlebar_widget->setLayout(layout);
-  titlebar_widget->setStyleSheet("background-color: " + background.name() + "; color: " + foreground.name() + ";");
+  titlebar_widget->setStyleSheet("background-color: " % background.name() % "; color: " % foreground.name() % ";");
   win->setMenuWidget(titlebar_widget);
   const QSize size {menu_width, menu_height};
   close_btn->setFixedSize(size);
@@ -245,14 +246,33 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
 
 void TitleBar::update_text()
 {
-  // No point in having separator if there's no text on the right side
-  if (!right_text.isEmpty())
+  if (left_text.isEmpty() && right_text.isEmpty())
   {
-    label->setText(left_text + separator + right_text);
+    label->setText(middle_text);
+  }
+  else if (left_text.isEmpty() && middle_text.isEmpty())
+  {
+    label->setText(right_text);
+  }
+  else if (right_text.isEmpty() && middle_text.isEmpty())
+  {
+    label->setText(left_text);
+  }
+  else if (left_text.isEmpty())
+  {
+    label->setText(middle_text % separator % right_text);
+  }
+  else if (middle_text.isEmpty())
+  {
+    label->setText(left_text % separator % right_text);
+  }
+  else if (right_text.isEmpty())
+  {
+    label->setText(left_text % separator % middle_text);
   }
   else
   {
-    label->setText(left_text);
+    label->setText(left_text % separator % middle_text % separator % right_text);
   }
 }
 
@@ -268,6 +288,11 @@ void TitleBar::set_left_text(QString text)
   update_text();
 }
 
+void TitleBar::set_middle_text(QString text)
+{
+  middle_text = std::move(text);
+  update_text();
+}
 bool is_light(const QColor& color)
 {
   return color.lightness() >= 127;
@@ -280,7 +305,7 @@ void TitleBar::update_titlebar()
   close_btn->setIcon(close_icon);
   min_btn->setIcon(min_icon);
   update_maxicon();
-  const QString ss = "background: " + background.name() + "; color: " + foreground.name() + ";";
+  const QString ss = "background: " % background.name() % "; color: " % foreground.name() % ";";
   titlebar_widget->setStyleSheet(ss);
   // Check the "mode" of the background color
   if (is_light(background))

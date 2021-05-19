@@ -36,6 +36,10 @@ public:
    */
   void set_left_text(QString text);
   /**
+   * Sets the middle text.
+   */
+  void set_middle_text(QString text);
+  /**
    * Sets foreground to color if foreground is true,
    * otherwise sets background to color.
    */
@@ -82,6 +86,7 @@ private:
   QFont title_font;
   QString left_text;
   QString right_text;
+  QString middle_text;
   QLabel* label;
   QHBoxLayout* layout;
   QWidget* titlebar_widget;

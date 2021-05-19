@@ -14,7 +14,10 @@
 #include <QWindow>
 #include <QSizeGrip>
 
-
+/// Default is just for logging purposes.
+constexpr auto default_handler = [](Window* w, const msgpack::object& obj) {
+  std::cout << obj << '\n';
+};
 //static void print_rect(const std::string& prefix, const QRect& rect)
 //{
   ////std::cout << prefix << "\n(" << rect.x() << ", " << rect.y() << ", " << rect.width() << ", " << rect.height() << ")\n";
@@ -96,6 +99,13 @@ void Window::register_handlers()
   set_handler("hl_group_set", [](Window* w, const msgpack::object& obj) {
     w->hl_state.group_set(obj);
   });
+  set_handler("default_colors_set", [](Window* w, const msgpack::object& obj) {
+    w->hl_state.default_colors_set(obj);
+  });
+  set_handler("option_set", [](Window* w, const msgpack::object& obj) {
+    std::cout << "Option_set: " << obj << '\n';
+  });
+  set_handler("grid_line", default_handler);
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);

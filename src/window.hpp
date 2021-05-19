@@ -57,6 +57,13 @@ public slots:
    * current file.
    */
   void handle_bufenter(msgpack::object file_args);
+  /**
+   * Handles a Neovim 'DirChanged' event
+   * Some things this would probably do would be:
+   * 1. Updating the titlebar text
+   * 2. Updating a file tree (if it ever gets added)
+   */
+  void dirchanged_titlebar(msgpack::object dir_args);
 private:
   // Taken from the manual test in the "custom window decorations" Qt article
   bool resizing;

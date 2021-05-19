@@ -11,9 +11,17 @@
 #include <QLabel>
 #include <QPushButton>
 
-
+/// MenuButtons for our TitleBar that inherit from QPushButton
+/// These have overridden the default hover events to provide
+/// support for custom resizing as well as background changing
+/// on hover. For more info, see the implementation
 class MenuButton;
 
+/// Custom titlebar implementation that operates on the Window class.
+/// The only "special" thing that makes it work with the Window class
+/// is that we call use its resize/move function, so if it is to work
+/// with another class, that class must have a function called
+/// "resize_or_move" that takes a const QPointF&.
 class TitleBar : public QWidget
 {
   Q_OBJECT

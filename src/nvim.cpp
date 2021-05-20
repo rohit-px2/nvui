@@ -138,7 +138,6 @@ void Nvim::read_output_sync()
   while(!closed)
   {
     msg_size = stdout_pipe.read(buf, buffer_maxsize);
-    cout << "Message size: " << msg_size << '\n';
     if (msg_size)
     {
       oh = msgpack::unpack(buf, msg_size);
@@ -170,7 +169,6 @@ void Nvim::read_output_sync()
         case Type::Notification:
         {
           assert(arr.size == 3);
-          cout << "Got a notification!\n";
           const std::string method = arr.ptr[1].as<std::string>();
           // Lock while reading
           Lock read_lock {notification_handlers_mutex};

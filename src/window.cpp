@@ -31,7 +31,7 @@ constexpr const char* func_name(const QLatin1String full_name)
   if (full_name.startsWith(QLatin1String("Window::")))
   {
     const char* s = full_name.latin1();
-    return (new QLatin1String(s + 8, full_name.size() - 8))->latin1();
+    return (QLatin1String(s + 8, full_name.size() - 8)).latin1();
   }
   else
   {
@@ -43,6 +43,7 @@ constexpr const char* func_name(const QLatin1String full_name)
 
 Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
 : QMainWindow(parent),
+  semaphore(1),
   resizing(false),
   title_bar(nullptr),
   nvim(nv)
@@ -70,7 +71,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
 void Window::handle_redraw(msgpack::object redraw_args)
 {
   using std::cout;
-  const auto oh = msgpack::clone(redraw_args);
+  const auto oh = deepcopy(redraw_args);
   const msgpack::object& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
   const auto& arr = obj.via.array;
@@ -105,7 +106,7 @@ void Window::handle_redraw(msgpack::object redraw_args)
 
 void Window::handle_bufenter(msgpack::object redraw_args)
 {
-  const auto oh = msgpack::clone(redraw_args);
+  const auto oh = deepcopy(redraw_args);
   const auto& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
   const auto& arr = obj.via.array;
@@ -118,7 +119,7 @@ void Window::handle_bufenter(msgpack::object redraw_args)
 
 void Window::dirchanged_titlebar(msgpack::object dir_args)
 {
-  const auto oh = msgpack::clone(dir_args);
+  const auto oh = deepcopy(dir_args);
   const auto& obj = oh.get();
   const auto& arr = obj.via.array;
   assert(arr.size == 2); // Local dir name, and full path (we might use later)
@@ -132,6 +133,23 @@ void Window::dirchanged_titlebar(msgpack::object dir_args)
 void Window::set_handler(std::string method, obj_ref_cb handler)
 {
   handlers[method] = handler;
+}
+
+msgpack_callback Window::sem_block(msgpack_callback func)
+{
+  return [this, func] (msgpack::object obj) {
+    semaphore.acquire();
+    func(obj);
+    semaphore.acquire();
+    semaphore.release();
+  };
+}
+
+msgpack::object_handle Window::deepcopy(const msgpack::object& obj)
+{
+  auto oh = msgpack::clone(obj);
+  semaphore.release();
+  return oh;
 }
 
 void Window::register_handlers()
@@ -154,21 +172,21 @@ void Window::register_handlers()
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);
-  nvim->set_notification_handler("redraw", [this](msgpack::object obj) {
+  nvim->set_notification_handler("redraw", sem_block([this](msgpack::object obj) {
     QMetaObject::invokeMethod(
       this, FUNCNAME(Window::handle_redraw), Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
     );
-  });
-  nvim->set_notification_handler("NVUI_BUFENTER", [this](msgpack::object obj) {
+  }));
+  nvim->set_notification_handler("NVUI_BUFENTER", sem_block([this](msgpack::object obj) {
     QMetaObject::invokeMethod(
       this, FUNCNAME(Window::handle_bufenter), Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
     );
-  });
-  nvim->set_notification_handler("NVUI_DIRCHANGED", [this](msgpack::object obj) {
+  }));
+  nvim->set_notification_handler("NVUI_DIRCHANGED", sem_block([this](msgpack::object obj) {
     QMetaObject::invokeMethod(
       this, FUNCNAME(Window::dirchanged_titlebar), Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
     );
-  });
+  }));
   /// This is pretty cool: We can receive gui events by running autocomamnds
   /// and passing in the relevant information
   nvim->command("autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))");

@@ -15,6 +15,7 @@
 #include <msgpack.hpp>
 #include <QEvent>
 #include <unordered_map>
+#include <QSemaphore>
 class Window;
 
 constexpr int tolerance = 10; //10px tolerance for resizing
@@ -65,6 +66,20 @@ public slots:
    */
   void dirchanged_titlebar(msgpack::object dir_args);
 private:
+  /**
+   * Wraps func around a blocking semaphore.
+   * When the returned function is called, the executing thread
+   * will be paused until the semaphore is released on a separate thread.
+   * (This is executed on the Neovim thread so that Qt thread has time to copy data)
+   * See nvim.hpp for msgpack_callback
+   */
+  msgpack_callback sem_block(msgpack_callback func);
+  /**
+   * Deep-copies obj, returning its object handle, and releases the
+   * semaphore.
+   */
+  msgpack::object_handle deepcopy(const msgpack::object& obj);
+  QSemaphore semaphore;
   // Taken from the manual test in the "custom window decorations" Qt article
   bool resizing;
   std::unique_ptr<TitleBar> title_bar;

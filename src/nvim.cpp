@@ -284,6 +284,7 @@ void Nvim::read_error_sync()
       std::string s(buffer.get(), bytes_read);
       std::cout << "Error occurred: " << s << '\n';
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   std::cout << "Error closed\n";
 }

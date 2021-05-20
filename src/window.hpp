@@ -20,7 +20,7 @@ class Window;
 
 constexpr int tolerance = 10; //10px tolerance for resizing
 
-using obj_ref_cb = void (*)(Window*, const msgpack::object&);
+using obj_ref_cb = void (*)(Window*, const msgpack::object*, std::uint32_t size);
 /// The main window class which holds the rest of the GUI components.
 /// Fundamentally, the Neovim area is just 1 big text box.
 /// However, there are additional features that we are trying to
@@ -77,8 +77,11 @@ private:
   /**
    * Deep-copies obj, returning its object handle, and releases the
    * semaphore.
+   * Inside of the function called by the notification handler,
+   * this should be the FIRST thing called, since the Nvim thread is
+   * waiting for the semaphore to release to continue its execution.
    */
-  msgpack::object_handle deepcopy(const msgpack::object& obj);
+  msgpack::object_handle safe_copy(const msgpack::object& obj);
   QSemaphore semaphore;
   // Taken from the manual test in the "custom window decorations" Qt article
   bool resizing;

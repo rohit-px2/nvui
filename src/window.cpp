@@ -1,6 +1,7 @@
 #include "window.hpp"
 #include "utils.hpp"
 #include <cassert>
+#include <chrono>
 #include <cstdio>
 #include <iostream>
 #include <QObject>
@@ -16,9 +17,9 @@
 #include <QSizeGrip>
 
 /// Default is just for logging purposes.
-constexpr auto default_handler = [](Window* w, const msgpack::object& obj) {
-  std::cout << obj << '\n';
-};
+//constexpr auto default_handler = [](Window* w, const msgpack::object& obj) {
+  //std::cout << obj << '\n';
+//};
 
 //static void print_rect(const std::string& prefix, const QRect& rect)
 //{
@@ -56,22 +57,12 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
   title_bar->set_separator(" • ");
 }
 
-// TODO: Improve thread safety.
-// Since msgpack::object only makes a shallow copy, if the data is updated
-// in the Nvim::read_output function our redraw_args will change, which will
-// be bad if we are still reading the data while that happens.
-// To counteract this we copy the data but if the data is updated while
-// the data is being copied, we will similarly run into an error.
-// This could be solved using locks, but since the data is passed through
-// a Qt event queue the amount of time that the Nvim thread is paused
-// may or may not be small.
-// I think the best way would be to create a copy of the data on the
-// Nvim thread and pass it to to Qt thread, but msgpack::object_handle
-// also cannot be copied so ???
 void Window::handle_redraw(msgpack::object redraw_args)
 {
   using std::cout;
-  const auto oh = deepcopy(redraw_args);
+  using Clock = std::chrono::high_resolution_clock;
+  const auto start = Clock::now();
+  const auto oh = safe_copy(redraw_args);
   const msgpack::object& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
   const auto& arr = obj.via.array;
@@ -79,7 +70,7 @@ void Window::handle_redraw(msgpack::object redraw_args)
   {
     // The params is an array of arrays, we should get
     // an array at index i
-    const msgpack::object& o = arr.ptr[i];
+    msgpack::object& o = arr.ptr[i];
     assert(o.type == msgpack::type::ARRAY);
     const auto& task = o.via.array;
     assert(task.size >= 1);
@@ -89,24 +80,24 @@ void Window::handle_redraw(msgpack::object redraw_args)
     const auto func_it = handlers.find(task_name);
     if (func_it != handlers.end())
     {
-      // This should only run once in most cases
-      // Sometimes, calls like "hl_attr_define" give more than one parameter
-      // The 0-th object was the task_name so we skip that
-      for(std::uint32_t j = 1; j < task.size; ++j)
-      {
-        func_it->second(this, task.ptr[j]);
-      }
+      func_it->second(this, task.ptr + 1, task.size - 1);
+      //for(std::uint32_t j = 1; j < task.size; ++j)
+      //{
+        //func_it->second(this, arr.ptr[j]);
+      //}
     }
     else
     {
       cout << "No handler found for task " << task_name << '\n';
     }
   }
+  const auto end = Clock::now();
+  std::cout << "Took " << std::chrono::duration<double, std::milli>(end - start).count() << " ms.\n";
 }
 
 void Window::handle_bufenter(msgpack::object redraw_args)
 {
-  const auto oh = deepcopy(redraw_args);
+  const auto oh = safe_copy(redraw_args);
   const auto& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
   const auto& arr = obj.via.array;
@@ -119,7 +110,7 @@ void Window::handle_bufenter(msgpack::object redraw_args)
 
 void Window::dirchanged_titlebar(msgpack::object dir_args)
 {
-  const auto oh = deepcopy(dir_args);
+  const auto oh = safe_copy(dir_args);
   const auto& obj = oh.get();
   const auto& arr = obj.via.array;
   assert(arr.size == 2); // Local dir name, and full path (we might use later)
@@ -145,7 +136,7 @@ msgpack_callback Window::sem_block(msgpack_callback func)
   };
 }
 
-msgpack::object_handle Window::deepcopy(const msgpack::object& obj)
+msgpack::object_handle Window::safe_copy(const msgpack::object& obj)
 {
   auto oh = msgpack::clone(obj);
   semaphore.release();
@@ -156,19 +147,29 @@ void Window::register_handlers()
 {
   // Set GUI handlers before we set the notification handler (since Nvim runs on a different thread,
   // it can be called any time)
-  set_handler("hl_attr_define", [](Window* w, const msgpack::object& obj) {
-    w->hl_state.define(obj);
+  set_handler("hl_attr_define", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    for(std::uint32_t i = 0; i < size; ++i)
+    {
+      w->hl_state.define(*obj);
+      ++obj;
+    }
   });
-  set_handler("hl_group_set", [](Window* w, const msgpack::object& obj) {
-    w->hl_state.group_set(obj);
+  set_handler("hl_group_set", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    for(std::uint32_t i = 0; i < size; ++i)
+    {
+      w->hl_state.group_set(*obj);
+      ++obj;
+    }
   });
-  set_handler("default_colors_set", [](Window* w, const msgpack::object& obj) {
-    w->hl_state.default_colors_set(obj);
+  set_handler("default_colors_set", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    for(std::uint32_t i = 0; i < size; ++i)
+    {
+      w->hl_state.default_colors_set(*obj);
+      ++obj;
+    }
   });
-  set_handler("option_set", default_handler);
-  set_handler("grid_line", default_handler);
-  set_handler("grid_resize", default_handler);
-  set_handler("grid_cursor_goto", default_handler);
+  set_handler("grid_line", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+  });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);
@@ -187,9 +188,9 @@ void Window::register_handlers()
       this, FUNCNAME(Window::dirchanged_titlebar), Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
     );
   }));
-  /// This is pretty cool: We can receive gui events by running autocomamnds
-  /// and passing in the relevant information
+  // Display current file in titlebar 
   nvim->command("autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))");
+  // Display current dir / update file tree on directory change
   nvim->command("autocmd DirChanged * call rpcnotify(1, 'NVUI_DIRCHANGED', fnamemodify(getcwd(), ':t'), getcwd())");
 }
 

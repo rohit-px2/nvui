@@ -5,11 +5,6 @@
 #include <string>
 #include <thread>
 
-void sleep(std::uint32_t ms)
-{
-  std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-}
-
 TEST_CASE("nvim_set_var sets variables properly", "[nvim_set_var]")
 {
   // One thing to note: nvim_set_var only works for setting strings and ints

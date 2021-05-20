@@ -27,6 +27,9 @@ public:
   HLAttr();
   HLAttr(int id);
   HLAttr(const HLAttr& other);
+  HLAttr(HLAttr&& other);
+  HLAttr& operator=(const HLAttr&) = default;
+  HLAttr& operator=(HLAttr&&);
 };
 
 /// Keeps the highlight state of Neovim

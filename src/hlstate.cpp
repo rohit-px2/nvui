@@ -88,6 +88,20 @@ HLAttr::HLAttr(const HLAttr& other)
   color_opts(other.color_opts),
   info(other.info) {}
 
+HLAttr::HLAttr(HLAttr&& other)
+: hl_id(other.hl_id),
+  font_opts(std::move(other.font_opts)),
+  color_opts(std::move(other.color_opts)),
+  info(other.info) {}
+
+HLAttr& HLAttr::operator=(HLAttr&& other)
+{
+  hl_id = other.hl_id;
+  font_opts = std::move(other.font_opts);
+  color_opts = std::move(other.color_opts);
+  info = std::move(other.info);
+  return *this;
+}
 
 /*
    HLState Implementation

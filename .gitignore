@@ -4,6 +4,8 @@ build/
 vcpkg/ 
 .cache/
 .vscode/
+.vs/
+out/
 compile_commands.json
 CMakeLists.txt.user
-build.cmd 
+*.cmd 

@@ -139,8 +139,7 @@ msgpack_callback Window::sem_block(msgpack_callback func)
 
 msgpack::object_handle Window::safe_copy(msgpack::object_handle* obj)
 {
-  msgpack::unique_ptr<msgpack::zone> z {std::move(obj->zone())};
-  auto oh = msgpack::object_handle(obj->get(), std::move(z));
+  msgpack::object_handle oh {obj->get(), std::move(obj->zone())};
   semaphore.release();
   return oh;
 }

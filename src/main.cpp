@@ -29,6 +29,7 @@ Q_DECLARE_METATYPE(msgpack::object_handle*)
 
 int main(int argc, char** argv)
 {
+  std::ios_base::sync_with_stdio(false);
   qRegisterMetaType<msgpack::object>();
   qRegisterMetaType<msgpack::object_handle*>();
   //const auto args = get_args(argc, argv);

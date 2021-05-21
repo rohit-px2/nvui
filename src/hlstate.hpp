@@ -1,29 +1,59 @@
 #ifndef NVUI_HLSTATE_HPP
 #define NVUI_HLSTATE_HPP
 
+#include <cstdint>
+#include <iostream>
 #include <unordered_map>
 #include <variant>
 #include <vector>
 #include <string>
 #include <msgpack.hpp>
 
-using hval = std::variant<int, bool>;
+using uint8 = std::uint8_t;
+using uint16 = std::uint16_t;
+using uint32 = std::uint32_t;
+
+enum Kind
+{
+  Syntax,
+  UI
+};
+
+struct Color
+{
+  uint8 r;
+  uint8 g;
+  uint8 b;
+  Color() = default;
+  Color(uint32 clr)
+    : r((clr & 0x00ff0000) >> 16),
+      g((clr & 0x0000ff00) >> 8),
+      b((clr & 0x000000ff))
+  {
+  }
+};
+
+struct AttrState
+{
+  Kind kind;
+  std::string hi_name;
+  std::string ui_name;
+  uint16 id;
+};
 
 /// Data for a single highlight attribute
 class HLAttr
 {
 public:
   int hl_id;
-  std::unordered_map<std::string, bool> font_opts {
-    {"underline", false},
-    {"italic", false},
-    {"undercurl", false},
-    {"bold", false},
-    {"strikethrough", false}
-  };
-  std::unordered_map<std::string, int> color_opts;
-  /// Keeps keys "kind", "ui_name", "hi_name"
-  std::unordered_map<std::string, std::string> info;
+  bool reverse;
+  Color special;
+  Color foreground;
+  Color background;
+  /// We don't need a detailed view of the highlight state
+  // right now so we won't do anything with this.
+  std::vector<AttrState> state;
+  float opacity = 1;
   HLAttr();
   HLAttr(int id);
   HLAttr(const HLAttr& other);

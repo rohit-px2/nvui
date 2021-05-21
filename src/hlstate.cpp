@@ -22,45 +22,51 @@ namespace hl
       // Keys are strings, vals could be bools or ints
       assert(kv.key.type == msgpack::type::STR);
       const std::string k = kv.key.as<std::string>();
-      switch(kv.val.type)
+      if (k == "foreground")
       {
-        case msgpack::type::BOOLEAN:
-        {
-          attr.font_opts[k] = kv.val.as<bool>();
-          break;
-        }
-        case msgpack::type::POSITIVE_INTEGER:
-        {
-          attr.color_opts[k] = kv.val.as<int>();
-          break;
-        }
-        default:
-        {
-          assert(!"hl_attr_define: invalid msgpack val type");
-        }
+        attr.foreground = Color(kv.val.as<std::uint32_t>());
+      } else if (k == "background")
+      {
+        attr.background = Color(kv.val.as<std::uint32_t>());
+      } else if (k == "reverse")
+      {
+        attr.reverse = true;
+      } else if (k == "special")
+      {
+        attr.special = Color(kv.val.as<std::uint32_t>());
       }
     }
     // Add info
     assert(arr.ptr[3].type == msgpack::type::ARRAY);
-    assert(arr.ptr[3].via.array.ptr[0].type == msgpack::type::MAP);
-    const msgpack::object_map& info = arr.ptr[3].via.array.ptr[0].via.map;
-    for(std::uint32_t i = 0; i < info.size; ++i)
+    const msgpack::object_array& info_arr = arr.ptr[3].via.array;
+    for(std::uint32_t i = 0; i < info_arr.size; ++i)
     {
-      const auto& kv = info.ptr[i];
-      assert(kv.key.type == msgpack::type::STR);
-      const std::string k = kv.key.as<std::string>();
-      switch(kv.val.type)
+      AttrState state;
+      assert(info_arr.ptr[i].type == msgpack::type::MAP);
+      const msgpack::object_map& mp = info_arr.ptr[i].via.map;
+      for(std::uint32_t j = 0; j < mp.size; ++j)
       {
-        case msgpack::type::STR:
+        const msgpack::object_kv& kv = mp.ptr[j];
+        assert(kv.key.type == msgpack::type::STR);
+        const std::string k = kv.key.as<std::string>();
+        if (k == "kind")
         {
-          attr.info[k] = kv.val.as<std::string>();
-          break;
+          state.kind = kv.val.as<std::string>() == "syntax" ? Kind::Syntax : Kind::UI;
         }
-        default:
+        else if (k == "hi_name")
         {
-          break;
+          state.hi_name = kv.val.as<decltype(state.hi_name)>();
+        }
+        else if (k == "ui_name")
+        {
+          state.ui_name = kv.val.as<decltype(state.ui_name)>();
+        }
+        else if (k == "id")
+        {
+          state.id = kv.val.as<decltype(state.id)>();
         }
       }
+      attr.state.push_back(std::move(state));
     }
     return attr;
   }
@@ -71,38 +77,34 @@ namespace hl
 */
 
 HLAttr::HLAttr()
-: hl_id(0),
-  font_opts(),
-  color_opts(),
-  info() {}
+: hl_id(0) {}
 
 HLAttr::HLAttr(int id)
-: hl_id(id),
-  font_opts(),
-  color_opts(),
-  info() {}
+: hl_id(id) {}
 
 HLAttr::HLAttr(const HLAttr& other)
-: hl_id(other.hl_id),
-  font_opts(other.font_opts),
-  color_opts(other.color_opts),
-  info(other.info) {}
+: hl_id(other.hl_id) {}
 
 HLAttr::HLAttr(HLAttr&& other)
 : hl_id(other.hl_id),
-  font_opts(std::move(other.font_opts)),
-  color_opts(std::move(other.color_opts)),
-  info(other.info) {}
+  reverse(other.reverse),
+  special(other.special),
+  foreground(other.foreground),
+  background(other.background),
+  state(std::move(other.state)),
+  opacity(other.opacity) {}
 
 HLAttr& HLAttr::operator=(HLAttr&& other)
 {
   hl_id = other.hl_id;
-  font_opts = std::move(other.font_opts);
-  color_opts = std::move(other.color_opts);
-  info = std::move(other.info);
+  foreground = other.foreground;
+  background = other.background;
+  special = other.special;
+  reverse = other.reverse;
+  state = std::move(other.state);
+  opacity = other.opacity;
   return *this;
 }
-
 /*
    HLState Implementation
 */
@@ -149,14 +151,9 @@ void HLState::default_colors_set(const msgpack::object& obj)
   assert(obj.type == msgpack::type::ARRAY);
   const msgpack::object_array& params = obj.via.array;
   assert(params.size >= 3);
-  HLAttr attr {0}; // 0 for default?
-  int foreground = params.ptr[0].as<int>();
-  int background = params.ptr[1].as<int>();
-  int special = params.ptr[2].as<int>();
-  attr.color_opts["foreground"] = foreground;
-  attr.color_opts["background"] = background;
-  attr.color_opts["special"] = special;
-  default_colors = std::move(attr);
+  default_colors.foreground = params.ptr[0].as<std::uint32_t>();
+  default_colors.background = params.ptr[1].as<std::uint32_t>();
+  default_colors.special = params.ptr[2].as<std::uint32_t>();
 }
 
 
@@ -169,7 +166,11 @@ const HLAttr& HLState::default_colors_get() const
 void HLState::define(const msgpack::object& obj)
 {
   HLAttr attr = hl::hl_attr_from_object(obj);
-  set_id_attr(attr.hl_id, std::move(attr));
+  int id = attr.hl_id;
+  for(const AttrState& s : attr.state)
+  {
+    set_name_id(s.hi_name, id);
+  }
 }
 
 

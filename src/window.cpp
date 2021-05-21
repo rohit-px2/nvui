@@ -61,8 +61,10 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
 void Window::handle_redraw(msgpack::object_handle* redraw_args)
 {
   using std::cout;
+#ifndef NDEBUG
   using Clock = std::chrono::high_resolution_clock;
   const auto start = Clock::now();
+#endif
   const auto oh = safe_copy(redraw_args);
   const msgpack::object& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
@@ -92,8 +94,10 @@ void Window::handle_redraw(msgpack::object_handle* redraw_args)
       cout << "No handler found for task " << task_name << '\n';
     }
   }
+#ifndef NDEBUG
   const auto end = Clock::now();
   std::cout << "Took " << std::chrono::duration<double, std::milli>(end - start).count() << " ms.\n";
+#endif
 }
 
 void Window::handle_bufenter(msgpack::object_handle* bufe_args)

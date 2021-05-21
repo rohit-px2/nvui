@@ -43,6 +43,11 @@ public:
     setStyleSheet(style);
   }
 
+  void set_ss(QString new_default)
+  {
+    style = std::move(new_default);
+  }
+
   // Should only be used when we switch from light mode -> dark mode
   // and vice versa
   void set_hov_ss(QString new_hov)

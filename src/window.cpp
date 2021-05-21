@@ -15,6 +15,7 @@
 #include <QIcon>
 #include <QWindow>
 #include <QSizeGrip>
+#include <thread>
 
 /// Default is just for logging purposes.
 //constexpr auto default_handler = [](Window* w, const msgpack::object& obj) {
@@ -57,7 +58,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
   title_bar->set_separator(" • ");
 }
 
-void Window::handle_redraw(msgpack::object redraw_args)
+void Window::handle_redraw(msgpack::object_handle* redraw_args)
 {
   using std::cout;
   using Clock = std::chrono::high_resolution_clock;
@@ -65,7 +66,7 @@ void Window::handle_redraw(msgpack::object redraw_args)
   const auto oh = safe_copy(redraw_args);
   const msgpack::object& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
-  const auto& arr = obj.via.array;
+  const auto& arr = obj.via.array.ptr[2].via.array;
   for(std::uint32_t i = 0; i < arr.size; ++i)
   {
     // The params is an array of arrays, we should get
@@ -95,12 +96,12 @@ void Window::handle_redraw(msgpack::object redraw_args)
   std::cout << "Took " << std::chrono::duration<double, std::milli>(end - start).count() << " ms.\n";
 }
 
-void Window::handle_bufenter(msgpack::object redraw_args)
+void Window::handle_bufenter(msgpack::object_handle* bufe_args)
 {
-  const auto oh = safe_copy(redraw_args);
+  const auto oh = safe_copy(bufe_args);
   const auto& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
-  const auto& arr = obj.via.array;
+  const auto& arr = obj.via.array.ptr[2].via.array;
   assert(arr.size == 1);
   const msgpack::object& file_obj = arr.ptr[0];
   assert(file_obj.type == msgpack::type::STR);
@@ -108,11 +109,11 @@ void Window::handle_bufenter(msgpack::object redraw_args)
   title_bar->set_right_text(file_name);
 }
 
-void Window::dirchanged_titlebar(msgpack::object dir_args)
+void Window::dirchanged_titlebar(msgpack::object_handle* dir_args)
 {
   const auto oh = safe_copy(dir_args);
   const auto& obj = oh.get();
-  const auto& arr = obj.via.array;
+  const auto& arr = obj.via.array.ptr[2].via.array;
   assert(arr.size == 2); // Local dir name, and full path (we might use later)
   assert(arr.ptr[0].type == msgpack::type::STR);
   const QString new_dir = QString::fromStdString(arr.ptr[0].as<std::string>());
@@ -128,7 +129,7 @@ void Window::set_handler(std::string method, obj_ref_cb handler)
 
 msgpack_callback Window::sem_block(msgpack_callback func)
 {
-  return [this, func] (msgpack::object obj) {
+  return [this, func](msgpack::object_handle* obj) {
     semaphore.acquire();
     func(obj);
     semaphore.acquire();
@@ -136,11 +137,11 @@ msgpack_callback Window::sem_block(msgpack_callback func)
   };
 }
 
-msgpack::object_handle Window::safe_copy(const msgpack::object& obj)
+msgpack::object_handle Window::safe_copy(msgpack::object_handle* obj)
 {
-  auto oh = msgpack::clone(obj);
+  msgpack::unique_ptr<msgpack::zone> z {std::move(obj->zone())};
   semaphore.release();
-  return oh;
+  return msgpack::object_handle(obj->get(), std::move(z));
 }
 
 void Window::register_handlers()
@@ -173,19 +174,19 @@ void Window::register_handlers()
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);
-  nvim->set_notification_handler("redraw", sem_block([this](msgpack::object obj) {
+  nvim->set_notification_handler("redraw", sem_block([this](msgpack::object_handle* obj) {
     QMetaObject::invokeMethod(
-      this, FUNCNAME(Window::handle_redraw), Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
+      this, FUNCNAME(Window::handle_redraw), Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
-  nvim->set_notification_handler("NVUI_BUFENTER", sem_block([this](msgpack::object obj) {
+  nvim->set_notification_handler("NVUI_BUFENTER", sem_block([this](msgpack::object_handle* obj) {
     QMetaObject::invokeMethod(
-      this, FUNCNAME(Window::handle_bufenter), Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
+      this, FUNCNAME(Window::handle_bufenter), Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
-  nvim->set_notification_handler("NVUI_DIRCHANGED", sem_block([this](msgpack::object obj) {
+  nvim->set_notification_handler("NVUI_DIRCHANGED", sem_block([this](msgpack::object_handle* obj) {
     QMetaObject::invokeMethod(
-      this, FUNCNAME(Window::dirchanged_titlebar), Qt::QueuedConnection, Q_ARG(msgpack::object, obj)
+      this, FUNCNAME(Window::dirchanged_titlebar), Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
   // Display current file in titlebar 

@@ -17,7 +17,7 @@ enum Type : std::uint64_t {
 };
 enum Notifications : std::uint8_t;
 enum Request : std::uint8_t;
-using msgpack_callback = std::function<void (msgpack::object)>;
+using msgpack_callback = std::function<void (msgpack::object_handle*)>;
 /// The Nvim class contains an embedded Neovim instance and
 /// some useful functions to receive output and send input
 /// using the msgpack-rpc protocol.
@@ -83,7 +83,7 @@ public:
    */
   void set_notification_handler(
     const std::string& method,
-    std::function<void (msgpack::object)> handler
+    msgpack_callback handler
   );
   /**
    * Sets a request handler for the given method.
@@ -91,7 +91,7 @@ public:
    */
   void set_request_handler(
     const std::string& method,
-    std::function<void (msgpack::object)> handler
+    msgpack_callback handler
   );
   /**
    * Runs cmd in Neovim.

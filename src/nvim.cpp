@@ -162,7 +162,7 @@ void Nvim::read_output_sync()
           if (func_it != request_handlers.end())
           {
             // Params is the last element in the 4-long array
-            func_it->second(arr.ptr[3]);
+            func_it->second(&oh);
           }
           break;
         }
@@ -176,7 +176,7 @@ void Nvim::read_output_sync()
           if (func_it != notification_handlers.end())
           {
             // Call handler on the 3rd object (params)
-            func_it->second(arr.ptr[2]);
+            func_it->second(&oh);
           }
           break;
         }

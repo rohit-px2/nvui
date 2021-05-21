@@ -25,10 +25,12 @@ vector<string> get_args(int argc, char** argv)
 }
 
 Q_DECLARE_METATYPE(msgpack::object)
+Q_DECLARE_METATYPE(msgpack::object_handle*)
 
 int main(int argc, char** argv)
 {
   qRegisterMetaType<msgpack::object>();
+  qRegisterMetaType<msgpack::object_handle*>();
   //const auto args = get_args(argc, argv);
   QApplication app {argc, argv};
   try

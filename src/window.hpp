@@ -47,7 +47,7 @@ public slots:
    * TODO: Decide parameter type and how this will be called
    * (signals etc.)
    */
-  void handle_redraw(msgpack::object redraw_args);
+  void handle_redraw(msgpack::object_handle* dir_args);
   /**
    * Starts a resizing or moving operation depending on the coordinates
    * of p.
@@ -57,14 +57,14 @@ public slots:
    * Handles a Neovim 'BufEnter' event, updating the titlebar with the
    * current file.
    */
-  void handle_bufenter(msgpack::object file_args);
+  void handle_bufenter(msgpack::object_handle* dir_args);
   /**
    * Handles a Neovim 'DirChanged' event
    * Some things this would probably do would be:
    * 1. Updating the titlebar text
    * 2. Updating a file tree (if it ever gets added)
    */
-  void dirchanged_titlebar(msgpack::object dir_args);
+  void dirchanged_titlebar(msgpack::object_handle* dir_args);
 private:
   /**
    * Wraps func around a blocking semaphore.
@@ -81,9 +81,8 @@ private:
    * this should be the FIRST thing called, since the Nvim thread is
    * waiting for the semaphore to release to continue its execution.
    */
-  msgpack::object_handle safe_copy(const msgpack::object& obj);
+  msgpack::object_handle safe_copy(msgpack::object_handle* obj);
   QSemaphore semaphore;
-  // Taken from the manual test in the "custom window decorations" Qt article
   bool resizing;
   std::unique_ptr<TitleBar> title_bar;
   HLState hl_state;

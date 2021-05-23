@@ -119,6 +119,7 @@ void Nvim::resize(const int new_rows, const int new_cols)
 
 static const std::unordered_map<std::string, bool> default_capabilities {
   {"ext_linegrid", true},
+  {"ext_multigrid", true},
   {"ext_popupmenu", true},
   {"ext_cmdline", true},
   {"ext_hlstate", true}
@@ -144,7 +145,7 @@ void Nvim::read_output_sync()
       const msgpack::object& obj = oh.get();
       // According to msgpack-rpc spec, this must be an array
       assert(obj.type == msgpack::type::ARRAY);
-      const msgpack::object_array arr = obj.via.array;
+      const msgpack::object_array& arr = obj.via.array;
       // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
       assert(arr.size == 3 || arr.size == 4);
       const std::uint32_t type = arr.ptr[0].as<std::uint32_t>();

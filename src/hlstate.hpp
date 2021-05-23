@@ -41,10 +41,21 @@ struct AttrState
   uint16 id;
 };
 
+enum FontOpts : std::uint8_t
+{
+  Normal = 1,
+  Bold = 2,
+  Italic = 4,
+  Underline = 16,
+  Strikethrough = 32,
+  Undercurl = 64
+};
+
 /// Data for a single highlight attribute
 class HLAttr
 {
 public:
+  std::uint8_t font_opts = FontOpts::Normal;
   int hl_id;
   bool reverse;
   Color special;

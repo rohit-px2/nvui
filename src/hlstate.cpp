@@ -25,15 +25,38 @@ namespace hl
       if (k == "foreground")
       {
         attr.foreground = Color(kv.val.as<std::uint32_t>());
-      } else if (k == "background")
+      }
+      else if (k == "background")
       {
         attr.background = Color(kv.val.as<std::uint32_t>());
-      } else if (k == "reverse")
+      }
+      else if (k == "reverse")
       {
-        attr.reverse = true;
-      } else if (k == "special")
+        attr.reverse = kv.val.as<bool>();
+      }
+      else if (k == "special")
       {
         attr.special = Color(kv.val.as<std::uint32_t>());
+      }
+      else if (k == "italic")
+      {
+        attr.font_opts |= FontOpts::Italic * kv.val.as<bool>();
+      } 
+      else if (k == "bold")
+      {
+        attr.font_opts |= FontOpts::Bold * kv.val.as<bool>();
+      }
+      else if (k == "underline")
+      {
+        attr.font_opts |= FontOpts::Underline * kv.val.as<bool>();
+      }
+      else if (k == "strikethrough")
+      {
+        attr.font_opts |= FontOpts::Strikethrough * kv.val.as<bool>();
+      }
+      else if (k == "undercurl")
+      {
+        attr.font_opts |= FontOpts::Undercurl;
       }
     }
     // Add info

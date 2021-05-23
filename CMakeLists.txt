@@ -11,7 +11,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 project(nvui)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(msgpack CONFIG REQUIRED)
@@ -25,6 +25,9 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 file(GLOB SOURCES
+  src/msgpack_overrides.hpp
+  src/editor.hpp
+  src/editor.cpp
   src/titlebar.hpp
   src/titlebar.cpp
   src/utils.cpp
@@ -38,7 +41,7 @@ file(GLOB SOURCES
 find_package(Boost COMPONENTS filesystem thread REQUIRED)
 add_executable(nvui "src/main.cpp" ${SOURCES})
 target_link_libraries(nvui PRIVATE msgpackc msgpackc-cxx)
-target_link_libraries(nvui PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg)
+target_link_libraries(nvui PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg Qt5::CorePrivate)
 target_include_directories(nvui PRIVATE
   "${PROJECT_SOURCE_DIR}/src"
 )
@@ -50,6 +53,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 file(GLOB TEST_SOURCES
+  src/msgpack_overrides.hpp
+  src/editor.hpp
+  src/editor.cpp
   src/titlebar.hpp
   src/titlebar.cpp
   src/utils.hpp

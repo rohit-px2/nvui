@@ -7,6 +7,7 @@
 #include <QFont>
 #include <QToolBar>
 #include <QLayout>
+#include "editor.hpp"
 #include "nvim.hpp"
 #include "titlebar.hpp"
 #include "hlstate.hpp"
@@ -88,6 +89,7 @@ private:
   HLState hl_state;
   std::shared_ptr<Nvim> nvim;
   std::unordered_map<std::string, obj_ref_cb> handlers;
+  EditorArea editor_area;
 protected:
   void mousePressEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;

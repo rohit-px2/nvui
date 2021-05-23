@@ -1,3 +1,4 @@
+#include "msgpack_overrides.hpp"
 #include "window.hpp"
 #include "utils.hpp"
 #include <cassert>
@@ -15,6 +16,7 @@
 #include <QIcon>
 #include <QWindow>
 #include <QSizeGrip>
+#include <sstream>
 #include <thread>
 
 /// Default is just for logging purposes.
@@ -27,7 +29,7 @@
   ////std::cout << prefix << "\n(" << rect.x() << ", " << rect.y() << ", " << rect.width() << ", " << rect.height() << ")\n";
 //}
 
-constexpr const char* func_name(const QLatin1String full_name)
+static constexpr const char* func_name(const QLatin1String full_name)
 {
   // Can't use QString/std::string at compile time in c++17
   if (full_name.startsWith(QLatin1String("Window::")))
@@ -48,7 +50,9 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
   semaphore(1),
   resizing(false),
   title_bar(nullptr),
-  nvim(nv)
+  hl_state(),
+  nvim(nv),
+  editor_area(nullptr, &hl_state)
 {
   setMouseTracking(true);
   setWindowFlags(Qt::FramelessWindowHint);
@@ -56,6 +60,8 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
   title_bar = std::make_unique<TitleBar>("nvui", this);
   setWindowIcon(QIcon("../assets/appicon.png"));
   title_bar->set_separator(" • ");
+  // We'll do this later
+  //setCentralWidget(&editor_area);
 }
 
 void Window::handle_redraw(msgpack::object_handle* redraw_args)
@@ -109,7 +115,8 @@ void Window::handle_bufenter(msgpack::object_handle* bufe_args)
   assert(arr.size == 1);
   const msgpack::object& file_obj = arr.ptr[0];
   assert(file_obj.type == msgpack::type::STR);
-  const QString file_name = QString::fromStdString(file_obj.as<std::string>());
+  //QString&& file_name = QString::fromStdString(file_obj.as<std::string>());
+  QString&& file_name = file_obj.as<QString>();
   title_bar->set_right_text(file_name);
 }
 
@@ -120,7 +127,8 @@ void Window::dirchanged_titlebar(msgpack::object_handle* dir_args)
   const auto& arr = obj.via.array.ptr[2].via.array;
   assert(arr.size == 2); // Local dir name, and full path (we might use later)
   assert(arr.ptr[0].type == msgpack::type::STR);
-  const QString new_dir = QString::fromStdString(arr.ptr[0].as<std::string>());
+  //QString&& new_dir = QString::fromStdString(arr.ptr[0].as<std::string>());
+  QString&& new_dir = arr.ptr[0].as<QString>();
   //assert(arr.ptr[1].type == msgpack::type::STR);
   //const QString full_dir = QString::fromStdString(arr.ptr[1].as<std::string>());
   title_bar->set_middle_text(new_dir);
@@ -155,25 +163,32 @@ void Window::register_handlers()
   set_handler("hl_attr_define", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     for(std::uint32_t i = 0; i < size; ++i)
     {
-      w->hl_state.define(*obj);
-      ++obj;
+      w->hl_state.define(obj[i]);
     }
   });
   set_handler("hl_group_set", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     for(std::uint32_t i = 0; i < size; ++i)
     {
-      w->hl_state.group_set(*obj);
-      ++obj;
+      w->hl_state.group_set(obj[i]);
     }
   });
   set_handler("default_colors_set", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     for(std::uint32_t i = 0; i < size; ++i)
     {
-      w->hl_state.default_colors_set(*obj);
-      ++obj;
+      w->hl_state.default_colors_set(obj[i]);
     }
   });
   set_handler("grid_line", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.grid_line(obj, size);
+  });
+  set_handler("option_set", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.option_set(obj, size);
+  });
+  set_handler("grid_resize", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.grid_resize(obj, size);
+  });
+  set_handler("flush", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.flush();
   });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.

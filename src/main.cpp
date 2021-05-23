@@ -16,8 +16,17 @@
 using std::string;
 using std::vector;
 
-constexpr int DEFAULT_ROWS = 200;
-constexpr int DEFAULT_COLS = 50;
+template<typename Func>
+void do_thing_if_has_opt(const std::vector<string>& v, const std::string& s, const Func& f)
+{
+  for(const auto& e : v)
+  {
+    if (e.rfind(s, 0) == 0)
+    {
+      f(e);
+    }
+  }
+}
 
 vector<string> get_args(int argc, char** argv)
 {
@@ -27,12 +36,28 @@ vector<string> get_args(int argc, char** argv)
 Q_DECLARE_METATYPE(msgpack::object)
 Q_DECLARE_METATYPE(msgpack::object_handle*)
 
+const std::string geometry_opt = "--geometry=";
 int main(int argc, char** argv)
 {
+  int rows = 100;
+  int cols = 50;
   std::ios_base::sync_with_stdio(false);
   qRegisterMetaType<msgpack::object>();
   qRegisterMetaType<msgpack::object_handle*>();
-  //const auto args = get_args(argc, argv);
+  const auto args = get_args(argc, argv);
+  // Get "size" option
+  do_thing_if_has_opt(args, geometry_opt, [&](std::string size_opt) {
+    size_opt = size_opt.substr(geometry_opt.size());
+    std::size_t pos = size_opt.find('x');
+    if (pos != std::string::npos)
+    {
+      int new_rows = std::stoi(size_opt.substr(0, pos - 1));
+      int new_cols = std::stoi(size_opt.substr(pos + 1));
+      std::cout << "Custom size: (" << rows << ", " << cols << ")\n";
+      rows = new_rows;
+      cols = new_cols;
+    }
+  });
   QApplication app {argc, argv};
   try
   {
@@ -41,7 +66,7 @@ int main(int argc, char** argv)
     w.register_handlers();
     w.show();
     nvim->set_var("nvui", 1);
-    nvim->attach_ui(DEFAULT_ROWS, DEFAULT_COLS);
+    nvim->attach_ui(rows, cols);
     return app.exec();
   }
   catch (const std::exception& e)

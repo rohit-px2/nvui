@@ -40,9 +40,11 @@ public:
    */
   bool running();
   /**
-   * TODO: Add documentation
+   * Send an "nvim_ui_try_resize" message to Neovim, indicating to Neovim to resize
+   * its area (in terms of rows and columns of text).
+   * You should have called attach_ui before calling this.
    */
-  void resize(const int new_rows, const int new_cols);
+  void resize(const int new_width, const int new_height);
   /**
    * TODO: Add documentation
    */

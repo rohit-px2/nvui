@@ -112,9 +112,9 @@ void Nvim::send_notification(const std::string& method, const T& params)
   }
 }
 
-void Nvim::resize(const int new_rows, const int new_cols)
+void Nvim::resize(const int new_width, const int new_height)
 {
-  send_notification("nvim_ui_try_resize", std::make_tuple(new_rows, new_cols));
+  send_notification("nvim_ui_try_resize", std::make_tuple(new_width, new_height));
 }
 
 static const std::unordered_map<std::string, bool> default_capabilities {

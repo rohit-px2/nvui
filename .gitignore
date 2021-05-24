@@ -8,4 +8,5 @@ vcpkg/
 out/
 compile_commands.json
 CMakeLists.txt.user
-*.cmd 
+*.cmd
+.ccls-cache/

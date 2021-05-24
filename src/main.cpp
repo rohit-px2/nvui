@@ -19,12 +19,12 @@ using std::vector;
 template<typename Func>
 void do_thing_if_has_opt(const std::vector<string>& v, const std::string& s, const Func& f)
 {
-  for(const auto& e : v)
+  const auto it = std::find_if(v.begin(), v.end(), [s](const auto& e) {
+    return e.rfind(s, 0) == 0;
+  });
+  if (it != v.end())
   {
-    if (e.rfind(s, 0) == 0)
-    {
-      f(e);
-    }
+    f(*it);
   }
 }
 
@@ -48,12 +48,11 @@ int main(int argc, char** argv)
   // Get "size" option
   do_thing_if_has_opt(args, geometry_opt, [&](std::string size_opt) {
     size_opt = size_opt.substr(geometry_opt.size());
-    std::size_t pos = size_opt.find('x');
+    std::size_t pos = size_opt.find("x");
     if (pos != std::string::npos)
     {
-      int new_rows = std::stoi(size_opt.substr(0, pos - 1));
+      int new_rows = std::stoi(size_opt.substr(0, pos));
       int new_cols = std::stoi(size_opt.substr(pos + 1));
-      std::cout << "Custom size: (" << rows << ", " << cols << ")\n";
       rows = new_rows;
       cols = new_cols;
     }

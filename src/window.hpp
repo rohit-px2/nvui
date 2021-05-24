@@ -87,9 +87,11 @@ private:
   bool resizing;
   std::unique_ptr<TitleBar> title_bar;
   HLState hl_state;
-  std::shared_ptr<Nvim> nvim;
+  Nvim* nvim;
   std::unordered_map<std::string, obj_ref_cb> handlers;
   EditorArea editor_area;
+signals:
+  void resize_done(QSize size);
 protected:
   void mousePressEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;

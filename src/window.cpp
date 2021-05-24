@@ -51,10 +51,11 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   resizing(false),
   title_bar(nullptr),
   hl_state(),
-  nvim(nv),
-  editor_area(nullptr, &hl_state)
+  nvim(nv.get()),
+  editor_area(nullptr, &hl_state, nvim)
 {
   setMouseTracking(true);
+  QObject::connect(this, &Window::resize_done, &editor_area, &EditorArea::resized);
   setWindowFlags(Qt::FramelessWindowHint);
   const auto font_dims = editor_area.font_dimensions();
   resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
@@ -299,6 +300,7 @@ void Window::resize_or_move(const QPointF& p)
   if (edges != 0)
   {
     if (handle->startSystemResize(edges)) {
+      resizing = true;
     }
     else
     {
@@ -329,6 +331,7 @@ void Window::mouseReleaseEvent(QMouseEvent* event)
   {
     resizing = false;
     setCursor(Qt::ArrowCursor);
+    emit resize_done(size());
   }
 }
 

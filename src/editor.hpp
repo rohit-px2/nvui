@@ -11,6 +11,7 @@
 #include <QPaintEvent>
 #include <QFontDatabase>
 #include "hlstate.hpp"
+#include "nvim.hpp"
 
 // For easily changing the type of 'char' in a cell
 using grid_char = QString;
@@ -40,7 +41,8 @@ class EditorArea : public QWidget
 public:
   EditorArea(
     QWidget* parent = nullptr,
-    const HLState* state = nullptr
+    const HLState* state = nullptr,
+    Nvim* nv = nullptr
   );
   /**
    * Handles a Neovim "grid_resize" event.
@@ -79,6 +81,7 @@ private:
   std::uint16_t font_width;
   std::uint16_t font_height;
   QFont font;
+  Nvim* nvim;
   /**
    * Sets the current font to new_font.
    */
@@ -122,6 +125,11 @@ private:
    * Updates the font metrics, such as font_width and font_height.
    */
   void update_font_metrics();
+public slots:
+  /**
+   * Handle a window resize.
+   */
+  void resized(QSize size);
 protected:
   void paintEvent(QPaintEvent* event);
 };

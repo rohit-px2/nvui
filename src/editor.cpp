@@ -14,9 +14,10 @@
 #include <tuple>
 #include <utility>
 
-EditorArea::EditorArea(QWidget* parent, const HLState* hl_state)
+EditorArea::EditorArea(QWidget* parent, const HLState* hl_state, Nvim* nv)
 : QWidget(parent),
-  state(hl_state)
+  state(hl_state),
+  nvim(nv)
 {
   font.setPixelSize(15);
   update_font_metrics();
@@ -308,4 +309,12 @@ void EditorArea::paintEvent(QPaintEvent* event)
 std::tuple<std::uint16_t, std::uint16_t> EditorArea::font_dimensions() const
 {
   return std::make_tuple(font_width, font_height);
+}
+
+void EditorArea::resized(QSize size)
+{
+  std::cout << "Done resizing?\n";
+  const QSize new_rc = to_rc(size);
+  assert(nvim);
+  nvim->resize(new_rc.width(), new_rc.height());
 }

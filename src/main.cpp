@@ -39,8 +39,8 @@ Q_DECLARE_METATYPE(msgpack::object_handle*)
 const std::string geometry_opt = "--geometry=";
 int main(int argc, char** argv)
 {
-  int rows = 100;
-  int cols = 50;
+  int width = 100;
+  int height = 50;
   std::ios_base::sync_with_stdio(false);
   qRegisterMetaType<msgpack::object>();
   qRegisterMetaType<msgpack::object_handle*>();
@@ -51,10 +51,10 @@ int main(int argc, char** argv)
     std::size_t pos = size_opt.find("x");
     if (pos != std::string::npos)
     {
-      int new_rows = std::stoi(size_opt.substr(0, pos));
-      int new_cols = std::stoi(size_opt.substr(pos + 1));
-      rows = new_rows;
-      cols = new_cols;
+      int new_width = std::stoi(size_opt.substr(0, pos));
+      int new_height = std::stoi(size_opt.substr(pos + 1));
+      width = new_width;
+      height = new_height;
     }
   });
   QApplication app {argc, argv};
@@ -65,7 +65,7 @@ int main(int argc, char** argv)
     w.register_handlers();
     w.show();
     nvim->set_var("nvui", 1);
-    nvim->attach_ui(rows, cols);
+    nvim->attach_ui(width, height);
     return app.exec();
   }
   catch (const std::exception& e)

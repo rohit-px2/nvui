@@ -18,6 +18,8 @@ EditorArea::EditorArea(QWidget* parent, const HLState* hl_state)
 : QWidget(parent),
   state(hl_state)
 {
+  font.setPixelSize(15);
+  update_font_metrics();
 }
 
 // uint32_t is enough to represent any code point
@@ -247,15 +249,7 @@ void EditorArea::set_guifont(const QString& new_font)
     {
       font.setItalic(true);
     }
-    if (font_opts & FontOpts::Strikethrough)
-    {
-      font.setStrikeOut(true);
-    }
-    if (font_opts & FontOpts::Underline)
-    {
-      font.setUnderline(true);
-    }
-}
+  }
   update_font_metrics();
   // TODO: Handle multiple fonts (font fallback)
 }
@@ -294,8 +288,24 @@ QRect EditorArea::to_pixels(
 void EditorArea::update_font_metrics()
 {
   QFontMetricsF metrics {font};
-  font_height = metrics.ascent() + metrics.descent();
+  font_height = metrics.ascent() + metrics.descent() + linespace;
+  // NOTE: This will only work for monospace fonts since we're basing every char's
+  // spocing off a single char.
   constexpr QChar any_char = 'a';
-  font_width = metrics.horizontalAdvance(any_char);
-  update(); // Font / metrics were changed
+  font_width = metrics.horizontalAdvance(any_char) + charspace;
+}
+
+QSize EditorArea::to_rc(const QSize& pixel_size)
+{
+  return {pixel_size.width() / font_width, pixel_size.height() / font_height};
+}
+
+void EditorArea::paintEvent(QPaintEvent* event)
+{
+  std::cout << "Paint event called\n";
+}
+
+std::tuple<std::uint16_t, std::uint16_t> EditorArea::font_dimensions() const
+{
+  return std::make_tuple(font_width, font_height);
 }

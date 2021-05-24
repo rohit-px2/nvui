@@ -30,7 +30,7 @@ class Window : public QMainWindow
 {
   Q_OBJECT
 public:
-  Window(QWidget* parent = nullptr, std::shared_ptr<Nvim> nv = nullptr);
+  Window(QWidget* parent = nullptr, std::shared_ptr<Nvim> nv = nullptr, int width = 0, int height = 0);
   /**
    * Registers all of the relevant gui event handlers
    * for handling Neovim redraw events, as well as a Neovim

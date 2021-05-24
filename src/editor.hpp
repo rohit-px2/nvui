@@ -63,6 +63,10 @@ public:
    * This paints the internal buffer onto the window.
    */
   void flush();
+  /**
+   * Returns the font width and font height.
+   */
+  std::tuple<std::uint16_t, std::uint16_t> font_dimensions() const;
 private:
   QFontDatabase font_db;
   std::uint16_t charspace = 0;
@@ -110,12 +114,16 @@ private:
     const std::uint16_t end_col
   );
   /**
-   * Updates the font metrics, such as font_width and font_height,
-   * and sends a call to redraw the entire editor area.
-   * This should be called after the font was changed.
+   * Converts a QSize from pixel size to rows and columns
+   * based on the current font size.
+   */
+  QSize to_rc(const QSize& pixel_size);
+  /**
+   * Updates the font metrics, such as font_width and font_height.
    */
   void update_font_metrics();
 protected:
+  void paintEvent(QPaintEvent* event);
 };
 
 #endif // NVUI_EDITOR_HPP

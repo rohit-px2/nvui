@@ -45,7 +45,7 @@ static constexpr const char* func_name(const QLatin1String full_name)
 
 #define FUNCNAME(func) (void(&func), func_name(QLatin1String(#func)))
 
-Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
+Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
 : QMainWindow(parent),
   semaphore(1),
   resizing(false),
@@ -56,7 +56,8 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv)
 {
   setMouseTracking(true);
   setWindowFlags(Qt::FramelessWindowHint);
-  resize(640, 480);
+  const auto font_dims = editor_area.font_dimensions();
+  resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
   title_bar = std::make_unique<TitleBar>("nvui", this);
   setWindowIcon(QIcon("../assets/appicon.png"));
   title_bar->set_separator(" • ");

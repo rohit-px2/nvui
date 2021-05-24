@@ -61,7 +61,7 @@ int main(int argc, char** argv)
   try
   {
     const auto nvim = std::make_shared<Nvim>();
-    Window w {nullptr, nvim};
+    Window w {nullptr, nvim, width, height};
     w.register_handlers();
     w.show();
     nvim->set_var("nvui", 1);

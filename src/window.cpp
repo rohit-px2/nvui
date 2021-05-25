@@ -304,6 +304,7 @@ void Window::resize_or_move(const QPointF& p)
   {
     if (handle->startSystemResize(edges)) {
       resizing = true;
+      editor_area.setUpdatesEnabled(false);
     }
     else
     {
@@ -313,6 +314,8 @@ void Window::resize_or_move(const QPointF& p)
   else
   {
     if (handle->startSystemMove()) {
+      moving = true;
+      editor_area.setUpdatesEnabled(false);
     }
     else
     {
@@ -333,8 +336,13 @@ void Window::mouseReleaseEvent(QMouseEvent* event)
   if (resizing)
   {
     resizing = false;
-    setCursor(Qt::ArrowCursor);
+    editor_area.setUpdatesEnabled(true);
     emit resize_done(size());
+  }
+  if (moving)
+  {
+    moving = false;
+    editor_area.setUpdatesEnabled(true);
   }
 }
 

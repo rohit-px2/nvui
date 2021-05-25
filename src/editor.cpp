@@ -25,6 +25,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   state(hl_state),
   nvim(nv)
 {
+  setMouseTracking(true);
   font.setPixelSize(15);
   update_font_metrics();
 }
@@ -329,13 +330,15 @@ QSize EditorArea::to_rc(const QSize& pixel_size)
 
 void EditorArea::paintEvent(QPaintEvent* event)
 {
-  QPainter painter(this);
-  for(const auto& grid : grids)
-  {
-    // TODO We should have some sort of system in place for painting only modified
-    // parts of the screen.
-    draw_grid(painter, grid, QRect(0, 0, grid.cols, grid.rows));
-  }
+  std::cout << "Paintevent called\n";
+  //if (cursor() != Qt::ArrowCursor) return;
+  //QPainter painter(this);
+  //for(const auto& grid : grids)
+  //{
+    //// TODO We should have some sort of system in place for painting only modified
+    //// parts of the screen.
+    //draw_grid(painter, grid, QRect(0, 0, grid.cols, grid.rows));
+  //}
 }
 
 std::tuple<std::uint16_t, std::uint16_t> EditorArea::font_dimensions() const
@@ -363,8 +366,8 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
   {
     for(int x = start_x; x <= end_x; ++x)
     {
-      assert(y * grid.rows + x < (int)grid.area.size());
-      const auto& gc = grid.area[y * grid.rows + x];
+      assert(y * grid.cols + x < (int)grid.area.size());
+      const auto& gc = grid.area[y * grid.cols + x];
       const HLAttr& attr = state->attr_for_id(static_cast<int>(gc.hl_id));
       if (attr.hl_id == prev_hl_id) continue;
       else

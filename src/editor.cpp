@@ -1,4 +1,5 @@
 #include "editor.hpp"
+#include "hlstate.hpp"
 #include "msgpack_overrides.hpp"
 // QtCore private
 #include <limits>
@@ -14,7 +15,12 @@
 #include <tuple>
 #include <utility>
 
-EditorArea::EditorArea(QWidget* parent, const HLState* hl_state, Nvim* nv)
+static QColor to_qcolor(const Color& clr)
+{
+  return {clr.r, clr.g, clr.b};
+}
+
+EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 : QWidget(parent),
   state(hl_state),
   nvim(nv)
@@ -137,6 +143,7 @@ void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
     // Translating rows and cols to a pixel area
     //QRect rect = to_pixels(grid_num, start_row, start_col, start_row + 1, col);
   }
+  update();
   //std::cout << ss.str() << '\n';
 }
 
@@ -162,9 +169,28 @@ void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)
   }
 }
 
-/// This is when we push the internal buffer to the window
 void EditorArea::flush()
 {
+}
+
+void EditorArea::win_pos(const msgpack::object* obj)
+{
+  using u16 = std::uint16_t;
+  assert(obj->type == msgpack::type::ARRAY);
+  const msgpack::object_array& arr = obj->via.array;
+  assert(arr.size == 6);
+  const u16 grid_num = arr.ptr[0].as<u16>();
+  const u16 sr = arr.ptr[2].as<u16>();
+  const u16 sc = arr.ptr[3].as<u16>();
+  const u16 width = arr.ptr[4].as<u16>();
+  const u16 height = arr.ptr[5].as<u16>();
+  Grid* grid = find_grid(grid_num);
+  assert(grid);
+  grid->cols = width;
+  grid->rows = height;
+  grid->y = sr;
+  grid->x = sc;
+  grid->area.resize(width * height);
 }
 
 static std::tuple<QString, double, std::uint8_t> parse_guifont(const QString& str)
@@ -303,7 +329,13 @@ QSize EditorArea::to_rc(const QSize& pixel_size)
 
 void EditorArea::paintEvent(QPaintEvent* event)
 {
-  std::cout << "Paint event called\n";
+  QPainter painter(this);
+  for(const auto& grid : grids)
+  {
+    // TODO We should have some sort of system in place for painting only modified
+    // parts of the screen.
+    draw_grid(painter, grid, QRect(0, 0, grid.cols, grid.rows));
+  }
 }
 
 std::tuple<std::uint16_t, std::uint16_t> EditorArea::font_dimensions() const
@@ -313,8 +345,46 @@ std::tuple<std::uint16_t, std::uint16_t> EditorArea::font_dimensions() const
 
 void EditorArea::resized(QSize size)
 {
-  std::cout << "Done resizing?\n";
   const QSize new_rc = to_rc(size);
   assert(nvim);
   nvim->resize(new_rc.width(), new_rc.height());
+}
+
+void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rect)
+{
+  const int start_x = rect.x();
+  const int start_y = rect.y();
+  const int end_x = rect.right() - 1;
+  const int end_y = rect.bottom() - 1;
+  painter.setFont(font);
+  int prev_hl_id = 0;
+  std::stringstream ss;
+  for(int y = start_y; y <= end_y; ++y)
+  {
+    for(int x = start_x; x <= end_x; ++x)
+    {
+      assert(y * grid.rows + x < (int)grid.area.size());
+      const auto& gc = grid.area[y * grid.rows + x];
+      const HLAttr& attr = state->attr_for_id(static_cast<int>(gc.hl_id));
+      if (attr.hl_id == prev_hl_id) continue;
+      else
+      {
+        prev_hl_id = attr.hl_id;
+        ss << "new hl_id: " << attr.hl_id << '\n';
+        if (attr.has_fg) {
+          ss << "Foreground: " << to_qcolor(attr.foreground).name().toStdString() << '\n';
+        }
+        if (attr.has_bg) {
+          ss << "Background: " << to_qcolor(attr.background).name().toStdString() << '\n';
+        }
+        ss << "[";
+        for(const auto& s : attr.state)
+        {
+          ss << s.hi_name;
+        }
+        ss << "]\n";
+      }
+    }
+  }
+  std::cout << ss.str() << "\n";
 }

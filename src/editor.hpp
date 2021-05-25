@@ -41,7 +41,7 @@ class EditorArea : public QWidget
 public:
   EditorArea(
     QWidget* parent = nullptr,
-    const HLState* state = nullptr,
+    HLState* state = nullptr,
     Nvim* nv = nullptr
   );
   /**
@@ -66,6 +66,10 @@ public:
    */
   void flush();
   /**
+   * Handles a Neovim "win_pos" event.
+   */
+  void win_pos(const msgpack::object* obj);
+  /**
    * Returns the font width and font height.
    */
   std::tuple<std::uint16_t, std::uint16_t> font_dimensions() const;
@@ -73,7 +77,7 @@ private:
   QFontDatabase font_db;
   std::uint16_t charspace = 0;
   std::int16_t linespace = 0;
-  const HLState* state;
+  HLState* state;
   std::vector<Grid> grids;
   bool bold = false;
   // For font fallback, not used if a single font is set.
@@ -125,6 +129,11 @@ private:
    * Updates the font metrics, such as font_width and font_height.
    */
   void update_font_metrics();
+  /**
+   * Draws a portion of the grid on the screen
+   * (the area to draw is given by rect).
+   */
+  void draw_grid(QPainter& painter, const Grid& grid, const QRect& rect);
 public slots:
   /**
    * Handle a window resize.

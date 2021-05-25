@@ -57,10 +57,13 @@ class HLAttr
 public:
   std::uint8_t font_opts = FontOpts::Normal;
   int hl_id;
-  bool reverse;
+  bool reverse = false;
   Color special;
   Color foreground;
   Color background;
+  bool has_fg = false;
+  bool has_bg = false;
+  bool has_special = false;
   /// We don't need a detailed view of the highlight state
   // right now so we won't do anything with this.
   std::vector<AttrState> state;

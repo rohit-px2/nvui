@@ -63,7 +63,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   setWindowIcon(QIcon("../assets/appicon.png"));
   title_bar->set_separator(" • ");
   // We'll do this later
-  //setCentralWidget(&editor_area);
+  setCentralWidget(&editor_area);
 }
 
 void Window::handle_redraw(msgpack::object_handle* redraw_args)
@@ -191,6 +191,9 @@ void Window::register_handlers()
   });
   set_handler("flush", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.flush();
+  });
+  set_handler("win_pos", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.win_pos(obj);
   });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.

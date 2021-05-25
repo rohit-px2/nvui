@@ -1,7 +1,7 @@
 #include "hlstate.hpp"
 #include <cassert>
 #include <iostream>
-
+#include <sstream>
 namespace hl
 {
   HLAttr hl_attr_from_object(const msgpack::object& obj)
@@ -24,10 +24,12 @@ namespace hl
       const std::string k = kv.key.as<std::string>();
       if (k == "foreground")
       {
+        attr.has_fg = true;
         attr.foreground = Color(kv.val.as<std::uint32_t>());
       }
       else if (k == "background")
       {
+        attr.has_bg = true;
         attr.background = Color(kv.val.as<std::uint32_t>());
       }
       else if (k == "reverse")
@@ -36,6 +38,7 @@ namespace hl
       }
       else if (k == "special")
       {
+        attr.has_special = true;
         attr.special = Color(kv.val.as<std::uint32_t>());
       }
       else if (k == "italic")
@@ -163,7 +166,7 @@ void HLState::set_name_id(const std::string& name, std::uint32_t hl_id)
 
 void HLState::set_id_attr(int id, HLAttr attr)
 {
-  id_to_attr[id] = std::move(attr);
+  id_to_attr[id] = attr;
 }
 
 
@@ -192,8 +195,9 @@ void HLState::define(const msgpack::object& obj)
   int id = attr.hl_id;
   for(const AttrState& s : attr.state)
   {
-    set_name_id(s.hi_name, id);
+    name_to_id[s.hi_name] = id;
   }
+  id_to_attr[id] = attr;
 }
 
 

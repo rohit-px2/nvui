@@ -8,6 +8,7 @@
 #include <QDebug>
 #include <QDesktopWidget>
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <locale>
 #include <sstream>
@@ -30,7 +31,6 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   update_font_metrics();
 }
 
-// uint32_t is enough to represent any code point
 void EditorArea::set_text(
   Grid& grid,
   grid_char c,
@@ -316,11 +316,12 @@ QRect EditorArea::to_pixels(
 void EditorArea::update_font_metrics()
 {
   QFontMetricsF metrics {font};
-  font_height = metrics.ascent() + metrics.descent() + linespace;
+  const float combined_height = metrics.ascent() + metrics.descent();
+  font_height = std::round(combined_height) + linespace;
   // NOTE: This will only work for monospace fonts since we're basing every char's
   // spocing off a single char.
   constexpr QChar any_char = 'a';
-  font_width = metrics.horizontalAdvance(any_char) + charspace;
+  font_width = std::round(metrics.horizontalAdvance(any_char) + charspace);
 }
 
 QSize EditorArea::to_rc(const QSize& pixel_size)

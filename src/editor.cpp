@@ -48,7 +48,7 @@ void EditorArea::set_text(
   {
     // row * grid.cols - get current row
     assert(row * grid.cols + col + i < grid.area.size());
-    grid.area[row * grid.cols + col + i] = GridChar {hl_id, std::move(c), is_dbl_width};
+    grid.area[row * grid.cols + col + i] = GridChar {hl_id, c, is_dbl_width};
   }
 }
 

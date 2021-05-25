@@ -31,49 +31,50 @@ constexpr int RATIO = 36; // I think the height of menu bar is 30px on 1080p scr
 class MenuButton : public QPushButton
 {
 public:
-  MenuButton(QWidget* parent = nullptr, QString style_sheet = "", QString hov = "")
+  MenuButton(QWidget* parent = nullptr, QColor hov = Qt::transparent)
     : QPushButton(parent),
-      style(std::move(style_sheet)),
-      hov_ss(std::move(hov))
+      hov_bg(hov)
   {
     setFlat(true);
     setAutoFillBackground(true);
     setMouseTracking(true);
     installEventFilter(this);
-    setStyleSheet(style);
   }
 
-  void set_ss(QString new_default)
+  void set_hov_bg(const QColor& bg)
   {
-    style = std::move(new_default);
+    hov_bg = bg;
   }
-
-  // Should only be used when we switch from light mode -> dark mode
-  // and vice versa
-  void set_hov_ss(QString new_hov)
+  
+  // We shouldn't need to use this (can just change the parent widget),
+  // but it's here
+  void set_default_bg(const QColor& bg)
   {
-    hov_ss = std::move(new_hov);
+    default_bg = bg;
   }
 private:
-  QString style;
-  QString hov_ss;
+  QColor hov_bg;
+  QColor default_bg = Qt::transparent;
+  QColor cur_bg = default_bg;
 
   // At least on my system, the stylesheet's :hover property
   // doesn't detect hovers while the mouse isn't pressed.
   // The MenuButton solves this problem.
-  // This is also probably pretty slow since setting the stylesheet
-  // is a very roundabout way of setting the color
+  // We manually check for hovers / mouse presses and set the color
   void hover_move(QHoverEvent* event)
   {
     Q_UNUSED(event);
     if (cursor() == Qt::ArrowCursor)
     {
-      setStyleSheet(hov_ss);
+      //setStyleSheet(hov_ss);
+      cur_bg = hov_bg;
     }
     else
     {
-      setStyleSheet(style);
+      //setStyleSheet(style);
+      cur_bg = default_bg;
     }
+    update();
   }
 
   void hover_enter(QHoverEvent* event)
@@ -81,14 +82,18 @@ private:
     Q_UNUSED(event);
     if (cursor() == Qt::ArrowCursor)
     {
-      setStyleSheet(hov_ss);
+      cur_bg = hov_bg;
+      //setStyleSheet(hov_ss);
     }
+    update();
   }
 
   void hover_leave(QHoverEvent* event)
   {
     Q_UNUSED(event);
-    setStyleSheet(style);
+    //setStyleSheet(style);
+    cur_bg = default_bg;
+    update();
   }
 
   void mouse_pressed(QMouseEvent* event)
@@ -113,9 +118,15 @@ private:
 protected:
   bool eventFilter(QObject* watched, QEvent* event) override
   {
+    event->accept();
     Q_UNUSED(watched);
     switch(event->type())
     {
+      case QEvent::Paint:
+      {
+        paintEvent(static_cast<QPaintEvent*>(event));
+        return true;
+      }
       case QEvent::HoverMove:
       {
         hover_move(static_cast<QHoverEvent*>(event));
@@ -143,6 +154,15 @@ protected:
       }
     }
     return false;
+  }
+  void paintEvent(QPaintEvent* event) override
+  {
+    QPainter painter(this);
+    painter.fillRect(rect(), cur_bg);
+    QPushButton::paintEvent(event);
+    //const QRect& btn_rect = rect();
+    //const QRect center_small = {btn_rect.x() + 4, btn_rect.y() + 4, btn_rect.width() - 8, btn_rect.height() - 8};
+    //icon().paint(&painter, center_small);
   }
 };
 
@@ -179,6 +199,11 @@ QPushButton:hover
 }
 )");
 
+// Hover colors of min, max, close buttons
+static const QColor mm_light = "#665c74";
+static const QColor mm_dark = "#afafaf";
+static const QColor close_bg = {255, 0, 0}; // completely red
+
 //constexpr QLatin1String close_hov_bg = make_string("#ff0000");
 //constexpr QLatin1String mm_hov_light = make_string("#665c74");
 //constexpr QLatin1String mm_hov_dark = make_string("#afafaf");
@@ -193,6 +218,7 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   left_text(std::move(text)),
   right_text("")
 {
+  setMouseTracking(true);
   assert(qApp->screens().size() > 0);
   const int menu_height = qApp->screens()[0]->size().height() / RATIO;
   const int menu_width = (menu_height * 3) / 2;
@@ -201,9 +227,9 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   close_icon = icon_from_svg("../assets/close-windows.svg", foreground);
   max_icon = icon_from_svg("../assets/max-windows.svg", foreground);
   min_icon = icon_from_svg("../assets/min-windows.svg", foreground);
-  close_btn = new MenuButton(nullptr, default_ss, close_ss);
-  max_btn = new MenuButton(nullptr, default_ss, min_max_ss_dark);
-  min_btn = new MenuButton(nullptr, default_ss, min_max_ss_dark);
+  close_btn = new MenuButton(nullptr, close_bg);
+  max_btn = new MenuButton(nullptr, mm_dark);
+  min_btn = new MenuButton(nullptr, mm_dark);
   close_btn->setIcon(close_icon);
   max_btn->setIcon(max_icon);
   min_btn->setIcon(min_icon);
@@ -315,13 +341,13 @@ void TitleBar::update_titlebar()
   // Check the "mode" of the background color
   if (is_light(background))
   {
-    min_btn->set_hov_ss(min_max_ss_light);
-    max_btn->set_hov_ss(min_max_ss_light);
+    min_btn->set_hov_bg(mm_light);
+    max_btn->set_hov_bg(mm_light);
   }
   else
   {
-    min_btn->set_hov_ss(min_max_ss_dark);
-    max_btn->set_hov_ss(min_max_ss_dark);
+    min_btn->set_hov_bg(mm_dark);
+    max_btn->set_hov_bg(mm_dark);
   }
 }
 

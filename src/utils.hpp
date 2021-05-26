@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QSvgRenderer>
 #include <QPainter>
+#include <chrono>
 #include <stdexcept>
 
 // Creates a QIcon from the given svg, with the given foreground
@@ -33,5 +34,17 @@ inline QIcon icon_from_svg(
   return QIcon {pm};
 }
 
+// Macro to time how long something takes
+// using std::chrono (only in debug mode)
+#ifndef NDEBUG
+#define TIME(expr) \
+  using Clock = ::std::chrono::high_resolution_clock; \
+  const auto start = Clock::now(); \
+  (expr); \
+  const auto end = Clock::now(); \
+  ::std::cout << "Took " << ::std::chrono::duration<double, std::milli>(end - start).count() << " ms.\n";
+#else
+#define TIME(expr) (expr)
+#endif // NDEBUG
 
 #endif // NVUI_UTILS_HPP

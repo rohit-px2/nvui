@@ -2,6 +2,7 @@
 #define NVUI_EDITOR_HPP
 
 #include <cstdint>
+#include <queue>
 #include <msgpack.hpp>
 #include <QFont>
 #include <QObject>
@@ -9,6 +10,8 @@
 #include <QWidget>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QResizeEvent>
+#include <QMouseEvent>
 #include <QFontDatabase>
 #include "hlstate.hpp"
 #include "nvim.hpp"
@@ -73,11 +76,35 @@ public:
    * Returns the font width and font height.
    */
   std::tuple<std::uint16_t, std::uint16_t> font_dimensions() const;
+  /**
+   * Ignores the next paintEvent call.
+   * This is really only called after the window is moved.
+   */
+  void ignore_next_paint_event();
+  /**
+   * Handles a Neovim "grid_clear" event
+   */
+  void grid_clear(const msgpack::object* obj, std::uint32_t size);
 private:
+  // Differentiate between redrawing and clearing (since clearing is
+  // a lot easier)
+  enum PaintKind : std::uint8_t
+  {
+    Clear,
+    Draw
+  };
+  struct PaintEventItem
+  {
+    PaintKind type;
+    std::uint16_t grid_num;
+    QRect rect;
+  };
+  std::queue<PaintEventItem> events;
   QFontDatabase font_db;
   std::uint16_t charspace = 0;
   std::int16_t linespace = 0;
   HLState* state;
+  bool should_ignore_pevent = false;
   std::vector<Grid> grids;
   bool bold = false;
   // For font fallback, not used if a single font is set.
@@ -86,6 +113,7 @@ private:
   std::uint16_t font_height;
   QFont font;
   Nvim* nvim;
+  QPixmap pixmap;
   /**
    * Sets the current font to new_font.
    */
@@ -111,14 +139,12 @@ private:
    * Converts a rectangle in terms of rows and cols
    * to a pixel-value rectangle relative to the top-left
    * corner of the editor area.
-   * Also takes a grid number for the initial position.
    */
   QRect to_pixels(
-    const std::uint16_t grid_num,
-    const std::uint16_t start_row,
-    const std::uint16_t start_col,
-    const std::uint16_t end_row,
-    const std::uint16_t end_col
+    const std::uint16_t x,
+    const std::uint16_t y,
+    const std::uint16_t width,
+    const std::uint16_t height
   );
   /**
    * Converts a QSize from pixel size to rows and columns
@@ -140,7 +166,8 @@ public slots:
    */
   void resized(QSize size);
 protected:
-  void paintEvent(QPaintEvent* event);
+  void paintEvent(QPaintEvent* event) override;
+  void mousePressEvent(QMouseEvent* event) override;
 };
 
 #endif // NVUI_EDITOR_HPP

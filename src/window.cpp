@@ -54,11 +54,13 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   nvim(nv.get()),
   editor_area(nullptr, &hl_state, nvim)
 {
+  assert(width > 0 && height > 0);
   setMouseTracking(true);
   QObject::connect(this, &Window::resize_done, &editor_area, &EditorArea::resized);
   setWindowFlags(Qt::FramelessWindowHint);
   const auto font_dims = editor_area.font_dimensions();
   resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
+  emit resize_done(size());
   title_bar = std::make_unique<TitleBar>("nvui", this);
   setWindowIcon(QIcon("../assets/appicon.png"));
   title_bar->set_separator(" • ");
@@ -179,6 +181,12 @@ void Window::register_handlers()
     {
       w->hl_state.default_colors_set(obj[i]);
     }
+    const HLAttr& def_clrs = w->hl_state.default_colors_get();
+    const Color& fgc = def_clrs.foreground;
+    const Color& bgc = def_clrs.background;
+    QColor fg {fgc.r, fgc.g, fgc.b};
+    QColor bg {bgc.r, bgc.g, bgc.b};
+    w->title_bar->set_color(fg, bg);
   });
   set_handler("grid_line", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.grid_line(obj, size);
@@ -194,6 +202,12 @@ void Window::register_handlers()
   });
   set_handler("win_pos", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.win_pos(obj);
+  });
+  set_handler("grid_clear", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.grid_clear(obj, size);
+  });
+  set_handler("grid_cursor_goto", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.grid_cursor_goto(obj, size);
   });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
@@ -298,28 +312,28 @@ void Window::resize_or_move(const QPointF& p)
   {
     edges |= Qt::BottomEdge;
   }
-  
+  editor_area.setUpdatesEnabled(false);
   QWindow* handle = windowHandle();
   if (edges != 0)
   {
     if (handle->startSystemResize(edges)) {
       resizing = true;
-      editor_area.setUpdatesEnabled(false);
     }
     else
     {
       std::cout << "Resize didn't work\n";
+      editor_area.setUpdatesEnabled(true);
     }
   }
   else
   {
     if (handle->startSystemMove()) {
       moving = true;
-      editor_area.setUpdatesEnabled(false);
     }
     else
     {
       std::cout << "Move didn't work\n";
+      editor_area.setUpdatesEnabled(true);
     }
   }
   title_bar->update_maxicon();
@@ -342,12 +356,19 @@ void Window::mouseReleaseEvent(QMouseEvent* event)
   if (moving)
   {
     moving = false;
+    // setUpdatesEnabled calls update(), but we want to ignore
+    editor_area.ignore_next_paint_event();
     editor_area.setUpdatesEnabled(true);
   }
 }
 
 void Window::mouseMoveEvent(QMouseEvent* event)
 {
+  if (isMaximized())
+  {
+    // No resizing
+    return;
+  }
   const ResizeType type = should_resize(rect(), tolerance, event);
   setCursor(Qt::CursorShape(type));
 }

@@ -1,12 +1,15 @@
 #include "editor.hpp"
-#include "hlstate.hpp"
 #include "msgpack_overrides.hpp"
-// QtCore private
+#include "utils.hpp"
+#include <chrono>
 #include <limits>
+// QtCore private
 #include <private/qstringiterator_p.h>
 #include <QApplication>
 #include <QDebug>
 #include <QDesktopWidget>
+#include <QPainter>
+#include <QScreen>
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -24,8 +27,12 @@ static QColor to_qcolor(const Color& clr)
 EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 : QWidget(parent),
   state(hl_state),
-  nvim(nv)
+  nvim(nv),
+  pixmap(QDesktopWidget().size())
 {
+  setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+  setFocusPolicy(Qt::StrongFocus);
+  setAttribute(Qt::WA_OpaquePaintEvent, true);
   setMouseTracking(true);
   font.setPixelSize(15);
   update_font_metrics();
@@ -80,8 +87,6 @@ void EditorArea::grid_resize(const msgpack::object *obj, std::uint32_t size)
   }
 }
 
-/// We don't do any actual painting here, we save that for the flush event.
-/// Instead we save the data to an internal buffer.
 void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
 {
   std::stringstream ss;
@@ -143,13 +148,17 @@ void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
     // Update the area that we modified
     // Translating rows and cols to a pixel area
     //QRect rect = to_pixels(grid_num, start_row, start_col, start_row + 1, col);
+    events.push(PaintEventItem {PaintKind::Draw, grid_num, {start_col, start_row, (col - start_col), 1}});
   }
-  update();
   //std::cout << ss.str() << '\n';
+  update();
 }
 
 void EditorArea::grid_cursor_goto(const msgpack::object* obj, std::uint32_t size)
 {
+  assert(obj->type == msgpack::type::ARRAY);
+  const auto& arr = obj->via.array;
+  assert(arr.size == 3);
 }
 
 void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)
@@ -187,6 +196,7 @@ void EditorArea::win_pos(const msgpack::object* obj)
   const u16 height = arr.ptr[5].as<u16>();
   Grid* grid = find_grid(grid_num);
   assert(grid);
+  grid->hidden = false;
   grid->cols = width;
   grid->rows = height;
   grid->y = sr;
@@ -254,15 +264,7 @@ void EditorArea::set_guifont(const QString& new_font)
     const QString& font_name = std::get<0>(opts);
     const double font_size = std::get<1>(opts);
     const std::uint8_t font_opts = std::get<2>(opts);
-    // Font needs to be valid
-    if (!font_db.families().contains(font_name))
-    {
-      return;
-    }
-    else
-    {
-      font.setFamily(font_name);
-    }
+    font.setFamily(font_name);
 
     if (font_size > 0)
     {
@@ -279,6 +281,8 @@ void EditorArea::set_guifont(const QString& new_font)
     }
   }
   update_font_metrics();
+  const QSize new_dims = to_rc(size());
+  nvim->resize(new_dims.width(), new_dims.height());
   // TODO: Handle multiple fonts (font fallback)
 }
 
@@ -292,31 +296,21 @@ Grid* EditorArea::find_grid(const std::uint16_t grid_num)
 }
 
 QRect EditorArea::to_pixels(
-  const std::uint16_t grid_num,
-  const std::uint16_t start_row,
-  const std::uint16_t start_col,
-  const std::uint16_t end_row,
-  const std::uint16_t end_col
+  const std::uint16_t x,
+  const std::uint16_t y,
+  const std::uint16_t width,
+  const std::uint16_t height
 )
 {
-  const Grid* g = find_grid(grid_num);
-  assert(g);
-  const Grid& grid = *g;
-  // grid's x and y are the (x, y), rows is the height, cols is the width
-  // Multiply horizontal values by width, verticals by height, hopefully this works
-  const QPoint start = {(grid.x + start_col) * font_width, (grid.y + start_row) * font_height};
   return {
-    (grid.x + start_col) * font_width,
-    (grid.y + start_row) * font_height,
-    (end_col - start_col) * font_width,
-    (end_row - start_row) * font_height
+    x * font_width, y * font_height, width * font_width, height * font_height
   };
 }
 
 void EditorArea::update_font_metrics()
 {
   QFontMetricsF metrics {font};
-  const float combined_height = metrics.ascent() + metrics.descent();
+  float combined_height = std::max(metrics.height(), metrics.lineSpacing());
   font_height = std::round(combined_height) + linespace;
   // NOTE: This will only work for monospace fonts since we're basing every char's
   // spocing off a single char.
@@ -326,20 +320,45 @@ void EditorArea::update_font_metrics()
 
 QSize EditorArea::to_rc(const QSize& pixel_size)
 {
-  return {pixel_size.width() / font_width, pixel_size.height() / font_height};
+  int new_width = std::floor((float)pixel_size.width() / (float)font_width);
+  int new_height = std::floor((float)pixel_size.height() / (float)font_height);
+  //std::cout << "Pixel size: (" << pixel_size.width() << ", " << pixel_size.height() << ")\n";
+  //std::cout << "Font width, height: (" << font_width << ", " << font_height << ")\n";
+  //std::cout << "New width: " << new_width << ", New height: " << new_height << '\n';
+  return {new_width, new_height};
 }
 
 void EditorArea::paintEvent(QPaintEvent* event)
 {
-  std::cout << "Paintevent called\n";
-  //if (cursor() != Qt::ArrowCursor) return;
-  //QPainter painter(this);
-  //for(const auto& grid : grids)
-  //{
-    //// TODO We should have some sort of system in place for painting only modified
-    //// parts of the screen.
-    //draw_grid(painter, grid, QRect(0, 0, grid.cols, grid.rows));
-  //}
+  Q_UNUSED(event);
+  QPainter painter(this);
+  painter.setClipping(false);
+  painter.setFont(font);
+#ifndef NDEBUG
+  using Clock = std::chrono::high_resolution_clock;
+  const auto start = Clock::now();
+#endif
+  while(!events.empty())
+  {
+    const PaintEventItem& event = events.front();
+    const Grid* grid = find_grid(event.grid_num);
+    assert(grid);
+    if (event.type == PaintKind::Clear)
+    {
+      qDebug() << "Clear grid " << grid << "\n";
+    }
+    else
+    {
+      draw_grid(painter, *grid, event.rect);
+    }
+    events.pop();
+  }
+  //QPainter p(this);
+  //p.drawPixmap(rect(), pixmap, rect());
+#ifndef NDEBUG
+  const auto end = Clock::now();
+  std::cout << "Grid draw took " << std::chrono::duration<double, std::milli>(end - start).count() << "ms.\n";
+#endif
 }
 
 std::tuple<std::uint16_t, std::uint16_t> EditorArea::font_dimensions() const
@@ -356,39 +375,60 @@ void EditorArea::resized(QSize size)
 
 void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rect)
 {
+  QString buffer;
+  buffer.reserve(100);
   const int start_x = rect.x();
   const int start_y = rect.y();
-  const int end_x = rect.right() - 1;
-  const int end_y = rect.bottom() - 1;
+  const int end_x = rect.right();
+  const int end_y = rect.bottom();
+  const HLAttr& def_clrs = state->default_colors_get();
+  const QFontMetrics metrics {font};
+  const int offset =  metrics.ascent() + (linespace / 2);
   painter.setFont(font);
-  int prev_hl_id = 0;
-  std::stringstream ss;
-  for(int y = start_y; y <= end_y; ++y)
+  for(int y = start_y; y <= end_y && y < grid.rows; ++y)
   {
-    for(int x = start_x; x <= end_x; ++x)
+    for(int x = start_x; x <= end_x && x < grid.cols; ++x)
     {
-      assert(y * grid.cols + x < (int)grid.area.size());
       const auto& gc = grid.area[y * grid.cols + x];
       const HLAttr& attr = state->attr_for_id(static_cast<int>(gc.hl_id));
-      if (attr.hl_id == prev_hl_id) continue;
-      else
+      QColor fg = to_qcolor(attr.has_fg ? attr.foreground : def_clrs.foreground);
+      QColor bg = to_qcolor(attr.has_bg ? attr.background : def_clrs.background);
+      if (attr.reverse)
       {
-        prev_hl_id = attr.hl_id;
-        ss << "new hl_id: " << attr.hl_id << '\n';
-        if (attr.has_fg) {
-          ss << "Foreground: " << to_qcolor(attr.foreground).name().toStdString() << '\n';
-        }
-        if (attr.has_bg) {
-          ss << "Background: " << to_qcolor(attr.background).name().toStdString() << '\n';
-        }
-        ss << "[";
-        for(const auto& s : attr.state)
-        {
-          ss << s.hi_name;
-        }
-        ss << "]\n";
+        std::swap(fg, bg);
       }
+      const QRect bg_rect {(grid.x + x) * font_width, (grid.y + y) * font_height, font_width, font_height};
+      painter.eraseRect(bg_rect);
+      painter.fillRect(bg_rect, bg);
+      const QPoint pos = {(grid.x + x) * font_width, (grid.y + y) * font_height + offset};
+      painter.setPen(fg);
+      painter.drawText(pos, gc.text);
     }
   }
-  std::cout << ss.str() << "\n";
+}
+
+void EditorArea::ignore_next_paint_event()
+{
+  should_ignore_pevent = true;
+}
+
+void EditorArea::grid_clear(const msgpack::object *obj, std::uint32_t size)
+{
+  assert(obj->type == msgpack::type::ARRAY);
+  const auto& arr = obj->via.array;
+  assert(arr.size == 1);
+  const auto grid_num = arr.ptr[0].as<std::uint16_t>();
+  Grid* grid = find_grid(grid_num);
+  for(auto& gc : grid->area)
+  {
+    gc.text = ' ';
+  }
+}
+
+void EditorArea::mousePressEvent(QMouseEvent* event)
+{
+  if (cursor() != Qt::ArrowCursor)
+  {
+    QWidget::mousePressEvent(event);
+  }
 }

@@ -170,44 +170,10 @@ protected:
   TitleBar implementation
 */
 
-constexpr QLatin1String make_string(const char* const str)
-{
-  return QLatin1String(str, static_cast<int>(std::char_traits<char>::length(str)));
-}
-
-constexpr QLatin1String min_max_ss_dark = make_string(R"(
-QPushButton:hover
-{
-  background-color: #665c74;
-  border: 2px solid #665c74;
-}
-)");
-
-constexpr QLatin1String min_max_ss_light = make_string(R"(
-QPushButton:hover
-{
-  background-color: #afafaf;
-  border: 2px solid #afafaf;
-}
-)");
-
-constexpr QLatin1String close_ss = make_string(R"(
-QPushButton:hover
-{
-  background-color: red;
-  border: 2px solid red;
-}
-)");
-
 // Hover colors of min, max, close buttons
 static const QColor mm_light = "#665c74";
-static const QColor mm_dark = "#afafaf";
+static const QColor mm_dark = "#3d4148";
 static const QColor close_bg = {255, 0, 0}; // completely red
-
-//constexpr QLatin1String close_hov_bg = make_string("#ff0000");
-//constexpr QLatin1String mm_hov_light = make_string("#665c74");
-//constexpr QLatin1String mm_hov_dark = make_string("#afafaf");
-constexpr QLatin1String default_ss = make_string("border: 2px solid transparent;");
 
 TitleBar::TitleBar(QString text, QMainWindow* window)
 : separator(" "),

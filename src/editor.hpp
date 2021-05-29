@@ -85,6 +85,10 @@ public:
    * Handles a Neovim "grid_clear" event
    */
   void grid_clear(const msgpack::object* obj, std::uint32_t size);
+  /**
+   * Notify the editor area when resizing is enabled/disabled.
+   */
+  void set_resizing(bool is_resizing);
 private:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)
@@ -114,6 +118,7 @@ private:
   QFont font;
   Nvim* nvim;
   QPixmap pixmap;
+  bool resizing = false;
   /**
    * Sets the current font to new_font.
    */
@@ -160,6 +165,13 @@ private:
    * (the area to draw is given by rect).
    */
   void draw_grid(QPainter& painter, const Grid& grid, const QRect& rect);
+  /**
+   * Clears a portion of the grid by drawing Neovim's current default background
+   color over it.
+   * This should be faster than draw_grid if all you want to do is clear,
+   * since it doesn't draw text/look for text to draw.
+   */
+  void clear_grid(QPainter& painter, const Grid& grid, const QRect& rect);
 public slots:
   /**
    * Handle a window resize.

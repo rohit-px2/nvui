@@ -30,9 +30,10 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   nvim(nv),
   pixmap(QDesktopWidget().size())
 {
+  setAttribute(Qt::WA_OpaquePaintEvent);
+  setAutoFillBackground(false);
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setFocusPolicy(Qt::StrongFocus);
-  setAttribute(Qt::WA_OpaquePaintEvent, true);
   setMouseTracking(true);
   font.setPixelSize(15);
   update_font_metrics();
@@ -174,7 +175,7 @@ void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)
     if (opt == "guifont")
     {
       set_guifont(options.ptr[1].as<QString>());
-      font.setHintingPreference(QFont::HintingPreference::PreferVerticalHinting);
+      font.setHintingPreference(QFont::PreferFullHinting);
     }
   }
 }
@@ -330,8 +331,8 @@ QSize EditorArea::to_rc(const QSize& pixel_size)
 
 void EditorArea::paintEvent(QPaintEvent* event)
 {
-  Q_UNUSED(event);
-  QPainter painter(this);
+  event->accept();
+  QPainter painter(&pixmap);
   painter.setClipping(false);
   painter.setFont(font);
 #ifndef NDEBUG
@@ -345,7 +346,8 @@ void EditorArea::paintEvent(QPaintEvent* event)
     assert(grid);
     if (event.type == PaintKind::Clear)
     {
-      qDebug() << "Clear grid " << grid << "\n";
+      //qDebug() << "Clear grid " << grid << "\n";
+      //clear_grid(painter, *grid, event.rect);
     }
     else
     {
@@ -353,8 +355,8 @@ void EditorArea::paintEvent(QPaintEvent* event)
     }
     events.pop();
   }
-  //QPainter p(this);
-  //p.drawPixmap(rect(), pixmap, rect());
+  QPainter p(this);
+  p.drawPixmap(rect(), pixmap, rect());
 #ifndef NDEBUG
   const auto end = Clock::now();
   std::cout << "Grid draw took " << std::chrono::duration<double, std::milli>(end - start).count() << "ms.\n";
@@ -393,18 +395,30 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
       const HLAttr& attr = state->attr_for_id(static_cast<int>(gc.hl_id));
       QColor fg = to_qcolor(attr.has_fg ? attr.foreground : def_clrs.foreground);
       QColor bg = to_qcolor(attr.has_bg ? attr.background : def_clrs.background);
+      font.setBold(attr.font_opts & FontOpts::Bold);
+      font.setItalic(attr.font_opts & FontOpts::Italic);
+      painter.setFont(font);
       if (attr.reverse)
       {
         std::swap(fg, bg);
       }
       const QRect bg_rect {(grid.x + x) * font_width, (grid.y + y) * font_height, font_width, font_height};
-      painter.eraseRect(bg_rect);
       painter.fillRect(bg_rect, bg);
       const QPoint pos = {(grid.x + x) * font_width, (grid.y + y) * font_height + offset};
       painter.setPen(fg);
       painter.drawText(pos, gc.text);
     }
   }
+}
+
+void EditorArea::clear_grid(QPainter& painter, const Grid& grid, const QRect& rect)
+{
+  const HLAttr& def_clrs = state->default_colors_get();
+  QColor bg = to_qcolor(def_clrs.background);
+  // The rect was given in terms of rows and columns, convert to pixels
+  // before filling
+  const QRect r = to_pixels(grid.x + rect.x(), grid.y + rect.y(), rect.width(), rect.height());
+  painter.fillRect(r, bg);
 }
 
 void EditorArea::ignore_next_paint_event()
@@ -419,10 +433,12 @@ void EditorArea::grid_clear(const msgpack::object *obj, std::uint32_t size)
   assert(arr.size == 1);
   const auto grid_num = arr.ptr[0].as<std::uint16_t>();
   Grid* grid = find_grid(grid_num);
-  for(auto& gc : grid->area)
-  {
-    gc.text = ' ';
-  }
+  //for(auto& gc : grid->area)
+  //{
+    //gc.text = ' ';
+  //}
+  QRect&& r = {grid->x, grid->y, grid->cols, grid->rows};
+  events.push(PaintEventItem {PaintKind::Clear, grid_num, r});
 }
 
 void EditorArea::mousePressEvent(QMouseEvent* event)
@@ -431,4 +447,9 @@ void EditorArea::mousePressEvent(QMouseEvent* event)
   {
     QWidget::mousePressEvent(event);
   }
+}
+
+void EditorArea::set_resizing(bool is_resizing)
+{
+  resizing = is_resizing;
 }

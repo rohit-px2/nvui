@@ -85,6 +85,7 @@ private:
   msgpack::object_handle safe_copy(msgpack::object_handle* obj);
   QSemaphore semaphore;
   bool resizing;
+  bool maximized = false;
   bool moving = false;
   std::unique_ptr<TitleBar> title_bar;
   HLState hl_state;

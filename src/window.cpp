@@ -54,6 +54,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   nvim(nv.get()),
   editor_area(nullptr, &hl_state, nvim)
 {
+  setAttribute(Qt::WA_OpaquePaintEvent);
   assert(width > 0 && height > 0);
   setMouseTracking(true);
   QObject::connect(this, &Window::resize_done, &editor_area, &EditorArea::resized);
@@ -88,7 +89,7 @@ void Window::handle_redraw(msgpack::object_handle* redraw_args)
     const auto& task = o.via.array;
     assert(task.size >= 1);
     assert(task.ptr[0].type == msgpack::type::STR);
-    const std::string task_name = task.ptr[0].as<std::string>();
+    std::string task_name = task.ptr[0].as<std::string>();
     // Get corresponding handler
     const auto func_it = handlers.find(task_name);
     if (func_it != handlers.end())
@@ -186,7 +187,7 @@ void Window::register_handlers()
     const Color& bgc = def_clrs.background;
     QColor fg {fgc.r, fgc.g, fgc.b};
     QColor bg {bgc.r, bgc.g, bgc.b};
-    w->title_bar->set_color(fg, bg);
+    w->title_bar->set_color(fg, bg.lightness() > 127 ? bg.darker(110) : bg.lighter(120));
   });
   set_handler("grid_line", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.grid_line(obj, size);
@@ -312,12 +313,12 @@ void Window::resize_or_move(const QPointF& p)
   {
     edges |= Qt::BottomEdge;
   }
-  editor_area.setUpdatesEnabled(false);
   QWindow* handle = windowHandle();
   if (edges != 0)
   {
     if (handle->startSystemResize(edges)) {
       resizing = true;
+      editor_area.set_resizing(true);
     }
     else
     {
@@ -327,6 +328,7 @@ void Window::resize_or_move(const QPointF& p)
   }
   else
   {
+    editor_area.setUpdatesEnabled(false);
     if (handle->startSystemMove()) {
       moving = true;
     }
@@ -350,7 +352,7 @@ void Window::mouseReleaseEvent(QMouseEvent* event)
   if (resizing)
   {
     resizing = false;
-    editor_area.setUpdatesEnabled(true);
+    editor_area.set_resizing(false);
     emit resize_done(size());
   }
   if (moving)
@@ -375,6 +377,15 @@ void Window::mouseMoveEvent(QMouseEvent* event)
 
 void Window::resizeEvent(QResizeEvent* event)
 {
+  if (isMaximized())
+  {
+    emit resize_done(size());
+  }
+  else if (maximized)
+  {
+    maximized = false;
+    emit resize_done(size());
+  }
   title_bar->update_maxicon();
   QMainWindow::resizeEvent(event);
 }

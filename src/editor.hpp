@@ -89,13 +89,14 @@ public:
    * Notify the editor area when resizing is enabled/disabled.
    */
   void set_resizing(bool is_resizing);
-private:
+protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)
   enum PaintKind : std::uint8_t
   {
     Clear,
-    Draw
+    Draw,
+    Redraw
   };
   struct PaintEventItem
   {

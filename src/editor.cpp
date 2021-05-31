@@ -90,7 +90,7 @@ void EditorArea::grid_resize(const msgpack::object *obj, std::uint32_t size)
 
 void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
 {
-  std::stringstream ss;
+  //std::stringstream ss;
   std::uint16_t hl_id = 0;
   //std::cout << "Received grid line.\nNum params: " << size << '\n';
   for(std::uint32_t i = 0; i < size; ++i)
@@ -145,7 +145,7 @@ void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
       set_text(g, std::move(text), start_row, col, hl_id, repeat, is_dbl);
       col += repeat + is_dbl; // 0 if not, 1 if it is
     }
-    ss << '\n';
+    //ss << '\n';
     // Update the area that we modified
     // Translating rows and cols to a pixel area
     //QRect rect = to_pixels(grid_num, start_row, start_col, start_row + 1, col);
@@ -261,10 +261,7 @@ void EditorArea::set_guifont(const QString& new_font)
   // No need for complicated stuff if there's only one font to deal with
   if (lst.size() == 1)
   {
-    const auto opts = parse_guifont(lst.at(0));
-    const QString& font_name = std::get<0>(opts);
-    const double font_size = std::get<1>(opts);
-    const std::uint8_t font_opts = std::get<2>(opts);
+    const auto [font_name, font_size, font_opts] = parse_guifont(lst.at(0));
     font.setFamily(font_name);
 
     if (font_size > 0)
@@ -433,10 +430,10 @@ void EditorArea::grid_clear(const msgpack::object *obj, std::uint32_t size)
   assert(arr.size == 1);
   const auto grid_num = arr.ptr[0].as<std::uint16_t>();
   Grid* grid = find_grid(grid_num);
-  //for(auto& gc : grid->area)
-  //{
-    //gc.text = ' ';
-  //}
+  for(auto& gc : grid->area)
+  {
+    gc.text = ' ';
+  }
   QRect&& r = {grid->x, grid->y, grid->cols, grid->rows};
   events.push(PaintEventItem {PaintKind::Clear, grid_num, r});
 }

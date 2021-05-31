@@ -7,7 +7,7 @@
 #include <QFont>
 #include <QToolBar>
 #include <QLayout>
-#include "editor.hpp"
+#include "wineditor.hpp"
 #include "nvim.hpp"
 #include "titlebar.hpp"
 #include "hlstate.hpp"
@@ -17,6 +17,7 @@
 #include <QEvent>
 #include <unordered_map>
 #include <QSemaphore>
+
 class Window;
 
 constexpr int tolerance = 10; //10px tolerance for resizing
@@ -91,7 +92,11 @@ private:
   HLState hl_state;
   Nvim* nvim;
   std::unordered_map<std::string, obj_ref_cb> handlers;
+#ifdef Q_OS_WIN
+  WinEditorArea editor_area;
+#else
   EditorArea editor_area;
+#endif
 signals:
   void resize_done(QSize size);
 protected:
@@ -102,4 +107,4 @@ protected:
   void moveEvent(QMoveEvent* event) override;
 };
 
-#endif
+#endif // NVUI_WINDOW_HPP

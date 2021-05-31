@@ -57,7 +57,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   setAttribute(Qt::WA_OpaquePaintEvent);
   assert(width > 0 && height > 0);
   setMouseTracking(true);
-  QObject::connect(this, &Window::resize_done, &editor_area, &EditorArea::resized);
+  QObject::connect(this, &Window::resize_done, &editor_area, &decltype(editor_area)::resized);
   setWindowFlags(Qt::FramelessWindowHint);
   const auto font_dims = editor_area.font_dimensions();
   resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));

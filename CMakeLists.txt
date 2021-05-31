@@ -4,6 +4,21 @@ if(MSVC)
 else()
   add_compile_options(-Wall -Wextra -pedantic)
 endif()
+if(DEFINED ENV{QT_DIR})
+  message("Qt Dir is Set")
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_DIR}")
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_DIR}/Qt5Core")
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_DIR}/Qt5Widgets")
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_DIR}/Qt5Gui")
+else()
+  message("Could not find QT_DIR")
+endif()
+if (DEFINED ENV{QT_SVGDIR})
+  message("Qt SVG Dir is set")
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_SVGDIR}")
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_SVGDIR}/Qt5Svg")
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_SVGDIR}/Qt5Gui")
+endif()
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
   set(CMAKE_CXX_CPPCHECK "cppcheck")
@@ -38,17 +53,31 @@ file(GLOB SOURCES
   src/window.hpp
   src/window.cpp
 )
+if (WIN32)
+  file(GLOB WINONLYSOURCES
+    src/wineditor.hpp
+    src/wineditor.cpp
+  )
+  list(APPEND SOURCES ${WINONLYSOURCES})
+endif()
 find_package(Boost COMPONENTS filesystem thread REQUIRED)
 add_executable(nvui "src/main.cpp" ${SOURCES})
-target_link_libraries(nvui PRIVATE msgpackc msgpackc-cxx)
-target_link_libraries(nvui PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg Qt5::CorePrivate)
+target_link_libraries(nvui PUBLIC msgpackc msgpackc-cxx)
+target_link_libraries(nvui PUBLIC Qt::Core Qt::Gui Qt::Widgets Qt::Svg Qt5::CorePrivate)
 target_include_directories(nvui PRIVATE
   "${PROJECT_SOURCE_DIR}/src"
 )
+if(WIN32)
+  target_link_libraries(nvui PUBLIC
+    d2d1.lib
+    d3d11.lib
+    dwrite.lib
+  )
+endif()
 if (Boost_FOUND)
   target_include_directories(nvui PRIVATE ${Boost_INCLUDE_DIR})
 endif()
-target_link_libraries(${PROJECT_NAME} PRIVATE
+target_link_libraries(${PROJECT_NAME} PUBLIC
   ${Boost_LIBRARIES}
 )
 

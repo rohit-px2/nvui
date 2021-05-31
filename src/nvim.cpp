@@ -185,7 +185,7 @@ void Nvim::read_output_sync()
         {
           assert(arr.size == 4);
           const std::uint32_t msgid = arr.ptr[1].as<std::uint32_t>();
-          cout << "Message id: " << msgid << '\n';
+          //cout << "Message id: " << msgid << '\n';
           assert(msgid < is_blocking.size());
           // If it's a blocking request, the other thread is waiting for
           // response_received

@@ -122,7 +122,7 @@ void Nvim::resize(const int new_width, const int new_height)
 
 static const std::unordered_map<std::string, bool> default_capabilities {
   {"ext_linegrid", true},
-  {"ext_multigrid", true},
+  //{"ext_multigrid", true},
   {"ext_popupmenu", true},
   {"ext_cmdline", true},
   {"ext_hlstate", true}
@@ -346,12 +346,20 @@ msgpack::object_handle Nvim::get_api_info()
   return send_request_sync("nvim_get_api_info", std::array<int, 0> {});
 }
 
-void Nvim::send_input(const bool ctrl, const bool shift, const bool alt, const std::string& key)
+void Nvim::send_input(const bool ctrl, const bool shift, const bool alt, const std::string& key, bool is_special)
 {
-  const std::string first = ctrl ? "C-" : "";
-  const std::string second = shift ? "S-" : "";
-  const std::string third = alt ? "M-" : "";
-  std::string input_string = fmt::format("<{}{}{}{}>", first, second, third, key);
+  std::string input_string;
+  if (ctrl || shift || alt || is_special)
+  {
+    const std::string first = ctrl ? "C-" : "";
+    const std::string second = shift ? "S-" : "";
+    const std::string third = alt ? "M-" : "";
+    input_string = fmt::format("<{}{}{}{}>", first, second, third, key);
+  }
+  else
+  {
+    input_string = key;
+  }
   send_notification("nvim_input", std::array<std::string, 1> {std::move(input_string)});
 }
 

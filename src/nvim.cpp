@@ -12,6 +12,9 @@
 #include <tuple>
 #include <boost/process.hpp>
 #include <algorithm>
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 namespace bp = boost::process;
 
 // ######################## SETTING UP ####################################
@@ -341,6 +344,20 @@ void Nvim::command(const std::string& cmd)
 msgpack::object_handle Nvim::get_api_info()
 {
   return send_request_sync("nvim_get_api_info", std::array<int, 0> {});
+}
+
+void Nvim::send_input(const bool ctrl, const bool shift, const bool alt, const std::string& key)
+{
+  const std::string first = ctrl ? "C-" : "";
+  const std::string second = shift ? "S-" : "";
+  const std::string third = alt ? "M-" : "";
+  std::string input_string = fmt::format("<{}{}{}{}>", first, second, third, key);
+  send_notification("nvim_input", std::array<std::string, 1> {std::move(input_string)});
+}
+
+void Nvim::send_input(std::string key)
+{
+  send_notification("nvim_input", std::array<std::string, 1> {std::move(key)});
 }
 
 Nvim::~Nvim()

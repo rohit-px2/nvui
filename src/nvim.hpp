@@ -46,9 +46,16 @@ public:
    */
   void resize(const int new_width, const int new_height);
   /**
-   * TODO: Add documentation
+   * Sends keyboard input to Nvim with the corresponding modifiers.
    */
-  void send_input(const bool shift, const bool ctrl, const std::uint16_t key);
+  void send_input(const bool ctrl, const bool shift, const bool alt, const std::string& key);
+  /**
+   * Sends the nvim_input message directly to Nvim with no processing,
+   * which means you should have done the processing on your end.
+   * If you haven't done any processing, then call send_input(shift, ctrl, alt, key)
+   * which does the processing automatically.
+   */
+  void send_input(std::string key);
   /**
    * Sends a "nvim_ui_attach" message to the embedded Neovim instance with
    * the rows and cols as the parameters, along with the default capabilities.

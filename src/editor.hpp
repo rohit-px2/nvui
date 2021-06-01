@@ -181,6 +181,8 @@ public slots:
 protected:
   void paintEvent(QPaintEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
+  void keyPressEvent(QKeyEvent* event) override;
+  bool focusNextPrevChild(bool next) override;
 };
 
 #endif // NVUI_EDITOR_HPP

@@ -18,6 +18,8 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <fmt/core.h>
+#include <fmt/format.h>
 
 static QColor to_qcolor(const Color& clr)
 {
@@ -318,8 +320,8 @@ void EditorArea::update_font_metrics()
 
 QSize EditorArea::to_rc(const QSize& pixel_size)
 {
-  int new_width = std::floor((float)pixel_size.width() / (float)font_width);
-  int new_height = std::floor((float)pixel_size.height() / (float)font_height);
+  int new_width = pixel_size.width() / font_width;
+  int new_height = pixel_size.height() / font_height;
   //std::cout << "Pixel size: (" << pixel_size.width() << ", " << pixel_size.height() << ")\n";
   //std::cout << "Font width, height: (" << font_width << ", " << font_height << ")\n";
   //std::cout << "New width: " << new_width << ", New height: " << new_height << '\n';
@@ -344,7 +346,7 @@ void EditorArea::paintEvent(QPaintEvent* event)
     if (event.type == PaintKind::Clear)
     {
       //qDebug() << "Clear grid " << grid << "\n";
-      //clear_grid(painter, *grid, event.rect);
+      clear_grid(painter, *grid, event.rect);
     }
     else
     {
@@ -449,4 +451,61 @@ void EditorArea::mousePressEvent(QMouseEvent* event)
 void EditorArea::set_resizing(bool is_resizing)
 {
   resizing = is_resizing;
+}
+
+std::string event_to_string(QKeyEvent* event, bool* special)
+{
+  *special = true;
+  switch(event->key())
+  {
+    case Qt::Key_Enter:
+      return "CR";
+    case Qt::Key_Return:
+      return "CR";
+    case Qt::Key_Backspace:
+      return "BS";
+    case Qt::Key_Tab:
+      return "Tab";
+    case Qt::Key_Down:
+      return "Down";
+    case Qt::Key_Up:
+      return "Up";
+    case Qt::Key_Left:
+      return "Left";
+    case Qt::Key_Right:
+      return "Right";
+    case Qt::Key_Escape:
+      return "Esc";
+    case Qt::Key_Home:
+      return "Home";
+    case Qt::Key_Insert:
+      return "Insert";
+    case Qt::Key_Delete:
+      return "Del";
+    case Qt::Key_PageUp:
+      return "PageUp";
+    case Qt::Key_PageDown:
+      return "PageDown";
+    case Qt::Key_Less:
+      return "LT";
+    default:
+      *special = false;
+      return event->text().toStdString();
+  }
+}
+void EditorArea::keyPressEvent(QKeyEvent* event)
+{
+  event->accept();
+  const auto modifiers = QApplication::keyboardModifiers();
+  const bool ctrl = modifiers & Qt::ControlModifier;
+  const bool shift = modifiers & Qt::ShiftModifier;
+  const bool alt = modifiers & Qt::AltModifier;
+  bool is_special = false;
+  std::string key = event_to_string(event, &is_special);
+  nvim->send_input(ctrl, shift, alt, key, is_special);
+}
+
+bool EditorArea::focusNextPrevChild(bool next)
+{
+  return false;
 }

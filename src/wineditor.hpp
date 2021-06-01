@@ -8,6 +8,7 @@
 #include <QPainter>
 #include <QImage>
 #include <QSize>
+#include <limits>
 #include <unordered_set>
 #include <windows.h>
 #include <dwrite.h>
@@ -16,9 +17,13 @@
 #include <dwrite_3.h>
 #include <d2d1.h>
 #include <d2d1_1.h>
+#include <fmt/format.h>
+#include <fmt/core.h>
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dwrite.lib")
+
 using DWriteFactory = IDWriteFactory;
+
 template<class T>
 inline void SafeRelease(T** ppT)
 {
@@ -38,13 +43,11 @@ public:
     Nvim* nv = nullptr
   ): EditorArea(parent, state, nv)
   {
-    qDebug() << "Qt Size: " << size() << "\n";
     setAttribute(Qt::WA_PaintOnScreen);
-    //setAttribute(Qt::WA_NativeWindow);
+    setAttribute(Qt::WA_NativeWindow);
     hwnd = (HWND) winId();
     RECT r;
     GetClientRect(hwnd, &r);
-    std::cout << "Windows size: (" << r.right - r.left << ", " << r.bottom - r.top << ")\n";
     D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, &d2d_factory);
     DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(DWriteFactory), reinterpret_cast<IUnknown**>(&factory));
     D2D1_SIZE_U sz = D2D1::SizeU(size().width(), size().height());
@@ -104,28 +107,37 @@ private:
     const int end_x = rect.right();
     const int end_y = rect.bottom();
     const QFontMetrics metrics {font};
+    const HLAttr& def_clrs = state->default_colors_get();
     std::uint16_t prev_hl_id = 0;
+    const auto get_pos = [&](int x, int y, int num_chars) {
+      float left = x * font_width;
+      float top = y * font_height;
+      float bottom = top + font_height;
+      float right = left + (font_width * num_chars);
+      return std::make_tuple(D2D1::Point2F(left, top), D2D1::Point2F(right, bottom));
+    };
+    D2D1_POINT_2F cur_start = {0., 0.};
+    const auto clear_buffer = [&](const HLAttr& attr, int x, int y) {
+      if (buffer.isEmpty()) return;
+      D2D1_POINT_2F cur_pos = D2D1::Point2F(x * font_width, y * font_height);
+      draw_text_and_bg(buffer, cur_start, attr, target, cur_pos, def_clrs);
+    };
     for(int y = start_y; y <= end_y && y < grid.rows; ++y)
     {
+      std::uint16_t prev_hl_id = UINT16_MAX;
       for(int x = start_x; x <= end_x && x < grid.cols; ++x)
       {
         const auto& gc = grid.area[y * grid.cols + x];
         const HLAttr& attr = state->attr_for_id(static_cast<int>(gc.hl_id));
-        float left = ((float)(grid.x + x) * (float)font_width);
-        float top = ((float)(grid.y + y) * (float)font_height);
-        float bottom = top + font_height;
-        float right = left + font_width;
-        const auto top_left = D2D1::Point2F(left, top);
-        const auto bot_right = D2D1::Point2F(right, bottom);
-        draw_text_and_bg(gc.text, top_left, attr, target, bot_right);
+        const auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
+        draw_text_and_bg(gc.text, top_left, attr, target, bot_right, def_clrs);
       }
     }
   }
   
   template<typename T>
-  void draw_text_and_bg(const QString& text, const D2D1_POINT_2F pt, const HLAttr& attr, T* target, D2D1_POINT_2F cur_pos)
+  void draw_text_and_bg(const QString& text, const D2D1_POINT_2F pt, const HLAttr& attr, T* target, D2D1_POINT_2F cur_pos, const HLAttr& def_clrs)
   {
-    const HLAttr& def_clrs = state->default_colors_get();
     IDWriteTextLayout* t_layout = nullptr;
     factory->CreateTextLayout((LPCWSTR)text.utf16(), text.size(), text_format, cur_pos.x - pt.x, cur_pos.y - pt.y, &t_layout);
     DWRITE_TEXT_RANGE text_range {0, (std::uint32_t) text.size()};
@@ -157,8 +169,7 @@ private:
     target->CreateSolidColorBrush(D2D1::ColorF(fg.to_uint32()), &fg_brush);
     target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
     target->FillRectangle(bg_rect, bg_brush);
-    auto r = D2D1::Point2F(pt.x, pt.y);
-    target->DrawTextLayout(r, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
+    target->DrawTextLayout(pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
     fg_brush->Release();
     bg_brush->Release();
     t_layout->Release();
@@ -185,8 +196,10 @@ public slots:
     assert(nvim);
     const QSize new_rc = to_rc(size);
     if (new_rc.width() == cols && new_rc.height() == rows) return;
+    cols = new_rc.width();
+    rows = new_rc.height();
     nvim->resize(new_rc.width(), new_rc.height());
-    //events.push(PaintEventItem {PaintKind::Redraw, std::numeric_limits<std::uint16_t>::max(), QRect()});
+    events.push(PaintEventItem {PaintKind::Redraw, std::numeric_limits<std::uint16_t>::max(), QRect()});
   }
 
 protected:
@@ -213,14 +226,14 @@ protected:
       assert(grid);
       if (event.type == PaintKind::Clear)
       {
-        //clear_grid(*grid, event.rect, bitmap_target);
+        clear_grid(*grid, event.rect, bitmap_target);
       }
       else if (event.type == PaintKind::Redraw)
       {
-        //for(const auto& grid : grids)
-        //{
-          //draw_grid(grid, QRect(0, 0, grid.cols, grid.rows), bitmap_target);
-        //}
+        for(const auto& grid : grids)
+        {
+          draw_grid(grid, QRect(0, 0, grid.cols, grid.rows), bitmap_target);
+        }
       }
       else
       {
@@ -231,7 +244,6 @@ protected:
     bitmap_target->EndDraw();
     bitmap_target->GetBitmap(&bitmap);
     device_context->BeginDraw();
-    device_context->Clear();
     device_context->SetTransform(D2D1::IdentityMatrix());
     device_context->DrawBitmap(bitmap);
     device_context->EndDraw();

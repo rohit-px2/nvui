@@ -100,6 +100,10 @@ public:
    * This can be used to set autocommands, among other things.
    */
   void command(const std::string& cmd);
+  /**
+   * Returns the api info of the attached Neovim instance.
+   */
+  msgpack::object_handle get_api_info();
 private:
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
   std::unordered_map<std::string, msgpack_callback> request_handlers;

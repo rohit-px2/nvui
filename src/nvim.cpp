@@ -338,6 +338,11 @@ void Nvim::command(const std::string& cmd)
   send_request("nvim_command", std::make_tuple(cmd));
 }
 
+msgpack::object_handle Nvim::get_api_info()
+{
+  return send_request_sync("nvim_get_api_info", std::array<int, 0> {});
+}
+
 Nvim::~Nvim()
 {
   // Close I/O Pipes and terminate process

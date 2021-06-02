@@ -120,6 +120,8 @@ protected:
   Nvim* nvim;
   QPixmap pixmap;
   bool resizing = false;
+  int rows = -1;
+  int cols = -1;
   /**
    * Sets the current font to new_font.
    */

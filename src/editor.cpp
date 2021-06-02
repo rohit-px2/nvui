@@ -36,6 +36,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   setAutoFillBackground(false);
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setFocusPolicy(Qt::StrongFocus);
+  setFocus();
   setMouseTracking(true);
   font.setPixelSize(15);
   update_font_metrics();
@@ -281,8 +282,7 @@ void EditorArea::set_guifont(const QString& new_font)
     }
   }
   update_font_metrics();
-  const QSize new_dims = to_rc(size());
-  nvim->resize(new_dims.width(), new_dims.height());
+  resized(size());
   // TODO: Handle multiple fonts (font fallback)
 }
 
@@ -311,7 +311,7 @@ void EditorArea::update_font_metrics()
 {
   QFontMetricsF metrics {font};
   float combined_height = std::max(metrics.height(), metrics.lineSpacing());
-  font_height = std::round(combined_height) + linespace;
+  font_height = std::ceil(combined_height) + linespace;
   // NOTE: This will only work for monospace fonts since we're basing every char's
   // spocing off a single char.
   constexpr QChar any_char = 'a';
@@ -371,6 +371,12 @@ void EditorArea::resized(QSize size)
 {
   const QSize new_rc = to_rc(size);
   assert(nvim);
+  if (new_rc.width() == cols && new_rc.height() == rows) return;
+  else
+  {
+    cols = new_rc.width();
+    rows = new_rc.height();
+  }
   nvim->resize(new_rc.width(), new_rc.height());
 }
 
@@ -497,12 +503,12 @@ void EditorArea::keyPressEvent(QKeyEvent* event)
 {
   event->accept();
   const auto modifiers = QApplication::keyboardModifiers();
-  const bool ctrl = modifiers & Qt::ControlModifier;
-  const bool shift = modifiers & Qt::ShiftModifier;
-  const bool alt = modifiers & Qt::AltModifier;
+  bool ctrl = modifiers & Qt::ControlModifier;
+  bool shift = modifiers & Qt::ShiftModifier;
+  bool alt = modifiers & Qt::AltModifier;
   bool is_special = false;
   std::string key = event_to_string(event, &is_special);
-  nvim->send_input(ctrl, shift, alt, key, is_special);
+  nvim->send_input(ctrl, shift, alt, std::move(key), is_special);
 }
 
 bool EditorArea::focusNextPrevChild(bool next)

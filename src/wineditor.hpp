@@ -92,8 +92,6 @@ private:
   IDWriteTypography* typography = nullptr;
   ID2D1DeviceContext* device_context = nullptr;
   ID2D1Bitmap* bitmap = nullptr;
-  int rows = -1;
-  int cols = -1;
 
   // Override EditorArea draw_grid
   // We can use native Windows stuff here
@@ -188,18 +186,6 @@ private:
       .bottom = (float) (grid.y + rect.bottom()) * font_height
     };
     target->FillRectangle(bg_rect, bg_brush);
-  }
-
-public slots:
-  void resized(QSize size)
-  {
-    assert(nvim);
-    const QSize new_rc = to_rc(size);
-    if (new_rc.width() == cols && new_rc.height() == rows) return;
-    cols = new_rc.width();
-    rows = new_rc.height();
-    nvim->resize(new_rc.width(), new_rc.height());
-    events.push(PaintEventItem {PaintKind::Redraw, std::numeric_limits<std::uint16_t>::max(), QRect()});
   }
 
 protected:

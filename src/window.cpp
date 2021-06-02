@@ -67,6 +67,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   title_bar->set_separator(" • ");
   // We'll do this later
   setCentralWidget(&editor_area);
+  editor_area.setFocus();
 }
 
 void Window::handle_redraw(msgpack::object_handle* redraw_args)

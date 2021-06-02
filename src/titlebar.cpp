@@ -35,6 +35,7 @@ public:
     : QPushButton(parent),
       hov_bg(hov)
   {
+    setFocusPolicy(Qt::NoFocus);
     setFlat(true);
     setAutoFillBackground(true);
     setMouseTracking(true);
@@ -235,6 +236,8 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   close_btn->setFixedSize(size);
   min_btn->setFixedSize(size);
   max_btn->setFixedSize(size);
+  titlebar_widget->setFocusPolicy(Qt::NoFocus);
+  setFocusPolicy(Qt::NoFocus);
   titlebar_widget->setMouseTracking(true);
   QObject::connect(close_btn, SIGNAL(clicked()), win, SLOT(close()));
   QObject::connect(min_btn, SIGNAL(clicked()), win, SLOT(showMinimized()));

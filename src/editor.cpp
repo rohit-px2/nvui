@@ -14,6 +14,7 @@
 #include <cmath>
 #include <iostream>
 #include <locale>
+#include <QSizePolicy>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -367,9 +368,10 @@ std::tuple<std::uint16_t, std::uint16_t> EditorArea::font_dimensions() const
   return std::make_tuple(font_width, font_height);
 }
 
-void EditorArea::resized(QSize size)
+void EditorArea::resized(QSize sz)
 {
-  const QSize new_rc = to_rc(size);
+  Q_UNUSED(sz);
+  const QSize new_rc = to_rc(size());
   assert(nvim);
   if (new_rc.width() == cols && new_rc.height() == rows) return;
   else

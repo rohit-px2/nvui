@@ -20,7 +20,7 @@ namespace msgpack
         QString operator()(const msgpack::object& o) const
         {
           assert(o.type == msgpack::type::STR);
-          return QString::fromLocal8Bit(o.via.str.ptr, o.via.str.size);
+          return QString::fromUtf8(o.via.str.ptr, o.via.str.size);
         }
       };
     } // adaptor

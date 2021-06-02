@@ -12,6 +12,9 @@
 #include <tuple>
 #include <boost/process.hpp>
 #include <algorithm>
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 namespace bp = boost::process;
 
 // ######################## SETTING UP ####################################
@@ -119,7 +122,7 @@ void Nvim::resize(const int new_width, const int new_height)
 
 static const std::unordered_map<std::string, bool> default_capabilities {
   {"ext_linegrid", true},
-  {"ext_multigrid", true},
+  //{"ext_multigrid", true},
   {"ext_popupmenu", true},
   {"ext_cmdline", true},
   {"ext_hlstate", true}
@@ -185,7 +188,7 @@ void Nvim::read_output_sync()
         {
           assert(arr.size == 4);
           const std::uint32_t msgid = arr.ptr[1].as<std::uint32_t>();
-          cout << "Message id: " << msgid << '\n';
+          //cout << "Message id: " << msgid << '\n';
           assert(msgid < is_blocking.size());
           // If it's a blocking request, the other thread is waiting for
           // response_received
@@ -336,6 +339,33 @@ void Nvim::set_request_handler(
 void Nvim::command(const std::string& cmd)
 {
   send_request("nvim_command", std::make_tuple(cmd));
+}
+
+msgpack::object_handle Nvim::get_api_info()
+{
+  return send_request_sync("nvim_get_api_info", std::array<int, 0> {});
+}
+
+void Nvim::send_input(const bool ctrl, const bool shift, const bool alt, const std::string& key, bool is_special)
+{
+  std::string input_string;
+  if (ctrl || shift || alt || is_special)
+  {
+    const std::string first = ctrl ? "C-" : "";
+    const std::string second = shift ? "S-" : "";
+    const std::string third = alt ? "M-" : "";
+    input_string = fmt::format("<{}{}{}{}>", first, second, third, key);
+  }
+  else
+  {
+    input_string = key;
+  }
+  send_notification("nvim_input", std::array<std::string, 1> {std::move(input_string)});
+}
+
+void Nvim::send_input(std::string key)
+{
+  send_notification("nvim_input", std::array<std::string, 1> {std::move(key)});
 }
 
 Nvim::~Nvim()

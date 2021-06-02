@@ -46,9 +46,18 @@ public:
    */
   void resize(const int new_width, const int new_height);
   /**
-   * TODO: Add documentation
+   * Sends keyboard input to Nvim with the corresponding modifiers.
+   * If the key is a "Special" key, then it's given the angle brackets, even if
+   * there are no modifiers attached. This is needed for things like <LT>, <Space>, <Tab> etc.
    */
-  void send_input(const bool shift, const bool ctrl, const std::uint16_t key);
+  void send_input(const bool ctrl, const bool shift, const bool alt, const std::string& key, bool is_special = false);
+  /**
+   * Sends the nvim_input message directly to Nvim with no processing,
+   * which means you should have done the processing on your end.
+   * If you haven't done any processing, then call send_input(shift, ctrl, alt, key)
+   * which does the processing automatically.
+   */
+  void send_input(std::string key);
   /**
    * Sends a "nvim_ui_attach" message to the embedded Neovim instance with
    * the rows and cols as the parameters, along with the default capabilities.
@@ -100,6 +109,10 @@ public:
    * This can be used to set autocommands, among other things.
    */
   void command(const std::string& cmd);
+  /**
+   * Returns the api info of the attached Neovim instance.
+   */
+  msgpack::object_handle get_api_info();
 private:
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
   std::unordered_map<std::string, msgpack_callback> request_handlers;

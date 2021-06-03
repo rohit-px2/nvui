@@ -380,6 +380,7 @@ void Window::resizeEvent(QResizeEvent* event)
 {
   if (isMaximized())
   {
+    maximized = true;
     emit resize_done(size());
   }
   else if (maximized)

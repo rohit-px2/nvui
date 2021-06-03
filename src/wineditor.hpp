@@ -59,23 +59,29 @@ public:
     const QSize max_size = QDesktopWidget().size();
     D2D1_SIZE_U bitmap_sz = D2D1::SizeU(max_size.width(), max_size.height());
     d2d_factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(), D2D1::HwndRenderTargetProperties(hwnd, sz), &hwnd_target);
-    D2D1_COMPATIBLE_RENDER_TARGET_OPTIONS options {};
-    hwnd_target->CreateCompatibleRenderTarget(NULL, &bitmap_sz, NULL, options, &bitmap_target);
-    //bitmap_target->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
-    bitmap_target->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
     hwnd_target->QueryInterface(&device_context);
+    device_context->CreateBitmap(bitmap_sz, nullptr, 0,
+      D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_TARGET,
+        D2D1::PixelFormat(
+          DXGI_FORMAT_B8G8R8A8_UNORM,
+          D2D1_ALPHA_MODE_PREMULTIPLIED
+        )
+      ),
+      &dc_bitmap
+    );
+    //device_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
   }
 
   ~WinEditorArea()
   {
-    SafeRelease(&bitmap_target);
     SafeRelease(&hwnd_target);
     SafeRelease(&d2d_factory);
     SafeRelease(&factory);
     SafeRelease(&text_format);
     SafeRelease(&typography);
-    SafeRelease(&bitmap);
     SafeRelease(&device_context);
+    SafeRelease(&dc_bitmap);
   }
 
   QPaintEngine* paintEngine() const override
@@ -84,14 +90,13 @@ public:
   }
 private:
   HWND hwnd = nullptr;
-  ID2D1BitmapRenderTarget* bitmap_target = nullptr;
   ID2D1HwndRenderTarget* hwnd_target = nullptr;
   ID2D1Factory* d2d_factory = nullptr;
   DWriteFactory* factory = nullptr;
   IDWriteTextFormat* text_format = nullptr;
   IDWriteTypography* typography = nullptr;
   ID2D1DeviceContext* device_context = nullptr;
-  ID2D1Bitmap* bitmap = nullptr;
+  ID2D1Bitmap1* dc_bitmap = nullptr;
 
   // Override EditorArea draw_grid
   // We can use native Windows stuff here
@@ -139,7 +144,6 @@ private:
     IDWriteTextLayout* t_layout = nullptr;
     factory->CreateTextLayout((LPCWSTR)text.utf16(), text.size(), text_format, cur_pos.x - pt.x, cur_pos.y - pt.y, &t_layout);
     DWRITE_TEXT_RANGE text_range {0, (std::uint32_t) text.size()};
-    t_layout->SetFontSize(font.pointSizeF() * (96.0f / 72.0f), text_range);
     if (attr.font_opts & FontOpts::Italic)
     {
       t_layout->SetFontStyle(DWRITE_FONT_STYLE_ITALIC, text_range);
@@ -202,9 +206,11 @@ protected:
       L"en-us",
       &text_format
     );
-    bitmap_target->SetTransform(D2D1::IdentityMatrix());
     Q_UNUSED(event);
-    bitmap_target->BeginDraw();
+    ID2D1Image* old_target;
+    device_context->GetTarget(&old_target);
+    device_context->SetTarget(dc_bitmap);
+    device_context->BeginDraw();
     while(!events.empty())
     {
       const PaintEventItem& event = events.front();
@@ -212,27 +218,25 @@ protected:
       assert(grid);
       if (event.type == PaintKind::Clear)
       {
-        clear_grid(*grid, event.rect, bitmap_target);
+        clear_grid(*grid, event.rect, device_context);
       }
       else if (event.type == PaintKind::Redraw)
       {
         for(const auto& grid : grids)
         {
-          draw_grid(grid, QRect(0, 0, grid.cols, grid.rows), bitmap_target);
+          draw_grid(grid, QRect(0, 0, grid.cols, grid.rows), device_context);
         }
       }
       else
       {
-        draw_grid(*grid, event.rect, bitmap_target);
+        draw_grid(*grid, event.rect, device_context);
       }
       events.pop();
     }
-    bitmap_target->EndDraw();
-    bitmap_target->GetBitmap(&bitmap);
-    device_context->BeginDraw();
-    device_context->SetTransform(D2D1::IdentityMatrix());
-    device_context->DrawBitmap(bitmap);
+    device_context->SetTarget(old_target);
+    device_context->DrawBitmap(dc_bitmap);
     device_context->EndDraw();
+    old_target->Release();
   }
 
   void resizeEvent(QResizeEvent* event) override

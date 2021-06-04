@@ -48,7 +48,7 @@ public:
     hwnd = (HWND) winId();
     RECT r;
     GetClientRect(hwnd, &r);
-    D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, &d2d_factory);
+    D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &d2d_factory);
     DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(DWriteFactory), reinterpret_cast<IUnknown**>(&factory));
     D2D1_SIZE_U sz = D2D1::SizeU(size().width(), size().height());
     d2d_factory->CreateHwndRenderTarget(
@@ -60,7 +60,9 @@ public:
     D2D1_SIZE_U bitmap_sz = D2D1::SizeU(max_size.width(), max_size.height());
     d2d_factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(), D2D1::HwndRenderTargetProperties(hwnd, sz), &hwnd_target);
     hwnd_target->QueryInterface(&device_context);
-    device_context->CreateBitmap(bitmap_sz, nullptr, 0,
+    device_context->GetDevice(&device);
+    device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_ENABLE_MULTITHREADED_OPTIMIZATIONS, &mtd_context);
+    mtd_context->CreateBitmap(bitmap_sz, nullptr, 0,
       D2D1::BitmapProperties1(
         D2D1_BITMAP_OPTIONS_TARGET,
         D2D1::PixelFormat(
@@ -71,6 +73,8 @@ public:
       &dc_bitmap
     );
     //device_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+    mtd_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+    mtd_context->SetTarget(dc_bitmap);
   }
 
   ~WinEditorArea()
@@ -82,6 +86,8 @@ public:
     SafeRelease(&typography);
     SafeRelease(&device_context);
     SafeRelease(&dc_bitmap);
+    SafeRelease(&device);
+    SafeRelease(&mtd_context);
   }
 
   QPaintEngine* paintEngine() const override
@@ -97,11 +103,14 @@ private:
   IDWriteTypography* typography = nullptr;
   ID2D1DeviceContext* device_context = nullptr;
   ID2D1Bitmap1* dc_bitmap = nullptr;
+  ID2D1Device* device = nullptr;
+  ID2D1DeviceContext* mtd_context = nullptr;
+  QString font_name = "";
 
   // Override EditorArea draw_grid
   // We can use native Windows stuff here
   template<typename T>
-  void draw_grid(const Grid& grid, const QRect& rect, T* target)
+  inline void draw_grid(const Grid& grid, const QRect& rect, T* target)
   {
     QString buffer;
     buffer.reserve(100);
@@ -139,7 +148,7 @@ private:
   }
   
   template<typename T>
-  void draw_text_and_bg(const QString& text, const D2D1_POINT_2F pt, const HLAttr& attr, T* target, D2D1_POINT_2F cur_pos, const HLAttr& def_clrs)
+  inline void draw_text_and_bg(const QString& text, const D2D1_POINT_2F pt, const HLAttr& attr, T* target, D2D1_POINT_2F cur_pos, const HLAttr& def_clrs)
   {
     IDWriteTextLayout* t_layout = nullptr;
     factory->CreateTextLayout((LPCWSTR)text.utf16(), text.size(), text_format, cur_pos.x - pt.x, cur_pos.y - pt.y, &t_layout);
@@ -177,7 +186,7 @@ private:
     t_layout->Release();
   }
 
-  void clear_grid(const Grid& grid, const QRect& rect, ID2D1RenderTarget* target)
+  inline void clear_grid(const Grid& grid, const QRect& rect, ID2D1RenderTarget* target)
   {
     const HLAttr& def_clrs = state->default_colors_get();
     ID2D1SolidColorBrush* bg_brush;
@@ -195,22 +204,22 @@ private:
 protected:
   void paintEvent(QPaintEvent* event) override
   {
-    SafeRelease(&text_format);
-    factory->CreateTextFormat(
-      (LPCWSTR) font.family().utf16(),
-      NULL,
-      DWRITE_FONT_WEIGHT_NORMAL,
-      DWRITE_FONT_STYLE_NORMAL,
-      DWRITE_FONT_STRETCH_NORMAL,
-      font.pointSizeF() * (96.0f / 72.0f),
-      L"en-us",
-      &text_format
-    );
+    if (font.family() != font_name) [[unlikely]]
+    {
+      SafeRelease(&text_format);
+      factory->CreateTextFormat(
+        (LPCWSTR) font.family().utf16(),
+        NULL,
+        DWRITE_FONT_WEIGHT_NORMAL,
+        DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL,
+        font.pointSizeF() * (96.0f / 72.0f),
+        L"en-us",
+        &text_format
+      );
+    }
     Q_UNUSED(event);
-    ID2D1Image* old_target;
-    device_context->GetTarget(&old_target);
-    device_context->SetTarget(dc_bitmap);
-    device_context->BeginDraw();
+    mtd_context->BeginDraw();
     while(!events.empty())
     {
       const PaintEventItem& event = events.front();
@@ -218,25 +227,27 @@ protected:
       assert(grid);
       if (event.type == PaintKind::Clear)
       {
-        clear_grid(*grid, event.rect, device_context);
+        clear_grid(*grid, event.rect, mtd_context);
       }
       else if (event.type == PaintKind::Redraw)
       {
         for(const auto& grid : grids)
         {
-          draw_grid(grid, QRect(0, 0, grid.cols, grid.rows), device_context);
+          draw_grid(grid, QRect(0, 0, grid.cols, grid.rows), mtd_context);
         }
       }
       else
       {
-        draw_grid(*grid, event.rect, device_context);
+        draw_grid(*grid, event.rect, mtd_context);
       }
       events.pop();
     }
-    device_context->SetTarget(old_target);
+    mtd_context->EndDraw();
+    //device_context->SetTarget(old_target);
+    device_context->BeginDraw();
     device_context->DrawBitmap(dc_bitmap);
     device_context->EndDraw();
-    old_target->Release();
+    //old_target->Release();
   }
 
   void resizeEvent(QResizeEvent* event) override

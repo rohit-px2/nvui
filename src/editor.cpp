@@ -448,6 +448,46 @@ void EditorArea::grid_clear(const msgpack::object *obj, std::uint32_t size)
   events.push(PaintEventItem {PaintKind::Clear, grid_num, r});
 }
 
+void EditorArea::grid_scroll(const msgpack::object* obj, std::uint32_t size)
+{
+  using u16 = std::uint16_t;
+  assert(obj->type == msgpack::type::ARRAY);
+  const msgpack::object_array& arr = obj->via.array;
+  assert(arr.size == 7);
+  const u16 grid_num = arr.ptr[0].as<u16>();
+  const u16 top = arr.ptr[1].as<u16>();
+  const u16 bot = arr.ptr[2].as<u16>();
+  const u16 left = arr.ptr[3].as<u16>();
+  const u16 right = arr.ptr[4].as<u16>();
+  const int rows = arr.ptr[5].as<int>();
+  const int cols = arr.ptr[6].as<int>();
+  Grid* grid = find_grid(grid_num);
+  if (!grid) return;
+  assert(grid);
+  if (rows > 0)
+  {
+    for(int y = top; y < (bot-rows) && y < (grid->rows - rows); ++y)
+    {
+      for(int x = left; x < right && x < grid->cols; ++x)
+      {
+        grid->area[y * grid->cols + x] = std::move(grid->area[(y + rows) * grid->cols + x]);
+      }
+    }
+  }
+  else if (rows < 0)
+  {
+    for(int y = (bot-1); y > top && y >= -rows; --y)
+    {
+      for(int x = left; x <= right && x < grid->cols; ++x)
+      {
+        grid->area[y * grid->cols + x] = std::move(grid->area[(y + rows) * grid->cols + x]);
+      }
+    }
+  }
+  auto rect = QRect(left, top, (right - left), (bot - top));
+  events.push(PaintEventItem {PaintKind::Draw, grid_num, rect});
+}
+
 void EditorArea::mousePressEvent(QMouseEvent* event)
 {
   if (cursor() != Qt::ArrowCursor)

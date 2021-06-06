@@ -211,6 +211,9 @@ void Window::register_handlers()
   set_handler("grid_cursor_goto", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.grid_cursor_goto(obj, size);
   });
+  set_handler("grid_scroll", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.grid_scroll(obj, size);
+  });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);

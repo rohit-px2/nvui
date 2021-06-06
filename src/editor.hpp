@@ -86,6 +86,10 @@ public:
    */
   void grid_clear(const msgpack::object* obj, std::uint32_t size);
   /**
+   * Handles a Neovim "grid_scroll" event
+   */
+  void grid_scroll(const msgpack::object* obj, std::uint32_t size);
+  /**
    * Notify the editor area when resizing is enabled/disabled.
    */
   void set_resizing(bool is_resizing);

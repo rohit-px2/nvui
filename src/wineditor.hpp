@@ -46,8 +46,6 @@ public:
     setAttribute(Qt::WA_PaintOnScreen);
     setAttribute(Qt::WA_NativeWindow);
     hwnd = (HWND) winId();
-    RECT r;
-    GetClientRect(hwnd, &r);
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &d2d_factory);
     DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(DWriteFactory), reinterpret_cast<IUnknown**>(&factory));
     D2D1_SIZE_U sz = D2D1::SizeU(size().width(), size().height());
@@ -110,7 +108,7 @@ private:
   // Override EditorArea draw_grid
   // We can use native Windows stuff here
   template<typename T>
-  inline void draw_grid(const Grid& grid, const QRect& rect, T* target)
+  inline void draw_grid(const Grid& grid, const QRect& rect, T* target, std::unordered_set<int>& drawn)
   {
     QString buffer;
     buffer.reserve(100);
@@ -120,7 +118,6 @@ private:
     const int end_y = rect.bottom();
     const QFontMetrics metrics {font};
     const HLAttr& def_clrs = state->default_colors_get();
-    std::uint16_t prev_hl_id = 0;
     const auto get_pos = [&](int x, int y, int num_chars) {
       float left = x * font_width;
       float top = y * font_height;
@@ -129,26 +126,46 @@ private:
       return std::make_tuple(D2D1::Point2F(left, top), D2D1::Point2F(right, bottom));
     };
     D2D1_POINT_2F cur_start = {0., 0.};
-    const auto clear_buffer = [&](const HLAttr& attr, int x, int y) {
-      if (buffer.isEmpty()) return;
-      D2D1_POINT_2F cur_pos = D2D1::Point2F(x * font_width, y * font_height);
-      draw_text_and_bg(buffer, cur_start, attr, target, cur_pos, def_clrs);
-    };
     for(int y = start_y; y <= end_y && y < grid.rows; ++y)
     {
+      // Check if we already drew the line
+      if (drawn.contains(grid.y + y)) continue;
+      else drawn.insert(grid.y + y);
       std::uint16_t prev_hl_id = UINT16_MAX;
-      for(int x = start_x; x <= end_x && x < grid.cols; ++x)
+      for(int x = 0; x < grid.cols; ++x)
       {
         const auto& gc = grid.area[y * grid.cols + x];
-        const HLAttr& attr = state->attr_for_id(static_cast<int>(gc.hl_id));
-        const auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
-        draw_text_and_bg(gc.text, top_left, attr, target, bot_right, def_clrs);
+        if (prev_hl_id == gc.hl_id)
+        {
+          buffer.append(gc.text);
+          continue;
+        }
+        else
+        {
+          auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
+          if (!buffer.isEmpty())
+          {
+            const HLAttr& attr = state->attr_for_id(prev_hl_id);
+            draw_text_and_bg(buffer, cur_start, attr, target, bot_right, def_clrs);
+            buffer.clear();
+          }
+          cur_start = top_left;
+          buffer.append(gc.text);
+        }
+        prev_hl_id = gc.hl_id;
+      }
+      if (!buffer.isEmpty())
+      {
+        const HLAttr& attr = state->attr_for_id(prev_hl_id);
+        auto [top_left, bot_right] = get_pos(grid.x + (grid.cols-1), grid.y + y, 1);
+        draw_text_and_bg(buffer, cur_start, attr, target, bot_right, def_clrs);
+        buffer.clear();
       }
     }
   }
   
   template<typename T>
-  inline void draw_text_and_bg(const QString& text, const D2D1_POINT_2F pt, const HLAttr& attr, T* target, D2D1_POINT_2F cur_pos, const HLAttr& def_clrs)
+  inline int draw_text_and_bg(const QString& text, const D2D1_POINT_2F pt, const HLAttr& attr, T* target, D2D1_POINT_2F cur_pos, const HLAttr& def_clrs)
   {
     IDWriteTextLayout* t_layout = nullptr;
     factory->CreateTextLayout((LPCWSTR)text.utf16(), text.size(), text_format, cur_pos.x - pt.x, cur_pos.y - pt.y, &t_layout);
@@ -161,6 +178,12 @@ private:
     {
       t_layout->SetFontWeight(DWRITE_FONT_WEIGHT_BOLD, text_range);
     }
+    if (attr.font_opts & FontOpts::Underline)
+    {
+      t_layout->SetUnderline(true, text_range);
+    }
+    DWRITE_TEXT_METRICS text_metrics;
+    t_layout->GetMetrics(&text_metrics);
     Color fg = attr.has_fg ? attr.foreground : def_clrs.foreground;
     Color bg = attr.has_bg ? attr.background : def_clrs.background;
     if (attr.reverse)
@@ -179,11 +202,15 @@ private:
     ID2D1SolidColorBrush* bg_brush = nullptr;
     target->CreateSolidColorBrush(D2D1::ColorF(fg.to_uint32()), &fg_brush);
     target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
+    D2D1_RECT_F clip_rect = D2D1::RectF(pt.x, pt.y, cur_pos.x, cur_pos.y);
+    //target->PushAxisAlignedClip(clip_rect, D2D1_ANTIALIAS_MODE_ALIASED);
     target->FillRectangle(bg_rect, bg_brush);
-    target->DrawTextLayout(pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
+    target->DrawTextLayout(pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    //target->PopAxisAlignedClip();
     fg_brush->Release();
     bg_brush->Release();
     t_layout->Release();
+    return text_metrics.width;
   }
 
   inline void clear_grid(const Grid& grid, const QRect& rect, ID2D1RenderTarget* target)
@@ -204,7 +231,8 @@ private:
 protected:
   void paintEvent(QPaintEvent* event) override
   {
-    if (font.family() != font_name) [[unlikely]]
+    std::unordered_set<int> drawn_rows;
+    if (font.family() != font_name)
     {
       SafeRelease(&text_format);
       factory->CreateTextFormat(
@@ -233,21 +261,19 @@ protected:
       {
         for(const auto& grid : grids)
         {
-          draw_grid(grid, QRect(0, 0, grid.cols, grid.rows), mtd_context);
+          draw_grid(grid, QRect(0, 0, grid.cols, grid.rows), mtd_context, drawn_rows);
         }
       }
       else
       {
-        draw_grid(*grid, event.rect, mtd_context);
+        draw_grid(*grid, event.rect, mtd_context, drawn_rows);
       }
       events.pop();
     }
     mtd_context->EndDraw();
-    //device_context->SetTarget(old_target);
     device_context->BeginDraw();
     device_context->DrawBitmap(dc_bitmap);
     device_context->EndDraw();
-    //old_target->Release();
   }
 
   void resizeEvent(QResizeEvent* event) override

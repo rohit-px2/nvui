@@ -181,6 +181,12 @@ void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)
       set_guifont(options.ptr[1].as<QString>());
       font.setHintingPreference(QFont::PreferFullHinting);
     }
+    else if (opt == "linespace")
+    {
+      linespace = options.ptr[1].as<int>();
+      update_font_metrics();
+      resized(this->size());
+    }
   }
 }
 

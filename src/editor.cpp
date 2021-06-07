@@ -449,6 +449,8 @@ void EditorArea::grid_clear(const msgpack::object *obj, std::uint32_t size)
   for(auto& gc : grid->area)
   {
     gc.text = ' ';
+    gc.hl_id = 0;
+    gc.double_width = false;
   }
   QRect&& r = {grid->x, grid->y, grid->cols, grid->rows};
   events.push(PaintEventItem {PaintKind::Clear, grid_num, r});

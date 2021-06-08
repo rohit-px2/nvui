@@ -29,22 +29,6 @@
   ////std::cout << prefix << "\n(" << rect.x() << ", " << rect.y() << ", " << rect.width() << ", " << rect.height() << ")\n";
 //}
 
-static constexpr const char* func_name(const QLatin1String full_name)
-{
-  // Can't use QString/std::string at compile time in c++17
-  if (full_name.startsWith(QLatin1String("Window::")))
-  {
-    const char* s = full_name.latin1();
-    return (QLatin1String(s + 8, full_name.size() - 8)).latin1();
-  }
-  else
-  {
-    return full_name.latin1();
-  }
-}
-
-#define FUNCNAME(func) (void(&func), func_name(QLatin1String(#func)))
-
 Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
 : QMainWindow(parent),
   semaphore(1),
@@ -219,17 +203,17 @@ void Window::register_handlers()
   assert(nvim);
   nvim->set_notification_handler("redraw", sem_block([this](msgpack::object_handle* obj) {
     QMetaObject::invokeMethod(
-      this, FUNCNAME(Window::handle_redraw), Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
+      this, "handle_redraw", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
   nvim->set_notification_handler("NVUI_BUFENTER", sem_block([this](msgpack::object_handle* obj) {
     QMetaObject::invokeMethod(
-      this, FUNCNAME(Window::handle_bufenter), Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
+      this, "handle_bufenter", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
   nvim->set_notification_handler("NVUI_DIRCHANGED", sem_block([this](msgpack::object_handle* obj) {
     QMetaObject::invokeMethod(
-      this, FUNCNAME(Window::dirchanged_titlebar), Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
+      this, "dirchanged_titlebar", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
   // Display current file in titlebar 

@@ -52,6 +52,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   // We'll do this later
   setCentralWidget(&editor_area);
   editor_area.setFocus();
+  QObject::connect(this, &Window::default_colors_changed, title_bar.get(), &TitleBar::colors_changed);
 }
 
 void Window::handle_redraw(msgpack::object_handle* redraw_args)
@@ -172,7 +173,7 @@ void Window::register_handlers()
     const Color& bgc = def_clrs.background;
     QColor fg {fgc.r, fgc.g, fgc.b};
     QColor bg {bgc.r, bgc.g, bgc.b};
-    w->title_bar->set_color(fg, bg.lightness() > 127 ? bg.darker(110) : bg.lighter(120));
+    emit w->default_colors_changed(fg, bg);
   });
   set_handler("grid_line", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.grid_line(obj, size);

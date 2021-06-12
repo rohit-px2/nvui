@@ -144,80 +144,85 @@ void Nvim::read_output_sync()
     msg_size = stdout_pipe.read(buf, buffer_maxsize);
     if (msg_size)
     {
-      oh = msgpack::unpack(buf, msg_size);
-      const msgpack::object& obj = oh.get();
-      // According to msgpack-rpc spec, this must be an array
-      assert(obj.type == msgpack::type::ARRAY);
-      const msgpack::object_array& arr = obj.via.array;
-      // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
-      assert(arr.size == 3 || arr.size == 4);
-      const std::uint32_t type = arr.ptr[0].as<std::uint32_t>();
-      // The type should only ever be one of Request, Notification, or Response.
-      assert(type == Type::Notification || type == Type::Response || type == Type::Request);
-      switch(type)
+      // There can be multiple messages inside of the buffer
+      std::size_t offset = 0;
+      while((std::int64_t) offset != msg_size)
       {
-        case Type::Request:
+        oh = msgpack::unpack(buf, msg_size, offset);
+        const msgpack::object& obj = oh.get();
+        // According to msgpack-rpc spec, this must be an array
+        assert(obj.type == msgpack::type::ARRAY);
+        const msgpack::object_array& arr = obj.via.array;
+        // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
+        assert(arr.size == 3 || arr.size == 4);
+        const std::uint32_t type = arr.ptr[0].as<std::uint32_t>();
+        // The type should only ever be one of Request, Notification, or Response.
+        assert(type == Type::Notification || type == Type::Response || type == Type::Request);
+        switch(type)
         {
-          assert(arr.size == 4);
-          const std::string method = arr.ptr[2].as<std::string>();
-          // Lock while reading
-          Lock read_lock {request_handlers_mutex};
-          const auto func_it = request_handlers.find(method);
-          if (func_it != request_handlers.end())
+          case Type::Request:
           {
-            // Params is the last element in the 4-long array
-            func_it->second(&oh);
-          }
-          break;
-        }
-        case Type::Notification:
-        {
-          assert(arr.size == 3);
-          const std::string method = arr.ptr[1].as<std::string>();
-          // Lock while reading
-          Lock read_lock {notification_handlers_mutex};
-          const auto func_it = notification_handlers.find(method);
-          if (func_it != notification_handlers.end())
-          {
-            // Call handler on the 3rd object (params)
-            func_it->second(&oh);
-          }
-          break;
-        }
-        case Type::Response:
-        {
-          assert(arr.size == 4);
-          const std::uint32_t msgid = arr.ptr[1].as<std::uint32_t>();
-          //cout << "Message id: " << msgid << '\n';
-          assert(msgid < is_blocking.size());
-          // If it's a blocking request, the other thread is waiting for
-          // response_received
-          if (is_blocking[msgid])
-          {
-            // We'll lock just to be safe.
-            // I think if we set response_received = true after
-            // setting the data, it might allow for thread-safe behaviour
-            // without locking, but we'll t(h)read on the safe side for now
-            Lock lock {response_mutex};
-            // Check if we got an error
-            response_received = true;
-            if (!arr.ptr[2].is_nil())
+            assert(arr.size == 4);
+            const std::string method = arr.ptr[2].as<std::string>();
+            // Lock while reading
+            Lock read_lock {request_handlers_mutex};
+            const auto func_it = request_handlers.find(method);
+            if (func_it != request_handlers.end())
             {
-              cout << "There was an error\n";
-              last_response = arr.ptr[2];
+              // Params is the last element in the 4-long array
+              func_it->second(&oh);
             }
-            else
-            {
-              cout << "No error!\n";
-              last_response = arr.ptr[3];
-            }
+            break;
           }
-          break;
-        }
-        default:
-        {
-          // Should never happen
-          assert(!"Message was not a valid msgpack-rpc message");
+          case Type::Notification:
+          {
+            assert(arr.size == 3);
+            const std::string method = arr.ptr[1].as<std::string>();
+            // Lock while reading
+            Lock read_lock {notification_handlers_mutex};
+            const auto func_it = notification_handlers.find(method);
+            if (func_it != notification_handlers.end())
+            {
+              // Call handler on the 3rd object (params)
+              func_it->second(&oh);
+            }
+            break;
+          }
+          case Type::Response:
+          {
+            assert(arr.size == 4);
+            const std::uint32_t msgid = arr.ptr[1].as<std::uint32_t>();
+            //cout << "Message id: " << msgid << '\n';
+            assert(msgid < is_blocking.size());
+            // If it's a blocking request, the other thread is waiting for
+            // response_received
+            if (is_blocking[msgid])
+            {
+              // We'll lock just to be safe.
+              // I think if we set response_received = true after
+              // setting the data, it might allow for thread-safe behaviour
+              // without locking, but we'll t(h)read on the safe side for now
+              Lock lock {response_mutex};
+              // Check if we got an error
+              response_received = true;
+              if (!arr.ptr[2].is_nil())
+              {
+                cout << "There was an error\n";
+                last_response = arr.ptr[2];
+              }
+              else
+              {
+                cout << "No error!\n";
+                last_response = arr.ptr[3];
+              }
+            }
+            break;
+          }
+          default:
+          {
+            // Should never happen
+            assert(!"Message was not a valid msgpack-rpc message");
+          }
         }
       }
       //dump_to_file(oh.get());
@@ -360,7 +365,7 @@ void Nvim::send_input(const bool ctrl, const bool shift, const bool alt, const s
   {
     input_string = key;
   }
-  send_notification("nvim_input", std::array<std::string, 1> {std::move(input_string)});
+  send_input(input_string);
 }
 
 void Nvim::send_input(std::string key)

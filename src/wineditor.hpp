@@ -197,7 +197,6 @@ private:
       .right = cur_pos.x,
       .bottom = cur_pos.y
     };
-    //std::cout << "Bg rect size: (" << bg_rect.right - bg_rect.left << ", " << bg_rect.bottom - bg_rect.top << ")\n";
     ID2D1SolidColorBrush* fg_brush = nullptr;
     ID2D1SolidColorBrush* bg_brush = nullptr;
     target->CreateSolidColorBrush(D2D1::ColorF(fg.to_uint32()), &fg_brush);
@@ -247,16 +246,36 @@ protected:
     constexpr const wchar_t* text = L"W";
     constexpr std::uint32_t len = 1;
     IDWriteTextLayout* text_layout = nullptr;
-    HRESULT hr = factory->CreateTextLayout(text, len, text_format, font_width * 2, font_height * 2, &text_layout);
+    HRESULT hr = factory->CreateTextLayout(
+      text, len, text_format, font_width * 2, font_height * 2, &text_layout
+    );
     if (SUCCEEDED(hr) && text_layout != nullptr)
     {
       DWRITE_HIT_TEST_METRICS ht_metrics;
       float ignore;
       text_layout->HitTestTextPosition(0, 0, &ignore, &ignore, &ht_metrics);
       font_width_f = ht_metrics.width;
-      font_height_f = ht_metrics.height + float(linespace);
+      font_height_f = std::ceilf(ht_metrics.height + float(linespace));
     }
     SafeRelease(&text_layout);
+  }
+
+  void default_colors_changed(QColor fg, QColor bg) override
+  {
+    Q_UNUSED(fg);
+    Q_UNUSED(bg);
+    mtd_context->BeginDraw();
+    auto size = mtd_context->GetSize();
+    D2D1_RECT_F rect {
+      .left = 0.f, .top = 0.f, .right = size.width, .bottom = size.height
+    };
+    ID2D1SolidColorBrush* bg_brush = nullptr;
+    const HLAttr& attr = state->default_colors_get();
+    mtd_context->CreateSolidColorBrush(D2D1::ColorF(attr.background.to_uint32()), &bg_brush);
+    mtd_context->FillRectangle(rect, bg_brush);
+    mtd_context->EndDraw();
+    events.push({PaintKind::Redraw, 0, QRect()});
+    SafeRelease(&bg_brush);
   }
   
   QSize to_rc(const QSize& pixel_size) override

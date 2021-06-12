@@ -53,6 +53,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   setCentralWidget(&editor_area);
   editor_area.setFocus();
   QObject::connect(this, &Window::default_colors_changed, title_bar.get(), &TitleBar::colors_changed);
+  QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
 }
 
 void Window::handle_redraw(msgpack::object_handle* redraw_args)

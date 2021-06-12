@@ -184,6 +184,12 @@ public slots:
    * Handle a window resize.
    */
   void resized(QSize size);
+  /**
+   * Activated when Neovim's default colors change.
+   * We need to redraw the entire area, since Neovim doesn't send the grid
+   * lines for us.
+   */
+  virtual void default_colors_changed(QColor fg, QColor bg);
 protected:
   void paintEvent(QPaintEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;

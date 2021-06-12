@@ -352,6 +352,13 @@ void EditorArea::paintEvent(QPaintEvent* event)
       //qDebug() << "Clear grid " << grid << "\n";
       clear_grid(painter, *grid, event.rect);
     }
+    else if (event.type == PaintKind::Redraw)
+    {
+      for(const auto& grid : grids)
+      {
+        draw_grid(painter, grid, QRect(0, 0, grid.cols, grid.rows));
+      }
+    }
     else
     {
       draw_grid(painter, *grid, event.rect);
@@ -561,4 +568,17 @@ void EditorArea::keyPressEvent(QKeyEvent* event)
 bool EditorArea::focusNextPrevChild(bool next)
 {
   return false;
+}
+
+void EditorArea::default_colors_changed(QColor fg, QColor bg)
+{
+  // Since we draw to an internal bitmap it is better to draw the entire
+  // bitmap with the bg color and then send a redraw message.
+  // This makes it looks nicer when resizing (otherwise the part that hasn't been
+  // drawn yet is completely black)
+  // This has to be virtual because we aren't always drawing to a QPixmap
+  // (WinEditorArea draws to a ID2D1Bitmap)
+  QPainter p(&pixmap);
+  p.fillRect(pixmap.rect(), bg);
+  events.push({PaintKind::Redraw, 0, QRect()});
 }

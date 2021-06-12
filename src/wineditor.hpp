@@ -301,10 +301,12 @@ protected:
       }
       else if (event.type == PaintKind::Redraw)
       {
+        drawn_rows.clear();
         for(const auto& grid : grids)
         {
           draw_grid(grid, QRect(0, 0, grid.cols, grid.rows), mtd_context, drawn_rows);
         }
+        drawn_rows.clear();
       }
       else
       {

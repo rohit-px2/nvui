@@ -34,7 +34,7 @@ struct Color
   /**
    * Converts a Color back to a uint32
    */
-  uint32 to_uint32()
+  uint32 to_uint32() const
   {
     return r << 16 | g << 8 | b;
   }

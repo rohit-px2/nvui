@@ -162,11 +162,11 @@ protected:
    * Converts a QSize from pixel size to rows and columns
    * based on the current font size.
    */
-  QSize to_rc(const QSize& pixel_size);
+  virtual QSize to_rc(const QSize& pixel_size);
   /**
    * Updates the font metrics, such as font_width and font_height.
    */
-  void update_font_metrics();
+  virtual void update_font_metrics();
   /**
    * Draws a portion of the grid on the screen
    * (the area to draw is given by rect).
@@ -184,6 +184,12 @@ public slots:
    * Handle a window resize.
    */
   void resized(QSize size);
+  /**
+   * Activated when Neovim's default colors change.
+   * We need to redraw the entire area, since Neovim doesn't send the grid
+   * lines for us.
+   */
+  virtual void default_colors_changed(QColor fg, QColor bg);
 protected:
   void paintEvent(QPaintEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;

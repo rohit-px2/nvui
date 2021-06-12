@@ -99,6 +99,7 @@ private:
 #endif
 signals:
   void resize_done(QSize size);
+  void default_colors_changed(QColor fg, QColor bg);
 protected:
   void mousePressEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;

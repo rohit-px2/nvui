@@ -373,3 +373,8 @@ void TitleBar::minimize_maximize()
     update_maxicon();
   }
 }
+
+void TitleBar::colors_changed(QColor fg, QColor bg)
+{
+  set_color(fg, bg.lightness() > 127 ? bg.darker(110) : bg.lighter(120));
+}

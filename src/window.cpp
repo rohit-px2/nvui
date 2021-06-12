@@ -29,22 +29,6 @@
   ////std::cout << prefix << "\n(" << rect.x() << ", " << rect.y() << ", " << rect.width() << ", " << rect.height() << ")\n";
 //}
 
-static constexpr const char* func_name(const QLatin1String full_name)
-{
-  // Can't use QString/std::string at compile time in c++17
-  if (full_name.startsWith(QLatin1String("Window::")))
-  {
-    const char* s = full_name.latin1();
-    return (QLatin1String(s + 8, full_name.size() - 8)).latin1();
-  }
-  else
-  {
-    return full_name.latin1();
-  }
-}
-
-#define FUNCNAME(func) (void(&func), func_name(QLatin1String(#func)))
-
 Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
 : QMainWindow(parent),
   semaphore(1),
@@ -68,6 +52,8 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   // We'll do this later
   setCentralWidget(&editor_area);
   editor_area.setFocus();
+  QObject::connect(this, &Window::default_colors_changed, title_bar.get(), &TitleBar::colors_changed);
+  QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
 }
 
 void Window::handle_redraw(msgpack::object_handle* redraw_args)
@@ -188,7 +174,7 @@ void Window::register_handlers()
     const Color& bgc = def_clrs.background;
     QColor fg {fgc.r, fgc.g, fgc.b};
     QColor bg {bgc.r, bgc.g, bgc.b};
-    w->title_bar->set_color(fg, bg.lightness() > 127 ? bg.darker(110) : bg.lighter(120));
+    emit w->default_colors_changed(fg, bg);
   });
   set_handler("grid_line", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.grid_line(obj, size);
@@ -219,17 +205,17 @@ void Window::register_handlers()
   assert(nvim);
   nvim->set_notification_handler("redraw", sem_block([this](msgpack::object_handle* obj) {
     QMetaObject::invokeMethod(
-      this, FUNCNAME(Window::handle_redraw), Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
+      this, "handle_redraw", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
   nvim->set_notification_handler("NVUI_BUFENTER", sem_block([this](msgpack::object_handle* obj) {
     QMetaObject::invokeMethod(
-      this, FUNCNAME(Window::handle_bufenter), Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
+      this, "handle_bufenter", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
   nvim->set_notification_handler("NVUI_DIRCHANGED", sem_block([this](msgpack::object_handle* obj) {
     QMetaObject::invokeMethod(
-      this, FUNCNAME(Window::dirchanged_titlebar), Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
+      this, "dirchanged_titlebar", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
   // Display current file in titlebar 

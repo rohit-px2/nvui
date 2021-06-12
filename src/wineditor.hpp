@@ -104,6 +104,8 @@ private:
   ID2D1Device* device = nullptr;
   ID2D1DeviceContext* mtd_context = nullptr;
   QString font_name = "";
+  float font_width_f;
+  float font_height_f;
 
   // Override EditorArea draw_grid
   // We can use native Windows stuff here
@@ -119,10 +121,10 @@ private:
     const QFontMetrics metrics {font};
     const HLAttr& def_clrs = state->default_colors_get();
     const auto get_pos = [&](int x, int y, int num_chars) {
-      float left = x * font_width;
-      float top = y * font_height;
-      float bottom = top + font_height;
-      float right = left + (font_width * num_chars);
+      float left = x * font_width_f;
+      float top = y * font_height_f;
+      float bottom = top + font_height_f;
+      float right = left + (font_width_f * num_chars);
       return std::make_tuple(D2D1::Point2F(left, top), D2D1::Point2F(right, bottom));
     };
     D2D1_POINT_2F cur_start = {0., 0.};
@@ -182,8 +184,6 @@ private:
     {
       t_layout->SetUnderline(true, text_range);
     }
-    DWRITE_TEXT_METRICS text_metrics;
-    t_layout->GetMetrics(&text_metrics);
     Color fg = attr.has_fg ? attr.foreground : def_clrs.foreground;
     Color bg = attr.has_bg ? attr.background : def_clrs.background;
     if (attr.reverse)
@@ -203,14 +203,14 @@ private:
     target->CreateSolidColorBrush(D2D1::ColorF(fg.to_uint32()), &fg_brush);
     target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
     D2D1_RECT_F clip_rect = D2D1::RectF(pt.x, pt.y, cur_pos.x, cur_pos.y);
-    //target->PushAxisAlignedClip(clip_rect, D2D1_ANTIALIAS_MODE_ALIASED);
+    target->PushAxisAlignedClip(clip_rect, D2D1_ANTIALIAS_MODE_ALIASED);
     target->FillRectangle(bg_rect, bg_brush);
-    target->DrawTextLayout(pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
-    //target->PopAxisAlignedClip();
+    target->DrawTextLayout(pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
+    target->PopAxisAlignedClip();
     fg_brush->Release();
     bg_brush->Release();
     t_layout->Release();
-    return text_metrics.width;
+    return cur_pos.x - pt.x;
   }
 
   inline void clear_grid(const Grid& grid, const QRect& rect, ID2D1RenderTarget* target)
@@ -226,26 +226,49 @@ private:
       .bottom = (float) (grid.y + rect.bottom()) * font_height
     };
     target->FillRectangle(bg_rect, bg_brush);
+    SafeRelease(&bg_brush);
   }
 
 protected:
+  void update_font_metrics() override
+  {
+    EditorArea::update_font_metrics();
+    SafeRelease(&text_format);
+    factory->CreateTextFormat(
+      (LPCWSTR) font.family().utf16(),
+      NULL,
+      DWRITE_FONT_WEIGHT_NORMAL,
+      DWRITE_FONT_STYLE_NORMAL,
+      DWRITE_FONT_STRETCH_NORMAL,
+      font.pointSizeF() * (96.0f / 72.0f),
+      L"en-us",
+      &text_format
+    );
+    constexpr const wchar_t* text = L"W";
+    constexpr std::uint32_t len = 1;
+    IDWriteTextLayout* text_layout = nullptr;
+    HRESULT hr = factory->CreateTextLayout(text, len, text_format, font_width * 2, font_height * 2, &text_layout);
+    if (SUCCEEDED(hr) && text_layout != nullptr)
+    {
+      DWRITE_HIT_TEST_METRICS ht_metrics;
+      float ignore;
+      text_layout->HitTestTextPosition(0, 0, &ignore, &ignore, &ht_metrics);
+      font_width_f = ht_metrics.width;
+      font_height_f = ht_metrics.height + float(linespace);
+    }
+    SafeRelease(&text_layout);
+  }
+  
+  QSize to_rc(const QSize& pixel_size) override
+  {
+    int new_width = float(pixel_size.width()) / font_width_f;
+    int new_height = float(pixel_size.height()) / font_height_f;
+    return {new_width, new_height};
+  }
+
   void paintEvent(QPaintEvent* event) override
   {
     std::unordered_set<int> drawn_rows;
-    if (font.family() != font_name)
-    {
-      SafeRelease(&text_format);
-      factory->CreateTextFormat(
-        (LPCWSTR) font.family().utf16(),
-        NULL,
-        DWRITE_FONT_WEIGHT_NORMAL,
-        DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL,
-        font.pointSizeF() * (96.0f / 72.0f),
-        L"en-us",
-        &text_format
-      );
-    }
     Q_UNUSED(event);
     mtd_context->BeginDraw();
     while(!events.empty())

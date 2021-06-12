@@ -329,9 +329,6 @@ QSize EditorArea::to_rc(const QSize& pixel_size)
 {
   int new_width = pixel_size.width() / font_width;
   int new_height = pixel_size.height() / font_height;
-  //std::cout << "Pixel size: (" << pixel_size.width() << ", " << pixel_size.height() << ")\n";
-  //std::cout << "Font width, height: (" << font_width << ", " << font_height << ")\n";
-  //std::cout << "New width: " << new_width << ", New height: " << new_height << '\n';
   return {new_width, new_height};
 }
 

@@ -162,11 +162,11 @@ protected:
    * Converts a QSize from pixel size to rows and columns
    * based on the current font size.
    */
-  QSize to_rc(const QSize& pixel_size);
+  virtual QSize to_rc(const QSize& pixel_size);
   /**
    * Updates the font metrics, such as font_width and font_height.
    */
-  void update_font_metrics();
+  virtual void update_font_metrics();
   /**
    * Draws a portion of the grid on the screen
    * (the area to draw is given by rect).

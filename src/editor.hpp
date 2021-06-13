@@ -15,6 +15,7 @@
 #include <QFontDatabase>
 #include "hlstate.hpp"
 #include "nvim.hpp"
+#include "cursor.hpp"
 
 // For easily changing the type of 'char' in a cell
 using grid_char = QString;
@@ -93,6 +94,16 @@ public:
    * Notify the editor area when resizing is enabled/disabled.
    */
   void set_resizing(bool is_resizing);
+  /**
+   * Handles a "mode_info_set" Neovim redraw event.
+   * Internally sends the data to neovim_cursor.
+   */
+  void mode_info_set(const msgpack::object* obj, std::uint32_t size);
+  /**
+   * Handles a "mode_change" Neovim event.
+   * Internally sends the data to neovim_cursor.
+   */
+  void mode_change(const msgpack::object* obj, std::uint32_t size);
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)
@@ -124,6 +135,7 @@ protected:
   Nvim* nvim;
   QPixmap pixmap;
   bool resizing = false;
+  Cursor neovim_cursor;
   int rows = -1;
   int cols = -1;
   /**

@@ -31,7 +31,8 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 : QWidget(parent),
   state(hl_state),
   nvim(nv),
-  pixmap(QDesktopWidget().size())
+  pixmap(QDesktopWidget().size()),
+  neovim_cursor()
 {
   setAttribute(Qt::WA_OpaquePaintEvent);
   setAutoFillBackground(false);
@@ -556,7 +557,7 @@ std::string event_to_string(QKeyEvent* event, bool* special)
 void EditorArea::keyPressEvent(QKeyEvent* event)
 {
   event->accept();
-  const auto modifiers = QApplication::keyboardModifiers();
+  const auto modifiers = event->modifiers();
   bool ctrl = modifiers & Qt::ControlModifier;
   bool shift = modifiers & Qt::ShiftModifier;
   bool alt = modifiers & Qt::AltModifier;
@@ -581,4 +582,14 @@ void EditorArea::default_colors_changed(QColor fg, QColor bg)
   QPainter p(&pixmap);
   p.fillRect(pixmap.rect(), bg);
   events.push({PaintKind::Redraw, 0, QRect()});
+}
+
+void EditorArea::mode_info_set(const msgpack::object* obj, std::uint32_t size)
+{
+  neovim_cursor.mode_info_set(obj, size);
+}
+
+void EditorArea::mode_change(const msgpack::object* obj, std::uint32_t size)
+{
+  neovim_cursor.mode_change(obj, size);
 }

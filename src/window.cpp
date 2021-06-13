@@ -89,7 +89,7 @@ void Window::handle_redraw(msgpack::object_handle* redraw_args)
     }
     else
     {
-      cout << "No handler found for task " << task_name << '\n';
+      //cout << "No handler found for task " << task_name << '\n';
     }
   }
 #ifndef NDEBUG
@@ -385,4 +385,27 @@ void Window::moveEvent(QMoveEvent* event)
 {
   title_bar->update_maxicon();
   QMainWindow::moveEvent(event);
+}
+
+void Window::listen_for_notification(
+  std::string method,
+  std::function<void (msgpack::object_handle)> cb
+)
+{
+  // Blocking std::function wrapper around an std::function
+  // that sends a message to the main thread to call the std::function
+  // that calls the callback std::function.
+  nvim->set_notification_handler(
+    std::move(method),
+    sem_block([this, cb](msgpack::object_handle* oh) {
+      QMetaObject::invokeMethod(
+        this,
+        [this, oh, cb]() {
+          auto handle = safe_copy(oh);
+          cb(std::move(handle));
+        },
+        Qt::QueuedConnection
+      );
+    })
+  );
 }

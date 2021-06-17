@@ -42,6 +42,12 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   setMouseTracking(true);
   font.setPixelSize(15);
   update_font_metrics();
+  QObject::connect(&neovim_cursor, &Cursor::cursor_hidden, this, [this] {
+    update();
+  });
+  QObject::connect(&neovim_cursor, &Cursor::cursor_visible, this, [this] {
+    update();
+  });
 }
 
 void EditorArea::set_text(

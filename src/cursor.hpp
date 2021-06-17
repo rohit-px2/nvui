@@ -70,18 +70,39 @@ public:
    */
   void mode_change(const msgpack::object* obj, std::uint32_t size);
   /**
-   * Set the current position to pos.
+   * Set the current position to pos, and refresh the cursor.
    */
   void go_to(CursorPos pos);
+  /**
+   * Get the rectangle the cursor occupies at the current moment.
+   * This in pixels, and is calculated using the given font width and font height.
+   */
   std::optional<CursorRect> rect(float font_width, float font_height) const noexcept;
+  /**
+   * Same as rect(), but based on the old cursor position and mode.
+   */
   std::optional<CursorRect> old_rect(float font_width, float font_height) const noexcept;
+  /**
+   * Get the old position of the cursor (if it has an old position).
+   */
   inline std::optional<CursorPos> old_pos() const noexcept
   {
     return prev_pos;
   }
+  /**
+   * Get the current position of the cursor (if it exists).
+   */
   inline std::optional<CursorPos> pos() const noexcept
   {
     return cur_pos;
+  }
+  /**
+   * Whether the cursor is hidden or not
+   * If it's hidden, don't draw it
+   */
+  inline bool hidden() const noexcept
+  {
+    return status == CursorStatus::Hidden;
   }
 private:
   int cell_width;

@@ -94,6 +94,7 @@ public:
   {
     return nullptr;
   }
+
 private:
   HWND hwnd = nullptr;
   ID2D1HwndRenderTarget* hwnd_target = nullptr;
@@ -377,7 +378,10 @@ protected:
     mtd_context->EndDraw();
     device_context->BeginDraw();
     device_context->DrawBitmap(dc_bitmap);
-    draw_cursor(device_context);
+    if (!neovim_cursor.hidden())
+    {
+      draw_cursor(device_context);
+    }
     device_context->EndDraw();
   }
 

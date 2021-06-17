@@ -170,9 +170,7 @@ void Cursor::go_to(CursorPos pos)
 {
   prev_pos = cur_pos;
   cur_pos = pos;
-  blinkoff_timer.stop();
-  blinkon_timer.stop();
-  blinkwait_timer.start();
+  reset_timers();
 }
 
 /// Returns a CursorRect containing the cursor rectangle

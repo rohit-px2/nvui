@@ -228,6 +228,22 @@ void Window::register_handlers()
       this, "dirchanged_titlebar", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
+  listen_for_notification("NVUI_WINOPACITY", [this](msgpack::object_handle oh) {
+    const msgpack::object& obj = oh.get();
+    if (obj.type != msgpack::type::ARRAY) return;
+    const msgpack::object_array& arr = obj.via.array;
+    if (arr.size != 3) return;
+    const msgpack::object& param_obj = arr.ptr[2];
+    if (param_obj.type != msgpack::type::ARRAY) return;
+    const msgpack::object_array& params = param_obj.via.array;
+    if (params.size == 0) return;
+    const msgpack::object& param = params.ptr[0];
+    if (param.type != msgpack::type::FLOAT) return;
+    const double opacity = param.as<double>();
+    if (opacity <= 0.0 || opacity > 1.0) return;
+    setWindowOpacity(opacity);
+  });
+  nvim->command("command! -nargs=1 NvuiOpacity call rpcnotify(1, 'NVUI_WINOPACITY', <args>)");
   // Display current file in titlebar 
   nvim->command("autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))");
   // Display current dir / update file tree on directory change

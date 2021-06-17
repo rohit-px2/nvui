@@ -89,7 +89,7 @@ void Window::handle_redraw(msgpack::object_handle* redraw_args)
     }
     else
     {
-      cout << "No handler found for task " << task_name << '\n';
+      //cout << "No handler found for task " << task_name << '\n';
     }
   }
 #ifndef NDEBUG
@@ -200,6 +200,22 @@ void Window::register_handlers()
   set_handler("grid_scroll", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.grid_scroll(obj, size);
   });
+  set_handler("mode_info_set", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.mode_info_set(obj, size);
+  });
+  set_handler("mode_change", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.mode_change(obj, size);
+  });
+  set_handler("popupmenu_show", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+  });
+  set_handler("popupmenu_hide", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+  });
+  set_handler("busy_start", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.busy_start();
+  });
+  set_handler("busy_stop", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.busy_stop();
+  });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);
@@ -218,6 +234,22 @@ void Window::register_handlers()
       this, "dirchanged_titlebar", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
+  listen_for_notification("NVUI_WINOPACITY", [this](msgpack::object_handle oh) {
+    const msgpack::object& obj = oh.get();
+    if (obj.type != msgpack::type::ARRAY) return;
+    const msgpack::object_array& arr = obj.via.array;
+    if (arr.size != 3) return;
+    const msgpack::object& param_obj = arr.ptr[2];
+    if (param_obj.type != msgpack::type::ARRAY) return;
+    const msgpack::object_array& params = param_obj.via.array;
+    if (params.size == 0) return;
+    const msgpack::object& param = params.ptr[0];
+    if (param.type != msgpack::type::FLOAT) return;
+    const double opacity = param.as<double>();
+    if (opacity <= 0.0 || opacity > 1.0) return;
+    setWindowOpacity(opacity);
+  });
+  nvim->command("command! -nargs=1 NvuiOpacity call rpcnotify(1, 'NVUI_WINOPACITY', <args>)");
   // Display current file in titlebar 
   nvim->command("autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))");
   // Display current dir / update file tree on directory change
@@ -385,4 +417,27 @@ void Window::moveEvent(QMoveEvent* event)
 {
   title_bar->update_maxicon();
   QMainWindow::moveEvent(event);
+}
+
+void Window::listen_for_notification(
+  std::string method,
+  std::function<void (msgpack::object_handle)> cb
+)
+{
+  // Blocking std::function wrapper around an std::function
+  // that sends a message to the main thread to call the std::function
+  // that calls the callback std::function.
+  nvim->set_notification_handler(
+    std::move(method),
+    sem_block([this, cb](msgpack::object_handle* oh) {
+      QMetaObject::invokeMethod(
+        this,
+        [this, oh, cb]() {
+          auto handle = safe_copy(oh);
+          cb(std::move(handle));
+        },
+        Qt::QueuedConnection
+      );
+    })
+  );
 }

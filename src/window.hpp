@@ -84,6 +84,13 @@ private:
    * waiting for the semaphore to release to continue its execution.
    */
   msgpack::object_handle safe_copy(msgpack::object_handle* obj);
+  /**
+   * Listen for a notification with the method call "method",
+   * and invoke the corresponding callback on the main (Qt) thread.
+   * msgpack::object_handle moving is already done, so the lambdas
+   * passed just have to deal with their logic.
+   */
+  void listen_for_notification(std::string method, std::function<void (msgpack::object_handle)> cb);
   QSemaphore semaphore;
   bool resizing;
   bool maximized = false;

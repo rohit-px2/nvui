@@ -34,7 +34,7 @@ namespace hl
       }
       else if (k == "reverse")
       {
-        attr.reverse = kv.val.as<bool>();
+        attr.reverse = true;
       }
       else if (k == "special")
       {
@@ -109,7 +109,16 @@ HLAttr::HLAttr(int id)
 : hl_id(id) {}
 
 HLAttr::HLAttr(const HLAttr& other)
-: hl_id(other.hl_id) {}
+: hl_id(other.hl_id),
+  reverse(other.reverse),
+  special(other.special),
+  foreground(other.foreground),
+  background(other.background),
+  has_fg(other.has_fg),
+  has_bg(other.has_bg),
+  has_special(other.has_special),
+  state(other.state),
+  opacity(other.opacity) {}
 
 HLAttr::HLAttr(HLAttr&& other)
 : hl_id(other.hl_id),

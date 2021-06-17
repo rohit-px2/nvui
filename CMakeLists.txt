@@ -53,6 +53,8 @@ file(GLOB SOURCES
   src/hlstate.cpp
   src/window.hpp
   src/window.cpp
+  src/cursor.hpp
+  src/cursor.cpp
 )
 if (WIN32)
   message("Windows detected.")
@@ -97,6 +99,8 @@ file(GLOB TEST_SOURCES
   src/window.cpp
   src/hlstate.hpp
   src/hlstate.cpp
+  src/cursor.hpp
+  src/cursor.cpp
   test/*.cpp
 )
 add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})

@@ -31,7 +31,8 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 : QWidget(parent),
   state(hl_state),
   nvim(nv),
-  pixmap(QDesktopWidget().size())
+  pixmap(QDesktopWidget().size()),
+  neovim_cursor()
 {
   setAttribute(Qt::WA_OpaquePaintEvent);
   setAutoFillBackground(false);
@@ -41,6 +42,12 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   setMouseTracking(true);
   font.setPixelSize(15);
   update_font_metrics();
+  QObject::connect(&neovim_cursor, &Cursor::cursor_hidden, this, [this] {
+    update();
+  });
+  QObject::connect(&neovim_cursor, &Cursor::cursor_visible, this, [this] {
+    update();
+  });
 }
 
 void EditorArea::set_text(
@@ -164,6 +171,19 @@ void EditorArea::grid_cursor_goto(const msgpack::object* obj, std::uint32_t size
   assert(obj->type == msgpack::type::ARRAY);
   const auto& arr = obj->via.array;
   assert(arr.size == 3);
+  std::uint16_t grid_num = arr.ptr[0].as<std::uint16_t>();
+  int row = arr.ptr[1].as<int>();
+  int col = arr.ptr[2].as<int>();
+  Grid* grid = find_grid(grid_num);
+  if (!grid) return;
+  neovim_cursor.go_to({grid_num, grid->x, grid->y, row, col});
+  // In our paintEvent we will always redraw the current cursor.
+  // But we have to get rid of the old cursor (if it's there)
+  auto old_pos = neovim_cursor.old_pos();
+  if (!old_pos.has_value()) return;
+  QRect rect {old_pos->col, old_pos->row, 1, 0};
+  events.push({PaintKind::Draw, old_pos->grid_num, rect});
+  update();
 }
 
 void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)
@@ -556,7 +576,7 @@ std::string event_to_string(QKeyEvent* event, bool* special)
 void EditorArea::keyPressEvent(QKeyEvent* event)
 {
   event->accept();
-  const auto modifiers = QApplication::keyboardModifiers();
+  const auto modifiers = event->modifiers();
   bool ctrl = modifiers & Qt::ControlModifier;
   bool shift = modifiers & Qt::ShiftModifier;
   bool alt = modifiers & Qt::AltModifier;
@@ -581,4 +601,14 @@ void EditorArea::default_colors_changed(QColor fg, QColor bg)
   QPainter p(&pixmap);
   p.fillRect(pixmap.rect(), bg);
   events.push({PaintKind::Redraw, 0, QRect()});
+}
+
+void EditorArea::mode_info_set(const msgpack::object* obj, std::uint32_t size)
+{
+  neovim_cursor.mode_info_set(obj, size);
+}
+
+void EditorArea::mode_change(const msgpack::object* obj, std::uint32_t size)
+{
+  neovim_cursor.mode_change(obj, size);
 }

@@ -16,7 +16,8 @@ enum class CursorShape : std::uint8_t
 enum class CursorStatus : std::uint8_t
 {
   Visible,
-  Hidden
+  Hidden,
+  Busy
 };
 
 /// Stores the cursor's position, in terms of a grid.
@@ -102,8 +103,19 @@ public:
    */
   inline bool hidden() const noexcept
   {
-    return status == CursorStatus::Hidden;
+    return status == CursorStatus::Hidden || busy();
   }
+  /**
+   * Hides the cursor, and disables all the timers so
+   * that the cursor doesn't come back on again until
+   * busy_stop
+   */
+  void busy_start();
+  /**
+   * Ends the Busy state, resetting the timers and
+   * showing the cursor once again
+   */
+  void busy_stop();
 private:
   int cell_width;
   int cell_height;
@@ -150,6 +162,13 @@ private:
    * Show the cursor and set the status to Visible.
    */
   void show() noexcept;
+  /**
+   * Whether the cursor is busy or not.
+   */
+  inline bool busy() const noexcept
+  {
+    return status == CursorStatus::Busy;
+  }
 };
 
 #endif // NVUI_CURSOR_HPP

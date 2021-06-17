@@ -104,6 +104,20 @@ public:
    * Internally sends the data to neovim_cursor.
    */
   void mode_change(const msgpack::object* obj, std::uint32_t size);
+  /**
+   * Handles a "busy_start" event, passing it to the Neovim cursor
+   */
+  inline void busy_start()
+  {
+    neovim_cursor.busy_start();
+  }
+  /**
+   * Handles a "busy_stop" event, passing it to the Neovim cursor
+   */
+  inline void busy_stop()
+  {
+    neovim_cursor.busy_stop();
+  }
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)

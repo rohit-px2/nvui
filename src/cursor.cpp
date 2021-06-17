@@ -116,6 +116,7 @@ void Cursor::mode_info_set(const msgpack::object* obj, std::uint32_t size)
 
 void Cursor::reset_timers() noexcept
 {
+  if (busy()) return;
   show();
   blinkwait_timer.stop();
   blinkoff_timer.stop();
@@ -150,7 +151,7 @@ void Cursor::set_blinkon_timer(int ms) noexcept
 
 void Cursor::hide() noexcept
 {
-  if (status != CursorStatus::Hidden)
+  if (status != CursorStatus::Hidden && !busy())
   {
     emit cursor_hidden();
     status = CursorStatus::Hidden;
@@ -159,7 +160,7 @@ void Cursor::hide() noexcept
 
 void Cursor::show() noexcept
 {
-  if (status != CursorStatus::Visible)
+  if (status != CursorStatus::Visible && !busy())
   {
     emit cursor_visible();
     status = CursorStatus::Visible;
@@ -224,4 +225,16 @@ std::optional<CursorRect> Cursor::old_rect(float font_width, float font_height) 
     const auto& old_mode = mode_info.at(old_mode_idx);
     return get_rect(old_mode, prev_pos->grid_y + prev_pos->row, prev_pos->grid_x + prev_pos->col, font_width, font_height);
   }
+}
+
+void Cursor::busy_start()
+{
+  hide();
+  status = CursorStatus::Busy;
+}
+
+void Cursor::busy_stop()
+{
+  status = CursorStatus::Visible;
+  reset_timers();
 }

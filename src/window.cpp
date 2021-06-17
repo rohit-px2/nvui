@@ -210,6 +210,12 @@ void Window::register_handlers()
   });
   set_handler("popupmenu_hide", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
   });
+  set_handler("busy_start", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.busy_start();
+  });
+  set_handler("busy_stop", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.busy_stop();
+  });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);

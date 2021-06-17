@@ -249,6 +249,28 @@ void Window::register_handlers()
     if (opacity <= 0.0 || opacity > 1.0) return;
     setWindowOpacity(opacity);
   });
+  listen_for_notification("NVUI_TOGGLE_FRAMELESS", [this](msgpack::object_handle oh) {
+    Q_UNUSED(oh);
+    auto flags = windowFlags();
+    if (flags & Qt::FramelessWindowHint)
+    {
+      if (title_bar) title_bar->hide();
+      frameless_window = false;
+      flags &= ~Qt::FramelessWindowHint;
+      setWindowFlags(flags);
+      show();
+      emit resize_done(size());
+    }
+    else
+    {
+      if (title_bar) title_bar->show();
+      frameless_window = true;
+      setWindowFlags(Qt::FramelessWindowHint);
+      show();
+      emit resize_done(size());
+    }
+  });
+  nvim->command("command! NvuiToggleFrameless call rpcnotify(1, 'NVUI_TOGGLE_FRAMELESS')");
   nvim->command("command! -nargs=1 NvuiOpacity call rpcnotify(1, 'NVUI_WINOPACITY', <args>)");
   // Display current file in titlebar 
   nvim->command("autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))");
@@ -365,7 +387,14 @@ void Window::resize_or_move(const QPointF& p)
 
 void Window::mousePressEvent(QMouseEvent* event)
 {
-  resize_or_move(event->localPos());
+  if (frameless_window)
+  {
+    resize_or_move(event->localPos());
+  }
+  else
+  {
+    QMainWindow::mousePressEvent(event);
+  }
 }
 
 void Window::mouseReleaseEvent(QMouseEvent* event)
@@ -393,8 +422,15 @@ void Window::mouseMoveEvent(QMouseEvent* event)
     // No resizing
     return;
   }
-  const ResizeType type = should_resize(rect(), tolerance, event);
-  setCursor(Qt::CursorShape(type));
+  if (frameless_window)
+  {
+    const ResizeType type = should_resize(rect(), tolerance, event);
+    setCursor(Qt::CursorShape(type));
+  }
+  else
+  {
+    QMainWindow::mouseMoveEvent(event);
+  }
 }
 
 void Window::resizeEvent(QResizeEvent* event)
@@ -407,6 +443,10 @@ void Window::resizeEvent(QResizeEvent* event)
   else if (maximized)
   {
     maximized = false;
+    emit resize_done(size());
+  }
+  else if (!frameless_window)
+  {
     emit resize_done(size());
   }
   title_bar->update_maxicon();

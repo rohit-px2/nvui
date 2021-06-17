@@ -57,6 +57,22 @@ public:
    * Update the icons based on the status of the attached window (win).
    */
   void update_maxicon();
+  /**
+   * Hide the titlebar
+   */
+  inline void hide()
+  {
+    if (titlebar_widget->isHidden()) return;
+    titlebar_widget->hide();
+  }
+  /**
+   * Show the titlebar
+   */
+  inline void show()
+  {
+    if (titlebar_widget->isVisible()) return;
+    titlebar_widget->show();
+  }
 private:
   /**
    * Updates the titlebar with new colors.

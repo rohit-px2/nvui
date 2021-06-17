@@ -123,8 +123,8 @@ void Nvim::resize(const int new_width, const int new_height)
 static const std::unordered_map<std::string, bool> default_capabilities {
   {"ext_linegrid", true},
   //{"ext_multigrid", true},
-  {"ext_popupmenu", true},
-  {"ext_cmdline", true},
+  //{"ext_popupmenu", true},
+  //{"ext_cmdline", true},
   {"ext_hlstate", true}
 };
 

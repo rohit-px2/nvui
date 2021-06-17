@@ -95,6 +95,7 @@ private:
   bool resizing;
   bool maximized = false;
   bool moving = false;
+  bool frameless_window = true; // frameless by default
   std::unique_ptr<TitleBar> title_bar;
   HLState hl_state;
   Nvim* nvim;

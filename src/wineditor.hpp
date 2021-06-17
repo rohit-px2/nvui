@@ -34,6 +34,9 @@ inline void SafeRelease(T** ppT)
   }
 }
 
+/// The WinEditorArea is a version of the EditorArea that only works on
+/// Windows, since it uses Direct2D and DirectWrite for rendering instead
+/// of Qt's cross-platform solution.
 class WinEditorArea : public EditorArea
 {
 public:
@@ -70,7 +73,6 @@ public:
       ),
       &dc_bitmap
     );
-    //device_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
     mtd_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
     mtd_context->SetTarget(dc_bitmap);
   }
@@ -228,6 +230,64 @@ private:
     SafeRelease(&bg_brush);
   }
 
+  void clear_old_cursor(ID2D1RenderTarget* target)
+  {
+    const auto old_rect_opt = neovim_cursor.old_rect(font_width_f, font_height_f);
+    if (!old_rect_opt.has_value()) return;
+    const CursorRect old_rect = old_rect_opt.value();
+    ID2D1SolidColorBrush* bg_brush = nullptr;
+    const Color& bg = state->default_colors_get().background;
+    target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
+    const QRectF& r = old_rect.rect;
+    auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());
+    target->FillRectangle(fill_rect, bg_brush);
+    SafeRelease(&bg_brush);
+  }
+
+  void draw_cursor(ID2D1RenderTarget* target)
+  {
+    const auto rect_opt = neovim_cursor.rect(font_width_f, font_height_f);
+    if (!rect_opt.has_value()) return;
+    const CursorRect rect = rect_opt.value();
+    ID2D1SolidColorBrush* bg_brush = nullptr;
+    const HLAttr& def_clrs = state->default_colors_get();
+    HLAttr attr = state->attr_for_id(rect.hl_id);
+    Color bg;
+    if (rect.hl_id == 0) bg = def_clrs.foreground;
+    else
+    {
+      if (attr.reverse)
+      {
+        bg = attr.has_fg ? attr.foreground : def_clrs.foreground;
+      }
+      else
+      {
+        bg = attr.has_bg ? attr.background : def_clrs.background;
+      }
+    }
+    target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
+    const QRectF& r = rect.rect;
+    auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());
+    target->PushAxisAlignedClip(fill_rect, D2D1_ANTIALIAS_MODE_ALIASED);
+    target->FillRectangle(fill_rect, bg_brush);
+    target->PopAxisAlignedClip();
+    if (rect.should_draw_text)
+    {
+      // If the rect exists, the pos must exist as well.
+      const auto pos = neovim_cursor.pos().value();
+      if (rect.hl_id == 0) attr.reverse = true;
+      Grid* grid = find_grid(pos.grid_num);
+      if (grid)
+      {
+        const auto& text = grid->area[pos.row * grid->cols + pos.col].text;
+        const auto start = D2D1::Point2F(fill_rect.left, fill_rect.top);
+        const auto end = D2D1::Point2F(fill_rect.right, fill_rect.bottom);
+        draw_text_and_bg(text, start, attr, target, end, state->default_colors_get());
+      }
+    }
+    SafeRelease(&bg_brush);
+  }
+
 protected:
   void update_font_metrics() override
   {
@@ -317,6 +377,7 @@ protected:
     mtd_context->EndDraw();
     device_context->BeginDraw();
     device_context->DrawBitmap(dc_bitmap);
+    draw_cursor(device_context);
     device_context->EndDraw();
   }
 

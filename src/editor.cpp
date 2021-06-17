@@ -165,6 +165,19 @@ void EditorArea::grid_cursor_goto(const msgpack::object* obj, std::uint32_t size
   assert(obj->type == msgpack::type::ARRAY);
   const auto& arr = obj->via.array;
   assert(arr.size == 3);
+  std::uint16_t grid_num = arr.ptr[0].as<std::uint16_t>();
+  int row = arr.ptr[1].as<int>();
+  int col = arr.ptr[2].as<int>();
+  Grid* grid = find_grid(grid_num);
+  if (!grid) return;
+  neovim_cursor.go_to({grid_num, grid->x, grid->y, row, col});
+  // In our paintEvent we will always redraw the current cursor.
+  // But we have to get rid of the old cursor (if it's there)
+  auto old_pos = neovim_cursor.old_pos();
+  if (!old_pos.has_value()) return;
+  QRect rect {old_pos->col, old_pos->row, 1, 0};
+  events.push({PaintKind::Draw, old_pos->grid_num, rect});
+  update();
 }
 
 void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)

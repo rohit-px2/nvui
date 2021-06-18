@@ -358,7 +358,7 @@ void Window::resize_or_move(const QPointF& p)
     edges |= Qt::BottomEdge;
   }
   QWindow* handle = windowHandle();
-  if (edges != 0)
+  if (edges != 0 && !isMaximized())
   {
     if (handle->startSystemResize(edges)) {
       resizing = true;

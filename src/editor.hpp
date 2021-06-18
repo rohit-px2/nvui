@@ -197,7 +197,12 @@ protected:
    * Draws a portion of the grid on the screen
    * (the area to draw is given by rect).
    */
-  void draw_grid(QPainter& painter, const Grid& grid, const QRect& rect);
+  void draw_grid(
+    QPainter& painter,
+    const Grid& grid,
+    const QRect& rect,
+    std::unordered_set<int>& drawn_rows
+  );
   /**
    * Clears a portion of the grid by drawing Neovim's current default background
    color over it.
@@ -205,6 +210,23 @@ protected:
    * since it doesn't draw text/look for text to draw.
    */
   void clear_grid(QPainter& painter, const Grid& grid, const QRect& rect);
+  /**
+   * Draws the text with the background and foreground according to the
+   * given attributes attr and the default colors, between start and end.
+   */
+  void draw_text_and_bg(
+    QPainter& painter,
+    const QString& text,
+    const HLAttr& attr,
+    const HLAttr& def_clrs,
+    const QPointF& start,
+    const QPointF& end,
+    const int offset
+  );
+  /**
+   * Draw the cursor
+   */
+  void draw_cursor(QPainter& painter);
 public slots:
   /**
    * Handle a window resize.

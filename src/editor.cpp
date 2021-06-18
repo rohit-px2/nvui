@@ -27,6 +27,12 @@ static QColor to_qcolor(const Color& clr)
   return {clr.r, clr.g, clr.b};
 }
 
+static int get_offset(const QFont& font, const int linespacing)
+{
+  QFontMetrics fm {font};
+  return fm.ascent() + (linespacing / 2);
+}
+
 EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 : QWidget(parent),
   state(hl_state),
@@ -354,6 +360,8 @@ QSize EditorArea::to_rc(const QSize& pixel_size)
 
 void EditorArea::paintEvent(QPaintEvent* event)
 {
+  std::unordered_set<int> drawn;
+  QFontMetrics fm {font};
   event->accept();
   QPainter painter(&pixmap);
   painter.setClipping(false);
@@ -376,17 +384,21 @@ void EditorArea::paintEvent(QPaintEvent* event)
     {
       for(const auto& grid : grids)
       {
-        draw_grid(painter, grid, QRect(0, 0, grid.cols, grid.rows));
+        draw_grid(painter, grid, QRect(0, 0, grid.cols, grid.rows), drawn);
       }
     }
     else
     {
-      draw_grid(painter, *grid, event.rect);
+      draw_grid(painter, *grid, event.rect, drawn);
     }
     events.pop();
   }
   QPainter p(this);
   p.drawPixmap(rect(), pixmap, rect());
+  if (!neovim_cursor.hidden())
+  {
+    draw_cursor(p);
+  }
 #ifndef NDEBUG
   const auto end = Clock::now();
   std::cout << "Grid draw took " << std::chrono::duration<double, std::milli>(end - start).count() << "ms.\n";
@@ -412,7 +424,7 @@ void EditorArea::resized(QSize sz)
   nvim->resize(new_rc.width(), new_rc.height());
 }
 
-void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rect)
+void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rect, std::unordered_set<int>& drawn_rows)
 {
   QString buffer;
   buffer.reserve(100);
@@ -422,29 +434,47 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
   const int end_y = rect.bottom();
   const HLAttr& def_clrs = state->default_colors_get();
   const QFontMetrics metrics {font};
-  const int offset =  metrics.ascent() + (linespace / 2);
-  painter.setFont(font);
+  const int offset = get_offset(font, linespace);
+  const auto get_pos = [&](int x, int y, int num_chars) {
+    float left = x * font_width;
+    float top = y * font_height;
+    float bottom = top + font_height;
+    float right = left + (font_width * num_chars);
+    return std::make_tuple(QPointF(left, top), QPointF(right, bottom));
+  };
+  const auto draw_buf = [&](QString& text, const HLAttr& attr, const HLAttr& def_clrs, const QPointF& start, const QPointF& end)
+  {
+    if (!text.isEmpty())
+    {
+      draw_text_and_bg(painter, text, attr, def_clrs, start, end, offset);
+      text.clear();
+    }
+  };
   for(int y = start_y; y <= end_y && y < grid.rows; ++y)
   {
-    for(int x = start_x; x <= end_x && x < grid.cols; ++x)
+    QPointF start = {(double) grid.x * font_width, (double) (grid.y + y) * font_height};
+    if (drawn_rows.contains(grid.y + y)) continue;
+    else drawn_rows.insert(grid.y + y);
+    std::uint16_t prev_hl_id = UINT16_MAX;
+    for(int x = 0; x < grid.cols; ++x)
     {
       const auto& gc = grid.area[y * grid.cols + x];
-      const HLAttr& attr = state->attr_for_id(static_cast<int>(gc.hl_id));
-      QColor fg = to_qcolor(attr.has_fg ? attr.foreground : def_clrs.foreground);
-      QColor bg = to_qcolor(attr.has_bg ? attr.background : def_clrs.background);
-      font.setBold(attr.font_opts & FontOpts::Bold);
-      font.setItalic(attr.font_opts & FontOpts::Italic);
-      painter.setFont(font);
-      if (attr.reverse)
+      if (gc.hl_id == prev_hl_id)
       {
-        std::swap(fg, bg);
+        buffer.append(gc.text);
+        continue;
       }
-      const QRect bg_rect {(grid.x + x) * font_width, (grid.y + y) * font_height, font_width, font_height};
-      painter.fillRect(bg_rect, bg);
-      const QPoint pos = {(grid.x + x) * font_width, (grid.y + y) * font_height + offset};
-      painter.setPen(fg);
-      painter.drawText(pos, gc.text);
+      else
+      {
+        auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
+        draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, bot_right);
+        start = top_left;
+        buffer.append(gc.text);
+        prev_hl_id = gc.hl_id;
+      }
     }
+    auto [top_left, bot_right] = get_pos(grid.x + (grid.cols - 1), grid.y + y, 1);
+    draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, bot_right);
   }
 }
 
@@ -573,6 +603,7 @@ std::string event_to_string(QKeyEvent* event, bool* special)
       return event->text().toStdString();
   }
 }
+
 void EditorArea::keyPressEvent(QKeyEvent* event)
 {
   event->accept();
@@ -611,4 +642,57 @@ void EditorArea::mode_info_set(const msgpack::object* obj, std::uint32_t size)
 void EditorArea::mode_change(const msgpack::object* obj, std::uint32_t size)
 {
   neovim_cursor.mode_change(obj, size);
+}
+
+void EditorArea::draw_text_and_bg(
+  QPainter& painter,
+  const QString& text,
+  const HLAttr& attr,
+  const HLAttr& def_clrs,
+  const QPointF& start,
+  const QPointF& end,
+  const int offset
+)
+{
+  font.setItalic(attr.font_opts & FontOpts::Italic);
+  font.setBold(attr.font_opts & FontOpts::Bold);
+  font.setUnderline(attr.font_opts & FontOpts::Underline);
+  font.setStrikeOut(attr.font_opts & FontOpts::Strikethrough);
+  painter.setFont(font);
+  Color fg = attr.has_fg ? attr.foreground : def_clrs.foreground;
+  Color bg = attr.has_bg ? attr.background : def_clrs.background;
+  if (attr.reverse) std::swap(fg, bg);
+  const QRectF rect = {start, end};
+  painter.setClipRect(rect);
+  painter.fillRect(rect, QColor(bg.r, bg.g, bg.b));
+  painter.setPen(QColor(fg.r, fg.g, fg.b));
+  const QPointF text_start = {start.x(), start.y() + offset};
+  painter.drawText(text_start, text);
+}
+
+void EditorArea::draw_cursor(QPainter& painter)
+{
+  QFontMetrics fm {font};
+  const int offset = get_offset(font, linespace);
+  auto rect_opt = neovim_cursor.rect(font_width, font_height);
+  if (rect_opt.has_value())
+  {
+    auto rect = rect_opt.value();
+    const auto pos = neovim_cursor.pos().value();
+    Grid* grid = find_grid(pos.grid_num);
+    const auto& gc = grid->area[pos.row * grid->cols + pos.col];
+    const HLAttr& def_clrs = state->default_colors_get();
+    const HLAttr& attr = state->attr_for_id(rect.hl_id);
+    Color bg = rect.hl_id == 0 ? def_clrs.foreground : (attr.reverse ? (attr.has_fg ? attr.foreground : def_clrs.foreground) : (attr.has_bg ? attr.background : def_clrs.background));
+    painter.fillRect(rect.rect, QColor(bg.r, bg.g, bg.b));
+    if (rect.should_draw_text)
+    {
+      const QPoint bot_left = { (grid->x + pos.col) * font_width, (grid->y + pos.row) * font_height + offset};
+      const Color fgc = rect.hl_id == 0 ? def_clrs.background : (attr.reverse ? (attr.has_bg ? attr.background : def_clrs.background) : (attr.has_fg ? attr.foreground : def_clrs.background));
+      const QColor fg = {fgc.r, fgc.g, fgc.b};
+      painter.setFont(font);
+      painter.setPen(fg);
+      painter.drawText(bot_left, gc.text);
+    }
+  }
 }

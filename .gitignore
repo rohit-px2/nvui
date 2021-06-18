@@ -1,6 +1,7 @@
 .exe
 .txt 
-build/ 
+build/
+target/
 vcpkg/ 
 .cache/
 .vscode/

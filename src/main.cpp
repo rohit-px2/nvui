@@ -16,15 +16,21 @@
 using std::string;
 using std::vector;
 
+/**
+ * When a string is observed in v that starts with s, this function trims s
+ * from the beginning of the string and calls f with the resulting string.
+ * This only occurs for the first string that satisfies the condition.
+ */
 template<typename Func>
-void do_thing_if_has_opt(const std::vector<string>& v, const std::string& s, const Func& f)
+void on_argument(const std::vector<string>& v, const std::string& s, const Func& f)
 {
   const auto it = std::find_if(v.begin(), v.end(), [s](const auto& e) {
     return e.rfind(s, 0) == 0;
   });
   if (it != v.end())
   {
-    f(*it);
+    std::string a = it->substr(s.size());
+    f(std::move(a));
   }
 }
 
@@ -39,15 +45,29 @@ Q_DECLARE_METATYPE(msgpack::object_handle*)
 const std::string geometry_opt = "--geometry=";
 int main(int argc, char** argv)
 {
+  const auto args = get_args(argc, argv);
+  std::unordered_map<std::string, bool> capabilities = {
+    {"ext_tabline", false},
+    {"ext_multigrid", false},
+    {"ext_cmdline", false},
+    {"ext_popupmenu", false},
+    {"ext_linegrid", true}
+  };
+  on_argument(args, "--ext-popupmenu=", [&](std::string opt) {
+    if (opt == "true") capabilities["ext_popupmenu"] = true;
+    else capabilities["ext_popupmenu"] = false;
+  });
+  on_argument(args, "--ext-cmdline=", [&](std::string opt) {
+    if (opt == "true") capabilities["ext_cmdline"] = true;
+    else capabilities["ext_cmdline"] = false;
+  });
   int width = 100;
   int height = 50;
   std::ios_base::sync_with_stdio(false);
   qRegisterMetaType<msgpack::object>();
   qRegisterMetaType<msgpack::object_handle*>();
-  const auto args = get_args(argc, argv);
   // Get "size" option
-  do_thing_if_has_opt(args, geometry_opt, [&](std::string size_opt) {
-    size_opt = size_opt.substr(geometry_opt.size());
+  on_argument(args, geometry_opt, [&](std::string size_opt) {
     std::size_t pos = size_opt.find("x");
     if (pos != std::string::npos)
     {
@@ -65,7 +85,7 @@ int main(int argc, char** argv)
     w.register_handlers();
     w.show();
     nvim->set_var("nvui", 1);
-    nvim->attach_ui(width, height);
+    nvim->attach_ui(width, height, capabilities);
     return app.exec();
   }
   catch (const std::exception& e)

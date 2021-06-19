@@ -245,12 +245,13 @@ void Nvim::read_output_sync()
 
 void Nvim::attach_ui(const int rows, const int cols)
 {
-  //std::cout << "Attaching UI. Please wait..." << std::endl;
-  const auto params = std::make_tuple(rows, cols, default_capabilities);
-  send_notification("nvim_ui_attach", params);
-  //std::cout << "All Done!" << std::endl;
+  attach_ui(rows, cols, default_capabilities);
 }
 
+void Nvim::attach_ui(const int rows, const int cols, std::unordered_map<std::string, bool> capabilities)
+{
+  send_notification("nvim_ui_attach", std::make_tuple(rows, cols, std::move(capabilities)));
+}
 
 template<typename T>
 msgpack::object_handle Nvim::send_request_sync(const std::string& method, const T& params)

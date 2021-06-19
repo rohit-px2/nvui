@@ -11,10 +11,13 @@
 #include <thread>
 #include <tuple>
 #include <boost/process.hpp>
-#include <boost/process/windows.hpp>
 #include <algorithm>
 #include <fmt/core.h>
 #include <fmt/format.h>
+
+#ifdef _WIN32
+#include <boost/process/windows.hpp>
+#endif
 
 namespace bp = boost::process;
 
@@ -56,8 +59,10 @@ Nvim::Nvim()
     bp::std_out > stdout_pipe,
     bp::std_in < stdin_pipe,
     bp::std_err > error,
-    proc_group,
-    bp::windows::create_no_window
+    proc_group
+#ifdef _WIN32
+    , bp::windows::create_no_window
+#endif
   );
   nvim.detach();
   proc_group.detach();

@@ -172,9 +172,13 @@ private:
   template<typename T>
   inline int draw_text_and_bg(const QString& text, const D2D1_POINT_2F pt, const HLAttr& attr, T* target, D2D1_POINT_2F cur_pos, const HLAttr& def_clrs)
   {
-    IDWriteTextLayout* t_layout = nullptr;
-    factory->CreateTextLayout((LPCWSTR)text.utf16(), text.size(), text_format, cur_pos.x - pt.x, cur_pos.y - pt.y, &t_layout);
+    IDWriteTextLayout1* t_layout = nullptr;
+    factory->CreateTextLayout((LPCWSTR)text.utf16(), text.size(), text_format, cur_pos.x - pt.x, cur_pos.y - pt.y, reinterpret_cast<IDWriteTextLayout**>(&t_layout));
     DWRITE_TEXT_RANGE text_range {0, (std::uint32_t) text.size()};
+    if (charspace)
+    {
+      t_layout->SetCharacterSpacing(0, float(charspace), 0, text_range);
+    }
     if (attr.font_opts & FontOpts::Italic)
     {
       t_layout->SetFontStyle(DWRITE_FONT_STYLE_ITALIC, text_range);
@@ -315,7 +319,7 @@ protected:
       DWRITE_HIT_TEST_METRICS ht_metrics;
       float ignore;
       text_layout->HitTestTextPosition(0, 0, &ignore, &ignore, &ht_metrics);
-      font_width_f = ht_metrics.width;
+      font_width_f = ht_metrics.width + charspace;
       font_height_f = std::ceilf(ht_metrics.height + float(linespace));
     }
     SafeRelease(&text_layout);

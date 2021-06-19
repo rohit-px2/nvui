@@ -118,6 +118,16 @@ public:
   {
     neovim_cursor.busy_stop();
   }
+  /**
+   * Set the character spacing (space between individual characters)
+   to space.
+   */
+  inline void set_charspace(std::uint16_t space)
+  {
+    charspace = space;
+    update_font_metrics();
+    resized(size());
+  }
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)

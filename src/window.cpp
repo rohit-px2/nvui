@@ -270,8 +270,22 @@ void Window::register_handlers()
       emit resize_done(size());
     }
   });
+  listen_for_notification("NVUI_CHARSPACE", [this](msgpack::object_handle oh) {
+    const msgpack::object& obj = oh.get();
+    if (obj.type != msgpack::type::ARRAY) return;
+    const auto& arr = obj.via.array;
+    if (arr.size != 3) return;
+    const auto& param_obj = arr.ptr[2];
+    if (param_obj.type != msgpack::type::ARRAY) return;
+    const auto& params = param_obj.via.array;
+    if (params.size == 0) return;
+    const auto& space_obj = params.ptr[0];
+    if (space_obj.type != msgpack::type::POSITIVE_INTEGER) return;
+    editor_area.set_charspace(space_obj.as<std::uint16_t>());
+  });
   nvim->command("command! NvuiToggleFrameless call rpcnotify(1, 'NVUI_TOGGLE_FRAMELESS')");
   nvim->command("command! -nargs=1 NvuiOpacity call rpcnotify(1, 'NVUI_WINOPACITY', <args>)");
+  nvim->command("command! -nargs=1 NvuiCharspace call rpcnotify(1, 'NVUI_CHARSPACE', <args>)");
   // Display current file in titlebar 
   nvim->command("autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))");
   // Display current dir / update file tree on directory change

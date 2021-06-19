@@ -11,6 +11,7 @@
 #include <thread>
 #include <tuple>
 #include <boost/process.hpp>
+#include <boost/process/windows.hpp>
 #include <algorithm>
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -30,7 +31,6 @@ using Lock = std::lock_guard<std::mutex>;
 //{
   //return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
 //}
-
 /// Constructor
 Nvim::Nvim()
 : notification_handlers(),
@@ -56,7 +56,8 @@ Nvim::Nvim()
     bp::std_out > stdout_pipe,
     bp::std_in < stdin_pipe,
     bp::std_err > error,
-    proc_group
+    proc_group,
+    bp::windows::create_no_window
   );
   nvim.detach();
   proc_group.detach();
@@ -239,10 +240,10 @@ void Nvim::read_output_sync()
 
 void Nvim::attach_ui(const int rows, const int cols)
 {
-  std::cout << "Attaching UI. Please wait..." << std::endl;
+  //std::cout << "Attaching UI. Please wait..." << std::endl;
   const auto params = std::make_tuple(rows, cols, default_capabilities);
   send_notification("nvim_ui_attach", params);
-  std::cout << "All Done!" << std::endl;
+  //std::cout << "All Done!" << std::endl;
 }
 
 

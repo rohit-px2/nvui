@@ -613,8 +613,22 @@ void EditorArea::keyPressEvent(QKeyEvent* event)
   bool shift = modifiers & Qt::ShiftModifier;
   bool alt = modifiers & Qt::AltModifier;
   bool is_special = false;
+  const QString& text = event->text();
   std::string key = event_to_string(event, &is_special);
-  nvim->send_input(ctrl, shift, alt, std::move(key), is_special);
+  if (text.isEmpty() || text.at(0) == QLatin1Char(' '))
+  {
+    nvim->send_input(ctrl, shift, alt, std::move(key), is_special);
+  }
+  // Qt already factors in Shift+Ctrl into a lot of keys.
+  // For the number keys, it doesn't factor in Ctrl though.
+  else if (text.at(0).isNumber())
+  {
+    nvim->send_input(ctrl, false, alt, std::move(key), is_special);
+  }
+  else
+  {
+    nvim->send_input(false, false, alt, std::move(key), is_special);
+  }
 }
 
 bool EditorArea::focusNextPrevChild(bool next)

@@ -450,20 +450,7 @@ void Window::mouseMoveEvent(QMouseEvent* event)
 
 void Window::resizeEvent(QResizeEvent* event)
 {
-  if (isMaximized())
-  {
-    maximized = true;
-    emit resize_done(size());
-  }
-  else if (maximized)
-  {
-    maximized = false;
-    emit resize_done(size());
-  }
-  else if (!frameless_window)
-  {
-    emit resize_done(size());
-  }
+  emit resize_done(size());
   title_bar->update_maxicon();
   QMainWindow::resizeEvent(event);
 }

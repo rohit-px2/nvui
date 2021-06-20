@@ -376,7 +376,9 @@ void TitleBar::minimize_maximize()
   }
   else
   {
-    win->showMaximized();
+    win->setWindowState(Qt::WindowMaximized);
+    // showMaximized will overlap the taskbar sometimes
+    win->setGeometry(win->screen()->availableGeometry());
     update_maxicon();
   }
 }

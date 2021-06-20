@@ -140,7 +140,7 @@ void Nvim::read_output_sync()
   cout << std::dec;
   // buffer_maxsize of 1MB
   constexpr int buffer_maxsize = 1024 * 1024;
-  std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
+  auto buffer = std::make_unique<char[]>(buffer_maxsize);
   auto buf = buffer.get();
   std::int64_t msg_size;
   while(!closed && running())
@@ -290,10 +290,10 @@ void Nvim::read_error_sync()
 {
   // 500KB should be enough for stderr (not receving any huge input)
   constexpr int buffer_maxsize = 512 * 1024;
-  std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
+  auto buffer = std::make_unique<char[]>(buffer_maxsize);
   std::uint32_t bytes_read;
   bp::pipe& err_pipe = error.pipe();
-  while(!closed)
+  while(!closed && running())
   {
     bytes_read = err_pipe.read(buffer.get(), buffer_maxsize);
     if (bytes_read)

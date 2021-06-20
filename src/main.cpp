@@ -12,6 +12,7 @@
 #include "nvim.hpp"
 #include "window.hpp"
 #include <msgpack.hpp>
+#include <fmt/format.h>
 
 using std::string;
 using std::vector;
@@ -53,14 +54,13 @@ int main(int argc, char** argv)
     {"ext_popupmenu", false},
     {"ext_linegrid", true}
   };
-  on_argument(args, "--ext-popupmenu=", [&](std::string opt) {
-    if (opt == "true") capabilities["ext_popupmenu"] = true;
-    else capabilities["ext_popupmenu"] = false;
-  });
-  on_argument(args, "--ext-cmdline=", [&](std::string opt) {
-    if (opt == "true") capabilities["ext_cmdline"] = true;
-    else capabilities["ext_cmdline"] = false;
-  });
+  for(const auto& capability : capabilities)
+  {
+    on_argument(args, fmt::format("--{}=", capability.first), [&](std::string opt) {
+      if (opt == "true") capabilities[capability.first] = true;
+      else capabilities[capability.first] = false;
+    });
+  }
   int width = 100;
   int height = 50;
   std::ios_base::sync_with_stdio(false);

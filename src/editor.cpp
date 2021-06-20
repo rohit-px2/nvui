@@ -349,6 +349,7 @@ void EditorArea::update_font_metrics()
   // spocing off a single char.
   constexpr QChar any_char = 'a';
   font_width = std::round(metrics.horizontalAdvance(any_char) + charspace);
+  font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
 }
 
 QSize EditorArea::to_rc(const QSize& pixel_size)

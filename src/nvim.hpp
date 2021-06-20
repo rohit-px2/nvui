@@ -64,6 +64,11 @@ public:
    */
   void attach_ui(const int rows, const int cols);
   /**
+   * Sends an "nvim_ui_attach" message to Neovim with the given rows, columns,
+   * and client capabilities.
+   */
+  void attach_ui(const int rows, const int cols, std::unordered_map<std::string, bool> capabilities);
+  /**
    * Evaluates expr as a VimL expression and returns the result as a msgpack
    * object handle. The underlying msgpack object can be obtained using
    * msgpack::object_handle::get(), and can then be converted into the

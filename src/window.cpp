@@ -47,6 +47,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
   emit resize_done(size());
   title_bar = std::make_unique<TitleBar>("nvui", this);
+  QObject::connect(title_bar.get(), &TitleBar::resize_move, this, &Window::resize_or_move);
   setWindowIcon(QIcon("../assets/appicon.png"));
   title_bar->set_separator(" • ");
   // We'll do this later

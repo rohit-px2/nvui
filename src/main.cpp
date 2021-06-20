@@ -86,6 +86,9 @@ int main(int argc, char** argv)
     w.show();
     nvim->set_var("nvui", 1);
     nvim->attach_ui(width, height, capabilities);
+    nvim->on_exit([&] {
+      QMetaObject::invokeMethod(&w, &QMainWindow::close, Qt::QueuedConnection);
+    });
     return app.exec();
   }
   catch (const std::exception& e)

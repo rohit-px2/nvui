@@ -46,8 +46,6 @@ Nvim::Nvim()
   stdin_pipe(),
   error()
 {
-  err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
-  out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
   const auto nvim_path = bp::search_path("nvim");
   if (nvim_path.empty())
   {
@@ -64,8 +62,8 @@ Nvim::Nvim()
     , bp::windows::create_no_window
 #endif
   );
-  nvim.detach();
-  proc_group.detach();
+  err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
+  out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
 }
 
 //static int file_num = 0;
@@ -145,7 +143,7 @@ void Nvim::read_output_sync()
   std::unique_ptr<char[]> buffer(new char[buffer_maxsize]);
   auto buf = buffer.get();
   std::int64_t msg_size;
-  while(!closed)
+  while(!closed && running())
   {
     msg_size = stdout_pipe.read(buf, buffer_maxsize);
     if (msg_size)
@@ -240,6 +238,9 @@ void Nvim::read_output_sync()
       //sleep_for(std::chrono::microseconds(100));
     }
   }
+  // Exiting. When Nvim closes both the error and output pipe close,
+  // but we don't want to call the exit handler twice.
+  on_exit_handler();
   cout << "Output closed." << std::endl;
 }
 
@@ -378,6 +379,11 @@ void Nvim::send_input(const bool ctrl, const bool shift, const bool alt, const s
 void Nvim::send_input(std::string key)
 {
   send_notification("nvim_input", std::array<std::string, 1> {std::move(key)});
+}
+
+void Nvim::on_exit(std::function<void ()> handler)
+{
+  on_exit_handler = std::move(handler);
 }
 
 Nvim::~Nvim()

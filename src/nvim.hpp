@@ -118,7 +118,12 @@ public:
    * Returns the api info of the attached Neovim instance.
    */
   msgpack::object_handle get_api_info();
+  /**
+   * Attach a function which is called when Neovim exits.
+   */
+  void on_exit(std::function<void ()> handler);
 private:
+  std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
   std::unordered_map<std::string, msgpack_callback> request_handlers;
   std::thread err_reader;

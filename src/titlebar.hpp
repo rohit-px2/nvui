@@ -109,5 +109,7 @@ private:
 public slots:
   void minimize_maximize();
   void colors_changed(QColor fg, QColor bg);
+signals:
+  void resize_move(QPointF p);
 };
 #endif

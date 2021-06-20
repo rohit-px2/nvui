@@ -42,6 +42,12 @@ public:
     installEventFilter(this);
   }
 
+  MenuButton(TitleBar* parent, QColor hov = Qt::transparent)
+    : MenuButton(static_cast<QWidget*>(nullptr), hov)
+  {
+    resize_move_handler = [parent](QPointF p) { emit parent->resize_move(p); };
+  }
+
   void set_hov_bg(const QColor& bg)
   {
     hov_bg = bg;
@@ -53,7 +59,11 @@ public:
   {
     default_bg = bg;
   }
+
+signals:
+  void resize_move(QPointF pt);
 private:
+  std::function<void (QPointF)> resize_move_handler = [](auto){};
   QColor hov_bg;
   QColor default_bg = Qt::transparent;
   QColor cur_bg = default_bg;
@@ -105,10 +115,7 @@ private:
       // Little hacky but it works.
       // window() object is actually our custom Window
       // object that contains a resize_or_move function
-      QMetaObject::invokeMethod(
-        window(), "resize_or_move", Qt::AutoConnection, 
-        Q_ARG(const QPointF&, event->windowPos())
-      );
+      resize_move_handler(event->windowPos());
     }
     else
     {
@@ -194,9 +201,9 @@ TitleBar::TitleBar(QString text, QMainWindow* window)
   close_icon = icon_from_svg("../assets/close-windows.svg", foreground);
   max_icon = icon_from_svg("../assets/max-windows.svg", foreground);
   min_icon = icon_from_svg("../assets/min-windows.svg", foreground);
-  close_btn = new MenuButton(nullptr, close_bg);
-  max_btn = new MenuButton(nullptr, mm_dark);
-  min_btn = new MenuButton(nullptr, mm_dark);
+  close_btn = new MenuButton(this, close_bg);
+  max_btn = new MenuButton(this, mm_dark);
+  min_btn = new MenuButton(this, mm_dark);
   close_btn->setIcon(close_icon);
   max_btn->setIcon(max_icon);
   min_btn->setIcon(min_icon);

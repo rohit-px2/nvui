@@ -3,8 +3,6 @@
 #include "utils.hpp"
 #include <chrono>
 #include <limits>
-// QtCore private
-#include <private/qstringiterator_p.h>
 #include <QApplication>
 #include <QDebug>
 #include <QDesktopWidget>

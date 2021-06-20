@@ -189,6 +189,9 @@ void HLState::default_colors_set(const msgpack::object& obj)
   default_colors.foreground = params.ptr[0].as<std::uint32_t>();
   default_colors.background = params.ptr[1].as<std::uint32_t>();
   default_colors.special = params.ptr[2].as<std::uint32_t>();
+  default_colors.has_fg = true;
+  default_colors.has_bg = true;
+  default_colors.has_special = true;
 }
 
 

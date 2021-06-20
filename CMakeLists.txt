@@ -72,7 +72,7 @@ else()
   add_executable(nvui ${SOURCES})
 endif()
 target_link_libraries(nvui PRIVATE msgpackc msgpackc-cxx)
-target_link_libraries(nvui PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg Qt5::CorePrivate)
+target_link_libraries(nvui PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg)
 target_link_libraries(nvui PRIVATE fmt::fmt-header-only)
 target_include_directories(nvui PRIVATE
   "${PROJECT_SOURCE_DIR}/src"
@@ -112,6 +112,7 @@ add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
 target_link_libraries(nvui_test PRIVATE msgpackc msgpackc-cxx)
 target_link_libraries(nvui_test PRIVATE Catch2::Catch2)
 target_link_libraries(nvui_test PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg)
+target_link_libraries(nvui_test PRIVATE fmt::fmt-header-only)
 target_include_directories(nvui_test PRIVATE
   "${PROJECT_SOURCE_DIR}/test"
   "${PROJECT_SOURCE_DIR}/src"

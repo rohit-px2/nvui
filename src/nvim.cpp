@@ -240,6 +240,9 @@ void Nvim::read_output_sync()
   }
   // Exiting. When Nvim closes both the error and output pipe close,
   // but we don't want to call the exit handler twice.
+  // Make sure we're not adding an exit handler at the same time we're
+  // calling it
+  Lock exit_lock {exit_handler_mutex};
   on_exit_handler();
   cout << "Output closed." << std::endl;
 }
@@ -383,6 +386,7 @@ void Nvim::send_input(std::string key)
 
 void Nvim::on_exit(std::function<void ()> handler)
 {
+  Lock lock {exit_handler_mutex};
   on_exit_handler = std::move(handler);
 }
 

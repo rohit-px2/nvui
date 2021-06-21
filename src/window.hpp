@@ -90,7 +90,7 @@ private:
    * msgpack::object_handle moving is already done, so the lambdas
    * passed just have to deal with their logic.
    */
-  void listen_for_notification(std::string method, std::function<void (msgpack::object_handle)> cb);
+  void listen_for_notification(std::string method, std::function<void (const msgpack::object_array&)> cb);
   QSemaphore semaphore;
   bool resizing;
   bool maximized = false;

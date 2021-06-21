@@ -235,14 +235,7 @@ void Window::register_handlers()
       this, "dirchanged_titlebar", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
-  listen_for_notification("NVUI_WINOPACITY", [this](msgpack::object_handle oh) {
-    const msgpack::object& obj = oh.get();
-    if (obj.type != msgpack::type::ARRAY) return;
-    const msgpack::object_array& arr = obj.via.array;
-    if (arr.size != 3) return;
-    const msgpack::object& param_obj = arr.ptr[2];
-    if (param_obj.type != msgpack::type::ARRAY) return;
-    const msgpack::object_array& params = param_obj.via.array;
+  listen_for_notification("NVUI_WINOPACITY", [this](const msgpack::object_array& params) {
     if (params.size == 0) return;
     const msgpack::object& param = params.ptr[0];
     if (param.type != msgpack::type::FLOAT) return;
@@ -250,8 +243,8 @@ void Window::register_handlers()
     if (opacity <= 0.0 || opacity > 1.0) return;
     setWindowOpacity(opacity);
   });
-  listen_for_notification("NVUI_TOGGLE_FRAMELESS", [this](msgpack::object_handle oh) {
-    Q_UNUSED(oh);
+  listen_for_notification("NVUI_TOGGLE_FRAMELESS", [this](const msgpack::object_array& params) {
+    Q_UNUSED(params);
     auto flags = windowFlags();
     if (flags & Qt::FramelessWindowHint)
     {
@@ -271,14 +264,7 @@ void Window::register_handlers()
       emit resize_done(size());
     }
   });
-  listen_for_notification("NVUI_CHARSPACE", [this](msgpack::object_handle oh) {
-    const msgpack::object& obj = oh.get();
-    if (obj.type != msgpack::type::ARRAY) return;
-    const auto& arr = obj.via.array;
-    if (arr.size != 3) return;
-    const auto& param_obj = arr.ptr[2];
-    if (param_obj.type != msgpack::type::ARRAY) return;
-    const auto& params = param_obj.via.array;
+  listen_for_notification("NVUI_CHARSPACE", [this](const msgpack::object_array& params) {
     if (params.size == 0) return;
     const auto& space_obj = params.ptr[0];
     if (space_obj.type != msgpack::type::POSITIVE_INTEGER) return;
@@ -463,7 +449,7 @@ void Window::moveEvent(QMoveEvent* event)
 
 void Window::listen_for_notification(
   std::string method,
-  std::function<void (msgpack::object_handle)> cb
+  std::function<void (const msgpack::object_array&)> cb
 )
 {
   // Blocking std::function wrapper around an std::function
@@ -476,7 +462,14 @@ void Window::listen_for_notification(
         this,
         [this, oh, cb]() {
           auto handle = safe_copy(oh);
-          cb(std::move(handle));
+          const msgpack::object& obj = handle.get();
+          if (obj.type != msgpack::type::ARRAY) return;
+          const auto& arr = obj.via.array;
+          if (arr.size != 3) return;
+          // Notification has params as 3rd item
+          const msgpack::object& params_obj = arr.ptr[2];
+          if (params_obj.type != msgpack::type::ARRAY) return;
+          cb(params_obj.via.array);
         },
         Qt::QueuedConnection
       );

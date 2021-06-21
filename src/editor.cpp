@@ -597,6 +597,8 @@ std::string event_to_string(QKeyEvent* event, bool* special)
       return "PageDown";
     case Qt::Key_Less:
       return "LT";
+    case Qt::Key_Space:
+      return "Space";
     default:
       *special = false;
       return event->text().toStdString();
@@ -613,7 +615,7 @@ void EditorArea::keyPressEvent(QKeyEvent* event)
   bool is_special = false;
   const QString& text = event->text();
   std::string key = event_to_string(event, &is_special);
-  if (text.isEmpty() || text.at(0) == QLatin1Char(' '))
+  if (text.isEmpty() || text.at(0).isSpace())
   {
     nvim->send_input(ctrl, shift, alt, std::move(key), is_special);
   }

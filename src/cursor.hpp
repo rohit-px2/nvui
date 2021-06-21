@@ -116,7 +116,14 @@ public:
    * showing the cursor once again
    */
   void busy_stop();
+  inline void set_caret_extend(float top = 0.f, float bottom = 0.f)
+  {
+    caret_extend_top = top;
+    caret_extend_bottom = bottom;
+  }
 private:
+  float caret_extend_top = 0.f;
+  float caret_extend_bottom = 0.f;
   int cell_width;
   int cell_height;
   CursorStatus status = CursorStatus::Visible;

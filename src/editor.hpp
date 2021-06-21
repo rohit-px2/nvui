@@ -128,6 +128,11 @@ public:
     update_font_metrics();
     resized(size());
   }
+
+  inline void set_caret_dimensions(float extend_top, float extend_bottom)
+  {
+    neovim_cursor.set_caret_extend(extend_top, extend_bottom);
+  }
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)

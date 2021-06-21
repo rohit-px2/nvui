@@ -176,11 +176,9 @@ void Cursor::go_to(CursorPos pos)
 
 /// Returns a CursorRect containing the cursor rectangle
 /// in pixels, based on the row, column, font width, and font height.
-static CursorRect get_rect(const ModeInfo& mode, int row, int col, float font_width, float font_height)
+static CursorRect get_rect(const ModeInfo& mode, int row, int col, float font_width, float font_height, float caret_extend_top, float caret_extend_bottom)
 {
   // These do nothing for now
-  float caret_extend_top = 0.f;
-  float caret_extend_bottom = 0.f;
   bool should_draw_text = mode.cursor_shape == CursorShape::Block;
   /// Top left coordinates.
   QPointF top_left = {col * font_width, row * font_height};
@@ -197,7 +195,7 @@ static CursorRect get_rect(const ModeInfo& mode, int row, int col, float font_wi
     {
       // Rectangle starts at top_left, with a lower width.
       float width = (font_width * mode.cell_percentage) / 100.f;
-      rect = {top_left.x(), top_left.y() - caret_extend_top, width, font_height + caret_extend_bottom};
+      rect = {top_left.x(), top_left.y() - caret_extend_top, width, font_height + caret_extend_top+ caret_extend_bottom};
       break;
     }
     case CursorShape::Horizontal:
@@ -214,7 +212,7 @@ static CursorRect get_rect(const ModeInfo& mode, int row, int col, float font_wi
 std::optional<CursorRect> Cursor::rect(float font_width, float font_height) const noexcept
 {
   if (!cur_pos.has_value()) return std::nullopt;
-  else return std::optional<CursorRect>(get_rect(cur_mode, cur_pos->grid_y + cur_pos->row, cur_pos->grid_x + cur_pos->col, font_width, font_height));
+  else return std::optional<CursorRect>(get_rect(cur_mode, cur_pos->grid_y + cur_pos->row, cur_pos->grid_x + cur_pos->col, font_width, font_height, caret_extend_top, caret_extend_bottom));
 }
 
 std::optional<CursorRect> Cursor::old_rect(float font_width, float font_height) const noexcept
@@ -223,7 +221,7 @@ std::optional<CursorRect> Cursor::old_rect(float font_width, float font_height) 
   else
   {
     const auto& old_mode = mode_info.at(old_mode_idx);
-    return get_rect(old_mode, prev_pos->grid_y + prev_pos->row, prev_pos->grid_x + prev_pos->col, font_width, font_height);
+    return get_rect(old_mode, prev_pos->grid_y + prev_pos->row, prev_pos->grid_x + prev_pos->col, font_width, font_height, caret_extend_top, caret_extend_bottom);
   }
 }
 

@@ -270,6 +270,19 @@ void Window::register_handlers()
     if (space_obj.type != msgpack::type::POSITIVE_INTEGER) return;
     editor_area.set_charspace(space_obj.as<std::uint16_t>());
   });
+  listen_for_notification("NVUI_CARET_EXTEND", [this](const msgpack::object_array& params) {
+    static constexpr auto is_num = [](const msgpack::object& o) -> bool {
+      return o.type == msgpack::type::POSITIVE_INTEGER
+      || o.type == msgpack::type::NEGATIVE_INTEGER
+      || o.type == msgpack::type::FLOAT;
+    };
+    if (params.size == 0) return;
+    float caret_top = 0.f;
+    float caret_bottom = 0.f;
+    if (is_num(params.ptr[0])) caret_top = params.ptr[0].as<float>();
+    if (params.size >= 2 && is_num(params.ptr[1])) caret_bottom = params.ptr[1].as<float>();
+    editor_area.set_caret_dimensions(caret_top, caret_bottom);
+  });
   nvim->command("command! NvuiToggleFrameless call rpcnotify(1, 'NVUI_TOGGLE_FRAMELESS')");
   nvim->command("command! -nargs=1 NvuiOpacity call rpcnotify(1, 'NVUI_WINOPACITY', <args>)");
   nvim->command("command! -nargs=1 NvuiCharspace call rpcnotify(1, 'NVUI_CHARSPACE', <args>)");

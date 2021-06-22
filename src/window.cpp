@@ -208,8 +208,13 @@ void Window::register_handlers()
     w->editor_area.mode_change(obj, size);
   });
   set_handler("popupmenu_show", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.popupmenu_show(obj, size);
   });
   set_handler("popupmenu_hide", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.popupmenu_hide(obj, size);
+  });
+  set_handler("popupmenu_select", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.popupmenu_select(obj, size);
   });
   set_handler("busy_start", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.busy_start();

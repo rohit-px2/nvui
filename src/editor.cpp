@@ -36,7 +36,8 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   state(hl_state),
   nvim(nv),
   pixmap(QDesktopWidget().size()),
-  neovim_cursor()
+  neovim_cursor(),
+  popup_menu(hl_state)
 {
   setAttribute(Qt::WA_OpaquePaintEvent);
   setAutoFillBackground(false);

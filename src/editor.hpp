@@ -16,6 +16,7 @@
 #include "hlstate.hpp"
 #include "nvim.hpp"
 #include "cursor.hpp"
+#include "popupmenu.hpp"
 
 // For easily changing the type of 'char' in a cell
 using grid_char = QString;
@@ -133,6 +134,21 @@ public:
   {
     neovim_cursor.set_caret_extend(extend_top, extend_bottom);
   }
+
+  inline void popupmenu_show(const msgpack::object* obj, std::uint32_t size)
+  {
+    popup_menu.pum_show(obj, size);
+  }
+
+  inline void popupmenu_hide(const msgpack::object* obj, std::uint32_t size)
+  {
+    popup_menu.pum_hide(obj, size);
+  }
+
+  inline void popupmenu_select(const msgpack::object* obj, std::uint32_t size)
+  {
+    popup_menu.pum_sel(obj, size);
+  }
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)
@@ -167,6 +183,7 @@ protected:
   Cursor neovim_cursor;
   int rows = -1;
   int cols = -1;
+  PopupMenu popup_menu;
   /**
    * Sets the current font to new_font.
    */

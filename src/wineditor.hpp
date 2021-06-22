@@ -211,7 +211,9 @@ private:
     D2D1_RECT_F clip_rect = D2D1::RectF(pt.x, pt.y, cur_pos.x, cur_pos.y);
     target->PushAxisAlignedClip(clip_rect, D2D1_ANTIALIAS_MODE_ALIASED);
     target->FillRectangle(bg_rect, bg_brush);
-    target->DrawTextLayout(pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
+    const float offset = float(linespace) / 2.f;
+    D2D1_POINT_2F text_pt = {pt.x, pt.y + offset};
+    target->DrawTextLayout(text_pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
     target->PopAxisAlignedClip();
     fg_brush->Release();
     bg_brush->Release();

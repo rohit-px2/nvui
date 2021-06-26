@@ -37,7 +37,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   nvim(nv),
   pixmap(QDesktopWidget().size()),
   neovim_cursor(),
-  popup_menu(hl_state)
+  popup_menu(hl_state, this)
 {
   setAttribute(Qt::WA_OpaquePaintEvent);
   setAutoFillBackground(false);
@@ -168,7 +168,7 @@ void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
     events.push(PaintEventItem {PaintKind::Draw, grid_num, {start_col, start_row, (col - start_col), 1}});
   }
   //std::cout << ss.str() << '\n';
-  update();
+  //update();
 }
 
 void EditorArea::grid_cursor_goto(const msgpack::object* obj, std::uint32_t size)
@@ -188,7 +188,7 @@ void EditorArea::grid_cursor_goto(const msgpack::object* obj, std::uint32_t size
   if (!old_pos.has_value()) return;
   QRect rect {old_pos->col, old_pos->row, 1, 0};
   events.push({PaintKind::Draw, old_pos->grid_num, rect});
-  update();
+  //update();
 }
 
 void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)
@@ -217,6 +217,7 @@ void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)
 
 void EditorArea::flush()
 {
+  update();
 }
 
 void EditorArea::win_pos(const msgpack::object* obj)
@@ -349,6 +350,7 @@ void EditorArea::update_font_metrics()
   constexpr QChar any_char = 'a';
   font_width = std::round(metrics.horizontalAdvance(any_char) + charspace);
   font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
+  popup_menu.font_changed(font, font_width, font_height, linespace);
 }
 
 QSize EditorArea::to_rc(const QSize& pixel_size)
@@ -399,6 +401,10 @@ void EditorArea::paintEvent(QPaintEvent* event)
   {
     draw_cursor(p);
   }
+  if (!popup_menu.hidden())
+  {
+    draw_popup_menu();
+  } else popup_menu.setVisible(false);
 #ifndef NDEBUG
   const auto end = Clock::now();
   std::cout << "Grid draw took " << std::chrono::duration<double, std::milli>(end - start).count() << "ms.\n";
@@ -711,4 +717,22 @@ void EditorArea::draw_cursor(QPainter& painter)
       painter.drawText(bot_left, gc.text);
     }
   }
+}
+
+void EditorArea::draw_popup_menu()
+{
+  QRect popup_rect = popup_menu.available_rect();
+  auto&& [grid_num, row, col] = popup_menu.position();
+  Grid* grid = find_grid(grid_num);
+  assert(grid);
+  int start_x = (grid->x + col) * font_width;
+  int start_y = (grid->y + row + 1) * font_height;
+  int p_width = popup_rect.width();
+  int p_height = popup_rect.height();
+  if (start_y + p_height > height())
+  {
+    start_y -= (p_height + font_height);
+  }
+  popup_menu.move({start_x, start_y});
+  popup_menu.setVisible(true);
 }

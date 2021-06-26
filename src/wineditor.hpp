@@ -295,6 +295,24 @@ private:
     SafeRelease(&bg_brush);
   }
 
+
+  void draw_popup_menu()
+  {
+    QRect popup_rect = popup_menu.available_rect();
+    auto&& [grid_num, row, col] = popup_menu.position();
+    Grid* grid = find_grid(grid_num);
+    assert(grid);
+    int start_x = (grid->x + col) * font_width_f;
+    int start_y = (grid->y + row + 1) * font_height_f;
+    int p_height = popup_rect.height();
+    if (start_y + p_height > height())
+    {
+      start_y -= (p_height + font_height_f);
+    }
+    popup_menu.move({start_x, start_y});
+    popup_menu.setVisible(true);
+  }
+
 protected:
   void update_font_metrics() override
   {
@@ -389,6 +407,8 @@ protected:
       draw_cursor(device_context);
     }
     device_context->EndDraw();
+    if (!popup_menu.hidden()) draw_popup_menu();
+    else popup_menu.hide();
   }
 
   void resizeEvent(QResizeEvent* event) override

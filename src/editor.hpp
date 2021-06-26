@@ -259,6 +259,19 @@ protected:
    * Draw the cursor
    */
   void draw_cursor(QPainter& painter);
+  /**
+   * Draw the popup menu.
+   * NOTE: This function does not check if the popup menu
+   * is hidden before drawing it.
+   */
+  void draw_popup_menu();
+  /**
+   * Hide the popup menu.
+   */
+  inline void hide_popup_menu()
+  {
+    popup_menu.hide();
+  }
 public slots:
   /**
    * Handle a window resize.

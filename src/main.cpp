@@ -52,7 +52,8 @@ int main(int argc, char** argv)
     {"ext_multigrid", false},
     {"ext_cmdline", false},
     {"ext_popupmenu", false},
-    {"ext_linegrid", true}
+    {"ext_linegrid", true},
+    {"ext_hlstate", true}
   };
   for(const auto& capability : capabilities)
   {

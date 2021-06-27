@@ -152,8 +152,7 @@ void PopupMenu::paintEvent(QPaintEvent* event)
   pen.setWidth(border_width);
   p.setPen(std::move(pen));
   QRect draw_rect = rect();
-  draw_rect.setRight(draw_rect.right() - border_width);
-  draw_rect.setBottom(draw_rect.bottom() - border_width);
+  draw_rect.adjust(0, 0, -border_width, -border_width);
   p.drawRect(draw_rect);
 }
 

@@ -149,6 +149,12 @@ msgpack::object_handle Window::safe_copy(msgpack::object_handle* obj)
   return oh;
 }
 
+static bool is_num(const msgpack::object& o) {
+  return o.type == msgpack::type::POSITIVE_INTEGER
+  || o.type == msgpack::type::NEGATIVE_INTEGER
+  || o.type == msgpack::type::FLOAT;
+};
+
 void Window::register_handlers()
 {
   // Set GUI handlers before we set the notification handler (since Nvim runs on a different thread,
@@ -276,11 +282,6 @@ void Window::register_handlers()
     editor_area.set_charspace(space_obj.as<std::uint16_t>());
   });
   listen_for_notification("NVUI_CARET_EXTEND", [this](const msgpack::object_array& params) {
-    static constexpr auto is_num = [](const msgpack::object& o) -> bool {
-      return o.type == msgpack::type::POSITIVE_INTEGER
-      || o.type == msgpack::type::NEGATIVE_INTEGER
-      || o.type == msgpack::type::FLOAT;
-    };
     if (params.size == 0) return;
     float caret_top = 0.f;
     float caret_bottom = 0.f;
@@ -288,6 +289,27 @@ void Window::register_handlers()
     if (params.size >= 2 && is_num(params.ptr[1])) caret_bottom = params.ptr[1].as<float>();
     editor_area.set_caret_dimensions(caret_top, caret_bottom);
   });
+  listen_for_notification("NVUI_PUM_MAX_ITEMS", [this](const msgpack::object_array& params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::POSITIVE_INTEGER) return;
+    std::size_t max_items = params.ptr[0].as<std::size_t>();
+    editor_area.popupmenu_set_max_items(max_items);
+  });
+  listen_for_notification("NVUI_PUM_MAX_CHARS", [this](const msgpack::object_array& params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::POSITIVE_INTEGER) return;
+    std::size_t max_chars = params.ptr[0].as<std::size_t>();
+    editor_area.popupmenu_set_max_chars(max_chars);
+  });
+  listen_for_notification("NVUI_PUM_BORDER_WIDTH", [this](const msgpack::object_array& params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::POSITIVE_INTEGER) return;
+    std::size_t b_width = params.ptr[0].as<std::size_t>();
+    editor_area.popupmenu_set_border_width(b_width);
+  });
+  nvim->command("command! -nargs=1 NvuiPopupMenuBorderWidth call rpcnotify(1, 'NVUI_PUM_BORDER_WIDTH', <args>)");
+  nvim->command("command! -nargs=1 NvuiPopupMenuMaxChars call rpcnotify(1, 'NVUI_PUM_MAX_CHARS', <args>)");
+  nvim->command("command! -nargs=1 NvuiPopupMenuMaxItems call rpcnotify(1, 'NVUI_PUM_MAX_ITEMS', <args>)");
   nvim->command("command! NvuiToggleFrameless call rpcnotify(1, 'NVUI_TOGGLE_FRAMELESS')");
   nvim->command("command! -nargs=1 NvuiOpacity call rpcnotify(1, 'NVUI_WINOPACITY', <args>)");
   nvim->command("command! -nargs=1 NvuiCharspace call rpcnotify(1, 'NVUI_CHARSPACE', <args>)");

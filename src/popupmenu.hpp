@@ -80,7 +80,16 @@ public:
   {
     border_width = outline_width;
   }
+
+  void set_max_items(std::size_t new_max);
+  void set_max_chars(std::size_t new_max);
+  inline void set_border_width(std::size_t new_width)
+  {
+    border_width = new_width;
+    update_dimensions();
+  }
 private:
+  void update_dimensions();
   /**
    * Add the given popupmenu items to the popup menu.
    */

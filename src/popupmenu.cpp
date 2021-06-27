@@ -116,11 +116,9 @@ void PopupMenu::font_changed(const QFont& font, float c_width, float c_height, i
   cell_width = c_width;
   cell_height = c_height;
   linespace = line_spacing;
-  pixmap = QPixmap(max_chars * c_width + border_width * 2, max_items * c_height + border_width * 2);
-  pixmap.fill(QColor(0, 0, 0));
   QFontMetrics fm {font};
   font_ascent = fm.ascent();
-  resize(available_rect().size());
+  update_dimensions();
 }
 
 void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem& item, int y)
@@ -147,13 +145,32 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
 
 void PopupMenu::paintEvent(QPaintEvent* event)
 {
+  Q_UNUSED(event);
   QPainter p(this);
   p.drawPixmap(rect(), pixmap, rect());
   QPen pen {QColor(0, 0, 0)};
   pen.setWidth(border_width);
   p.setPen(std::move(pen));
   QRect draw_rect = rect();
-  draw_rect.setRight(draw_rect.right() - 1);
-  draw_rect.setBottom(draw_rect.bottom() - 1);
+  draw_rect.setRight(draw_rect.right() - border_width);
+  draw_rect.setBottom(draw_rect.bottom() - border_width);
   p.drawRect(draw_rect);
+}
+
+void PopupMenu::set_max_items(std::size_t new_max)
+{
+  max_items = new_max;
+  update_dimensions();
+}
+
+void PopupMenu::set_max_chars(std::size_t new_max)
+{
+  max_chars = new_max;
+  update_dimensions();
+}
+void PopupMenu::update_dimensions()
+{
+  pixmap = QPixmap(max_chars * cell_width + border_width * 2, max_items * cell_height + border_width * 2);
+  pixmap.fill(QColor(0, 0, 0));
+  resize(available_rect().size());
 }

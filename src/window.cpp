@@ -42,7 +42,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   assert(width > 0 && height > 0);
   setMouseTracking(true);
   QObject::connect(this, &Window::resize_done, &editor_area, &decltype(editor_area)::resized);
-  setWindowFlags(Qt::FramelessWindowHint);
+  setWindowFlags(Qt::FramelessWindowHint | Qt::WindowMinimizeButtonHint);
   const auto font_dims = editor_area.font_dimensions();
   resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
   emit resize_done(size());

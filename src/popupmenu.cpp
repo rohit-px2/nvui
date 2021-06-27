@@ -148,7 +148,7 @@ void PopupMenu::paintEvent(QPaintEvent* event)
   Q_UNUSED(event);
   QPainter p(this);
   p.drawPixmap(rect(), pixmap, rect());
-  QPen pen {QColor(0, 0, 0)};
+  QPen pen {border_color};
   pen.setWidth(border_width);
   p.setPen(std::move(pen));
   QRect draw_rect = rect();
@@ -167,9 +167,10 @@ void PopupMenu::set_max_chars(std::size_t new_max)
   max_chars = new_max;
   update_dimensions();
 }
+
 void PopupMenu::update_dimensions()
 {
   pixmap = QPixmap(max_chars * cell_width + border_width * 2, max_items * cell_height + border_width * 2);
-  pixmap.fill(QColor(0, 0, 0));
+  pixmap.fill(border_color);
   resize(available_rect().size());
 }

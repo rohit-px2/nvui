@@ -88,6 +88,10 @@ public:
     border_width = new_width;
     update_dimensions();
   }
+  inline void set_border_color(QColor new_color)
+  {
+    border_color = std::move(new_color);
+  }
 private:
   void update_dimensions();
   /**
@@ -108,6 +112,7 @@ private:
   const HLAttr* pmenu_sel = nullptr;
   const HLAttr* pmenu_sbar = nullptr;
   const HLAttr* pmenu_thumb = nullptr;
+  QColor border_color {0, 0, 0};
   std::size_t max_chars = 50;
   // Max items to display on screen at once.
   std::size_t max_items = 15;

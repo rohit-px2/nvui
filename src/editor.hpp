@@ -153,6 +153,10 @@ public:
   inline void popupmenu_set_max_chars(std::size_t max) { popup_menu.set_max_chars(max); }
   inline void popupmenu_set_max_items(std::size_t max) { popup_menu.set_max_items(max); }
   inline void popupmenu_set_border_width(std::size_t width) { popup_menu.set_border_width(width); }
+  inline void popupmenu_set_border_color(QColor new_color)
+  {
+    popup_menu.set_border_color(new_color);
+  }
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)

@@ -307,6 +307,15 @@ void Window::register_handlers()
     std::size_t b_width = params.ptr[0].as<std::size_t>();
     editor_area.popupmenu_set_border_width(b_width);
   });
+  listen_for_notification("NVUI_PUM_BORDER_COLOR", [this](const msgpack::object_array& params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::STR) return;
+    QString potential_clr = params.ptr[0].as<QString>();
+    if (!QColor::isValidColor(potential_clr)) return;
+    QColor new_pum_border_color {potential_clr};
+    editor_area.popupmenu_set_border_color(new_pum_border_color);
+  });
+  nvim->command("command! -nargs=1 NvuiPopupMenuBorderColor call rpcnotify(1, 'NVUI_PUM_BORDER_COLOR', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuBorderWidth call rpcnotify(1, 'NVUI_PUM_BORDER_WIDTH', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuMaxChars call rpcnotify(1, 'NVUI_PUM_MAX_CHARS', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuMaxItems call rpcnotify(1, 'NVUI_PUM_MAX_ITEMS', <args>)");

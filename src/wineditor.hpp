@@ -94,7 +94,18 @@ public:
   {
     return nullptr;
   }
-
+  
+  std::tuple<float, float> font_dimensions() const override
+  {
+    if (font_width_f <= 0.f)
+    {
+      return EditorArea::font_dimensions();
+    }
+    else
+    {
+      return {font_width_f, font_height_f};
+    }
+  }
 private:
   HWND hwnd = nullptr;
   ID2D1HwndRenderTarget* hwnd_target = nullptr;
@@ -107,8 +118,8 @@ private:
   ID2D1Device* device = nullptr;
   ID2D1DeviceContext* mtd_context = nullptr;
   QString font_name = "";
-  float font_width_f;
-  float font_height_f;
+  float font_width_f = -1.f;
+  float font_height_f = -1.f;
 
   // Override EditorArea draw_grid
   // We can use native Windows stuff here
@@ -293,24 +304,6 @@ private:
       }
     }
     SafeRelease(&bg_brush);
-  }
-
-
-  void draw_popup_menu()
-  {
-    QRect popup_rect = popup_menu.available_rect();
-    auto&& [grid_num, row, col] = popup_menu.position();
-    Grid* grid = find_grid(grid_num);
-    assert(grid);
-    int start_x = (grid->x + col) * font_width_f;
-    int start_y = (grid->y + row + 1) * font_height_f;
-    int p_height = popup_rect.height();
-    if (start_y + p_height > height())
-    {
-      start_y -= (p_height + font_height_f);
-    }
-    popup_menu.move({start_x, start_y});
-    popup_menu.setVisible(true);
   }
 
 protected:

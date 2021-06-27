@@ -77,7 +77,7 @@ public:
   /**
    * Returns the font width and font height.
    */
-  std::tuple<std::uint16_t, std::uint16_t> font_dimensions() const;
+  virtual std::tuple<float, float> font_dimensions() const;
   /**
    * Ignores the next paintEvent call.
    * This is really only called after the window is moved.

@@ -411,7 +411,7 @@ void EditorArea::paintEvent(QPaintEvent* event)
 #endif
 }
 
-std::tuple<std::uint16_t, std::uint16_t> EditorArea::font_dimensions() const
+std::tuple<float, float> EditorArea::font_dimensions() const
 {
   return std::make_tuple(font_width, font_height);
 }
@@ -723,13 +723,14 @@ void EditorArea::draw_popup_menu()
 {
   QRect popup_rect = popup_menu.available_rect();
   auto&& [grid_num, row, col] = popup_menu.position();
+  auto&& [font_width, font_height] = font_dimensions();
   Grid* grid = find_grid(grid_num);
   assert(grid);
   int start_x = (grid->x + col) * font_width;
   int start_y = (grid->y + row + 1) * font_height;
   int p_width = popup_rect.width();
   int p_height = popup_rect.height();
-  if (start_y + p_height > height())
+  if (start_y + p_height > height() && (start_y - p_height - font_height) >= 0)
   {
     start_y -= (p_height + font_height);
   }

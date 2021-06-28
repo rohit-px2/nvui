@@ -273,7 +273,10 @@ void Window::register_handlers()
     {
       if (title_bar) title_bar->show();
       frameless_window = true;
-      setWindowFlags(Qt::FramelessWindowHint);
+      setWindowFlags(
+        Qt::FramelessWindowHint | Qt::WindowMinimizeButtonHint
+        | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint
+      );
       show();
       emit resize_done(size());
     }

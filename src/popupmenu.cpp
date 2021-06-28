@@ -129,7 +129,6 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   Color bg = attr.has_bg ? attr.background : def_clrs.background;
   if (attr.reverse) std::swap(fg, bg);
   pmenu_font.setBold(attr.font_opts & FontOpts::Bold);
-  pmenu_font.setWeight(QFont::Medium);
   pmenu_font.setItalic(attr.font_opts & FontOpts::Italic);
   pmenu_font.setUnderline(attr.font_opts & FontOpts::Underline);
   p.setFont(pmenu_font);
@@ -152,7 +151,8 @@ void PopupMenu::paintEvent(QPaintEvent* event)
   pen.setWidth(border_width);
   p.setPen(std::move(pen));
   QRect draw_rect = rect();
-  draw_rect.adjust(0, 0, -border_width, -border_width);
+  int offset = std::ceil(float(border_width) / 2.f);
+  draw_rect.adjust(0, 0, -offset, -offset);
   p.drawRect(draw_rect);
 }
 

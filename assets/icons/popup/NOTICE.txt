@@ -1,0 +1,3 @@
+The icons are taken from Microsoft's vscode-codicons Github repository.
+You can find the original repository for the icons at:
+https://github.com/microsoft/vscode-codicons

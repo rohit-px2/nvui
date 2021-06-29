@@ -1,7 +1,81 @@
 #include "popupmenu.hpp"
 #include <iostream>
 #include <QPainter>
+#include <QStringBuilder>
+#include <QStringLiteral>
 #include "msgpack_overrides.hpp"
+#include "utils.hpp"
+
+QString PopupMenuIconManager::kind_to_iname(QString kind)
+{
+  if (kind.size() <= 0) return QString();
+  int ws_index = kind.indexOf(' ');
+  if (ws_index != -1) kind = kind.right(kind.size() - ws_index - 1);
+  if (kind == "EnumMember") return QStringLiteral("enum-member");
+  else
+  {
+    kind[0] = kind[0].toLower();
+    return kind;
+  }
+}
+
+QString PopupMenuIconManager::iname_to_kind(const QString& iname)
+{
+  if (iname.size() <= 0) return QString();
+  if (iname == "enum-member")
+  {
+    return QStringLiteral("EnumMember");
+  }
+  return iname.at(0).toUpper() % iname.right(iname.size() - 1);
+}
+
+using fg_bg = PopupMenuIconManager::fg_bg;
+static std::pair<QColor, QColor> find_or_default(
+  const std::unordered_map<QString, fg_bg>& map,
+  const QString& key,
+  const QColor& default_fg,
+  const QColor& default_bg
+)
+{
+  const auto it = map.find(key);
+  if (it != map.end()) {
+    return {it->second.first.value_or(default_fg), it->second.second.value_or(default_bg)};
+  }
+  else return {default_fg, default_bg};
+}
+
+void PopupMenuIconManager::load_icons(int width)
+{
+  for(auto& e : icons)
+  {
+    auto&& [fg, bg] = find_or_default(colors, e.first, default_fg, default_bg);
+    auto&& px = pixmap_from_svg(picon_fp + e.first + ".svg", fg, bg, width, width);
+    if (px) e.second = std::move(px.value());
+    else e.second = QPixmap();
+  }
+}
+
+const QPixmap* PopupMenuIconManager::icon_for_kind(const QString& kind)
+{
+  const auto it = icons.find(kind_to_iname(kind).trimmed());
+  if (it == icons.end())
+  {
+    return nullptr;
+  }
+  else return &it->second;
+}
+
+PopupMenu::PopupMenu(const HLState* state, QWidget* parent)
+  : QWidget(parent),
+    hl_state(state),
+    pixmap(),
+    completion_items(max_items),
+    icon_manager(10),
+    pmenu_font()
+{
+  // Without this flag, flickering occurs on WinEditorArea.
+  setAttribute(Qt::WA_NativeWindow);
+}
 
 void PopupMenu::pum_show(const msgpack::object* obj, std::uint32_t size)
 {
@@ -118,6 +192,7 @@ void PopupMenu::font_changed(const QFont& font, float c_width, float c_height, i
   linespace = line_spacing;
   QFontMetrics fm {font};
   font_ascent = fm.ascent();
+  icon_manager.size_changed(cell_height);
   update_dimensions();
 }
 
@@ -139,6 +214,16 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   p.fillRect(QRect(start_x, y, end_x, cell_height), QColor(bg.r, bg.g, bg.b));
   QPoint text_start = {start_x, int(y + offset)};
   p.setPen(QColor(fg.r, fg.g, fg.b));
+  const QPixmap* icon_ptr = icon_manager.icon_for_kind(item.kind);
+  if (icon_ptr)
+  {
+    p.drawPixmap(
+      {start_x, y,
+      icon_ptr->width(), icon_ptr->height()},
+      *icon_ptr, icon_ptr->rect()
+    );
+    text_start.setX(text_start.x() + icon_ptr->width() * 1.5f);
+  }
   p.drawText(text_start, item.word);
 }
 

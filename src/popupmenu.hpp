@@ -1,10 +1,116 @@
 #ifndef NVUI_POPUPMENU_HPP
 #define NVUI_POPUPMENU_HPP
+#include <optional>
 #include <QWidget>
 #include <QCompleter>
+#include <QDebug>
 #include <QPaintEvent>
+#include <QStringBuilder>
 #include <msgpack.hpp>
 #include "hlstate.hpp"
+#include "utils.hpp"
+#include <fmt/core.h>
+#include <fmt/format.h>
+
+// popup menu icon filepath
+static const QString picon_fp = "../assets/icons/popup/";
+/// Manages the popup menu icons and gives the appropriate
+/// icon for each popup menu item kind (useful for LSP).
+/// Icons are square
+class PopupMenuIconManager
+{
+public:
+  using color_opt = std::optional<QColor>;
+  using fg_bg = std::pair<color_opt, color_opt>;
+  PopupMenuIconManager(int pm_size)
+    : sq_width(pm_size)
+  {
+    load_icons(pm_size);
+  }
+
+  void size_changed(int new_size)
+  {
+    if (sq_width == new_size) return;
+    sq_width = new_size;
+    load_icons(sq_width);
+  }
+
+  const QPixmap* icon_for_kind(const QString& kind);
+  inline void set_default_fg(QColor fg) { default_fg = std::move(fg); }
+  inline void set_default_bg(QColor bg) { default_bg = std::move(bg); }
+  inline void set_bg_for_name(const QString& name, QColor bg)
+  {
+    colors[name].second = std::move(bg);
+  }
+  inline void set_fg_for_name(const QString& name, QColor fg)
+  {
+    colors[name].first = std::move(fg);
+  }
+private:
+  void load_icons(int width);
+  QString iname_to_kind(const QString& iname);
+  QString kind_to_iname(QString kind);
+  // Map string (iname) to (foreground, background) tuple
+  // Any color with no value will default to the default_foreground and default_background
+  // colors.
+  std::unordered_map<QString, fg_bg> colors {
+    {"array", {}},
+    {"boolean", {}},
+    {"class", {}},
+    {"color", {}},
+    {"constant", {}},
+    {"enum-member", {}},
+    {"enum", {}},
+    {"event", {}},
+    {"field", {}},
+    {"file", {}},
+    {"interface", {}},
+    {"key", {}},
+    {"keyword", {}},
+    {"method", {}},
+    {"misc", {}},
+    {"namespace", {}},
+    {"numeric", {}},
+    {"operator", {}},
+    {"parameter", {}},
+    {"property", {}},
+    {"ruler", {}},
+    {"snippet", {}},
+    {"string", {}},
+    {"structure", {}},
+    {"variable", {}}
+  };
+  std::unordered_map<QString, QPixmap> icons {
+    {"array", {}},
+    {"boolean", {}},
+    {"class", {}},
+    {"color", {}},
+    {"constant", {}},
+    {"enum-member", {}},
+    {"enum", {}},
+    {"event", {}},
+    {"field", {}},
+    {"file", {}},
+    {"interface", {}},
+    {"key", {}},
+    {"keyword", {}},
+    {"method", {}},
+    {"misc", {}},
+    {"namespace", {}},
+    {"numeric", {}},
+    {"operator", {}},
+    {"parameter", {}},
+    {"property", {}},
+    {"ruler", {}},
+    {"snippet", {}},
+    {"string", {}},
+    {"structure", {}},
+    {"variable", {}}
+  };
+  int sq_width = 0;
+  QColor default_fg = Qt::blue;
+  QColor default_bg = Qt::transparent;
+};
 
 struct PMenuItem
 {
@@ -18,16 +124,7 @@ struct PMenuItem
 class PopupMenu : public QWidget
 {
 public:
-  PopupMenu(const HLState* state, QWidget* parent = nullptr)
-    : QWidget(parent),
-      hl_state(state),
-      pixmap(),
-      completion_items(max_items),
-      pmenu_font()
-  {
-    // Without this flag, flickering occurs on WinEditorArea.
-    setAttribute(Qt::WA_NativeWindow);
-  }
+  PopupMenu(const HLState* state, QWidget* parent = nullptr);
   /**
    * Handles a Neovim "popupmenu_show" event, showing the popupmenu with the
    * given items.
@@ -126,6 +223,7 @@ private:
   int row = 0;
   int col = 0;
   int linespace = 0;
+  PopupMenuIconManager icon_manager;
   bool has_scrollbar = false;
   bool is_hidden = true;
   QFont pmenu_font;

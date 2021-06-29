@@ -3,10 +3,12 @@
 #include <QIcon>
 #include <QString>
 #include <QFile>
+#include <QStringBuilder>
 #include <QSvgRenderer>
 #include <QPainter>
 #include <chrono>
 #include <stdexcept>
+#include <optional>
 
 // Creates a QIcon from the given svg, with the given foreground
 // and background color.
@@ -14,7 +16,9 @@
 inline QIcon icon_from_svg(
   const QString filename,
   const QColor& foreground,
-  const QColor& background = QColor(0, 0, 0, 0)
+  const QColor& background = QColor(0, 0, 0, 0),
+  int width = -1,
+  int height = -1
 )
 {
   QFile file {filename};
@@ -24,14 +28,39 @@ inline QIcon icon_from_svg(
   }
   file.open(QIODevice::ReadOnly);
   QString text = file.readAll();
-  QString to_replace = "\"" + foreground.name() + "\"";
-  text.replace(R"("#000")", to_replace);
   QSvgRenderer renderer {text.toUtf8()};
-  QPixmap pm {renderer.defaultSize()};
+  if (width <= 0) width = renderer.defaultSize().width();
+  if (height <= 0) height = renderer.defaultSize().height();
+  QPixmap pm {width, height};
   pm.fill(background);
   QPainter painter(&pm);
   renderer.render(&painter);
+  painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+  painter.fillRect(pm.rect(), foreground);
   return QIcon {pm};
+}
+
+inline std::optional<QPixmap> pixmap_from_svg(
+  const QString& filename,
+  const QColor& foreground,
+  const QColor& background = Qt::transparent,
+  int width = 0,
+  int height = 0
+)
+{
+  QFile file {filename};
+  if (!file.exists()) return std::nullopt;
+  file.open(QIODevice::ReadOnly);
+  QString data = file.readAll();
+  QSvgRenderer renderer {data.toUtf8()};
+  QPixmap pm {width, height};
+  if (pm.isNull()) return std::nullopt;
+  pm.fill(background);
+  QPainter p(&pm);
+  renderer.render(&p);
+  p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+  p.fillRect(pm.rect(), foreground);
+  return pm;
 }
 
 // Macro to time how long something takes

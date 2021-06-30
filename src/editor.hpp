@@ -188,6 +188,16 @@ public:
     popup_menu.set_icon_colors(icon_name, std::move(fg), std::move(bg));
   }
 
+  inline void popupmenu_set_default_icon_bg(QColor bg)
+  {
+    popup_menu.set_default_icon_bg(std::move(bg));
+  }
+
+  inline void popupmenu_set_default_icon_fg(QColor fg)
+  {
+    popup_menu.set_default_icon_fg(std::move(fg));
+  }
+
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)

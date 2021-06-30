@@ -265,6 +265,16 @@ public:
     icon_manager.set_fg_bg_for_name(icon_name, std::move(fg), std::move(bg));
   }
 
+  inline void set_default_icon_fg(QColor fg)
+  {
+    icon_manager.set_default_fg(std::move(fg));
+  }
+
+  inline void set_default_icon_bg(QColor bg)
+  {
+    icon_manager.set_default_bg(std::move(bg));
+  }
+
 private:
   void update_dimensions();
   /**

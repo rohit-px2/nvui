@@ -36,17 +36,42 @@ public:
   }
 
   const QPixmap* icon_for_kind(const QString& kind);
-  inline void set_default_fg(QColor fg) { default_fg = std::move(fg); }
-  inline void set_default_bg(QColor bg) { default_bg = std::move(bg); }
+  inline void set_default_fg(QColor fg)
+  {
+    default_fg = std::move(fg);
+    load_icons(sq_width);
+  }
+  inline void set_default_bg(QColor bg)
+  {
+    default_bg = std::move(bg);
+    load_icons(sq_width);
+  }
+
   inline void set_bg_for_name(const QString& name, QColor bg)
   {
     colors[name].second = std::move(bg);
+    update_icon(name);
   }
   inline void set_fg_for_name(const QString& name, QColor fg)
   {
     colors[name].first = std::move(fg);
+    update_icon(name);
   }
+
+  inline void set_fg_bg_for_name(const QString& name, QColor fg, QColor bg)
+  {
+    colors[name] = {std::move(fg), std::move(bg)};
+    update_icon(name);
+  }
+
+  inline void update_icon(const QString& name)
+  {
+    if (!icons.contains(name)) return;
+    else icons[name] = load_icon(name, sq_width);
+  }
+
 private:
+  QPixmap load_icon(const QString& iname, int width);
   void load_icons(int width);
   QString iname_to_kind(const QString& iname);
   QString kind_to_iname(QString kind);
@@ -191,6 +216,55 @@ public:
   {
     border_color = std::move(new_color);
   }
+
+  /**
+   * Toggle the icons between being on and off.
+   */
+  inline void toggle_icons_enabled()
+  {
+    icons_enabled = !icons_enabled;
+    paint();
+  }
+
+  /**
+   * Set the size of the icons relative to the cell height.
+   * The icons are normally in a square and by default they take
+   * the entire cell height.
+   * However if you want them to look smaller than the cell height,
+   * you can call this with a negative offset.
+   * If offset is positive, nothing will happen. This is so that
+   * the icons don't clip other things.
+   */
+  inline void set_icon_size_offset(int offset)
+  {
+    if (offset > 0) return;
+    else
+    {
+      icon_size_offset = offset;
+      icon_manager.size_changed(cell_height + icon_size_offset);
+    }
+  }
+
+  inline void set_icon_space(float space)
+  {
+    icon_space = space;
+  }
+
+  inline void set_icon_fg(const QString& icon_name, QColor fg)
+  {
+    icon_manager.set_fg_for_name(icon_name, std::move(fg));
+  }
+
+  inline void set_icon_bg(const QString& icon_name, QColor bg)
+  {
+    icon_manager.set_bg_for_name(icon_name, std::move(bg));
+  }
+
+  inline void set_icon_colors(const QString& icon_name, QColor fg, QColor bg)
+  {
+    icon_manager.set_fg_bg_for_name(icon_name, std::move(fg), std::move(bg));
+  }
+
 private:
   void update_dimensions();
   /**
@@ -228,6 +302,9 @@ private:
   PopupMenuIconManager icon_manager;
   bool has_scrollbar = false;
   bool is_hidden = true;
+  bool icons_enabled = true;
+  float icon_space = 1.5f;
+  int icon_size_offset = 0;
   QFont pmenu_font;
   float border_width = 1.f;
   Q_OBJECT

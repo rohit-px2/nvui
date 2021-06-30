@@ -44,14 +44,18 @@ static std::pair<QColor, QColor> find_or_default(
   else return {default_fg, default_bg};
 }
 
+QPixmap PopupMenuIconManager::load_icon(const QString& iname, int width)
+{
+  auto&& [fg, bg] = find_or_default(colors, iname, default_fg, default_bg);
+  auto&& px = pixmap_from_svg(picon_fp % iname % ".svg", fg, bg, width, width);
+  return px.value_or(QPixmap());
+}
+
 void PopupMenuIconManager::load_icons(int width)
 {
   for(auto& e : icons)
   {
-    auto&& [fg, bg] = find_or_default(colors, e.first, default_fg, default_bg);
-    auto&& px = pixmap_from_svg(picon_fp + e.first + ".svg", fg, bg, width, width);
-    if (px) e.second = std::move(px.value());
-    else e.second = QPixmap();
+    e.second = load_icon(e.first, width);
   }
 }
 
@@ -192,7 +196,7 @@ void PopupMenu::font_changed(const QFont& font, float c_width, float c_height, i
   linespace = line_spacing;
   QFontMetrics fm {font};
   font_ascent = fm.ascent();
-  icon_manager.size_changed(cell_height);
+  icon_manager.size_changed(cell_height + icon_size_offset);
   update_dimensions();
 }
 
@@ -215,14 +219,14 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   QPoint text_start = {start_x, int(y + offset)};
   p.setPen(QColor(fg.r, fg.g, fg.b));
   const QPixmap* icon_ptr = icon_manager.icon_for_kind(item.kind);
-  if (icon_ptr)
+  if (icon_ptr && icons_enabled)
   {
     p.drawPixmap(
-      {start_x, y,
+      {start_x, y - icon_size_offset / 2,
       icon_ptr->width(), icon_ptr->height()},
       *icon_ptr, icon_ptr->rect()
     );
-    text_start.setX(text_start.x() + icon_ptr->width() * 1.5f);
+    text_start.setX(text_start.x() + icon_ptr->width() * icon_space);
   }
   p.drawText(text_start, item.word);
 }

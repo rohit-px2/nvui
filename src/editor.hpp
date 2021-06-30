@@ -150,6 +150,21 @@ public:
     popup_menu.pum_sel(obj, size);
   }
 
+  inline void popupmenu_icons_toggle()
+  {
+    popup_menu.toggle_icons_enabled();
+  }
+
+  inline void popupmenu_set_icon_size_offset(int offset)
+  {
+    popup_menu.set_icon_size_offset(offset);
+  }
+
+  inline void popupmenu_set_icon_spacing(float spacing)
+  {
+    popup_menu.set_icon_space(spacing);
+  }
+
   inline void popupmenu_set_max_chars(std::size_t max) { popup_menu.set_max_chars(max); }
   inline void popupmenu_set_max_items(std::size_t max) { popup_menu.set_max_items(max); }
   inline void popupmenu_set_border_width(std::size_t width) { popup_menu.set_border_width(width); }
@@ -157,6 +172,22 @@ public:
   {
     popup_menu.set_border_color(new_color);
   }
+
+  inline void popupmenu_set_icon_fg(const QString& icon_name, QColor color)
+  {
+    popup_menu.set_icon_fg(icon_name, std::move(color));
+  }
+
+  inline void popupmenu_set_icon_bg(const QString& icon_name, QColor color)
+  {
+    popup_menu.set_icon_bg(icon_name, std::move(color));
+  }
+
+  inline void popupmenu_set_icon_colors(const QString& icon_name, QColor fg, QColor bg)
+  {
+    popup_menu.set_icon_colors(icon_name, std::move(fg), std::move(bg));
+  }
+
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)

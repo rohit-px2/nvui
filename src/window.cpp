@@ -321,6 +321,58 @@ void Window::register_handlers()
     QColor new_pum_border_color {potential_clr};
     editor_area.popupmenu_set_border_color(new_pum_border_color);
   });
+  listen_for_notification("NVUI_PUM_ICONS_TOGGLE", [this](const msgpack::object_array& params) {
+    Q_UNUSED(params);
+    editor_area.popupmenu_icons_toggle();
+  });
+  listen_for_notification("NVUI_PUM_ICON_OFFSET", [this](const msgpack::object_array& params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::NEGATIVE_INTEGER) return;
+    int offset = params.ptr[0].as<int>();
+    editor_area.popupmenu_set_icon_size_offset(offset);
+  });
+  listen_for_notification("NVUI_PUM_ICON_SPACING", [this](const msgpack::object_array& params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::FLOAT) return;
+    float spacing = params.ptr[0].as<float>();
+    editor_area.popupmenu_set_icon_spacing(spacing);
+  });
+  // :call rpcnotify(1, 'NVUI_PUM_ICON_FG', '(iname)', '(background color)')
+  listen_for_notification("NVUI_PUM_ICON_BG", [this](const msgpack::object_array& params) {
+    if (params.size < 2) return;
+    if (params.ptr[0].type != msgpack::type::STR) return;
+    if (params.ptr[0].type != msgpack::type::STR) return;
+    QString icon_name = params.ptr[0].as<QString>();
+    QString color_str = params.ptr[1].as<QString>();
+    if (!QColor::isValidColor(color_str)) return;
+    editor_area.popupmenu_set_icon_bg(std::move(icon_name), {color_str});
+  });
+  // :call rpcnotify(1, 'NVUI_PUM_ICON_FG', '(iname)', '(foreground color)')
+  listen_for_notification("NVUI_PUM_ICON_FG", [this](const msgpack::object_array& params) {
+    if (params.size < 2) return;
+    if (params.ptr[0].type != msgpack::type::STR) return;
+    if (params.ptr[1].type != msgpack::type::STR) return;
+    QString icon_name = params.ptr[0].as<QString>();
+    QString color_str = params.ptr[1].as<QString>();
+    if (!QColor::isValidColor(color_str)) return;
+    editor_area.popupmenu_set_icon_fg(std::move(icon_name), {color_str});
+  });
+  // :call rpcnotify(1, 'NVUI_PUM_ICON_COLORS', '(iname)', '(foreground color)', '(background color)')
+  listen_for_notification("NVUI_PUM_ICON_COLORS", [this](const msgpack::object_array& params) {
+    if (params.size < 3) return;
+    if (params.ptr[0].type != msgpack::type::STR) return;
+    if (params.ptr[1].type != msgpack::type::STR) return;
+    if (params.ptr[2].type != msgpack::type::STR) return;
+    QString icon_name = params.ptr[0].as<QString>();
+    QString fg_str = params.ptr[1].as<QString>();
+    QString bg_str = params.ptr[2].as<QString>();
+    if (!QColor::isValidColor(fg_str) || !QColor::isValidColor(bg_str)) return;
+    QColor fg {fg_str}, bg {bg_str};
+    editor_area.popupmenu_set_icon_colors(icon_name, std::move(fg), std::move(bg));
+  });
+  nvim->command("command! -nargs=1 NvuiPopupMenuIconSpacing call rpcnotify(1, 'NVUI_PUM_ICON_SPACING', <args>)");
+  nvim->command("command! NvuiPopupMenuIconsToggle call rpcnotify(1, 'NVUI_PUM_ICONS_TOGGLE')");
+  nvim->command("command! -nargs=1 NvuiPopupMenuIconOffset call rpcnotify(1, 'NVUI_PUM_ICON_OFFSET', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuBorderColor call rpcnotify(1, 'NVUI_PUM_BORDER_COLOR', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuBorderWidth call rpcnotify(1, 'NVUI_PUM_BORDER_WIDTH', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuMaxChars call rpcnotify(1, 'NVUI_PUM_MAX_CHARS', <args>)");

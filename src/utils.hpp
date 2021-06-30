@@ -55,12 +55,18 @@ inline std::optional<QPixmap> pixmap_from_svg(
   QSvgRenderer renderer {data.toUtf8()};
   QPixmap pm {width, height};
   if (pm.isNull()) return std::nullopt;
-  pm.fill(background);
+  pm.fill(Qt::transparent);
   QPainter p(&pm);
   renderer.render(&p);
   p.setCompositionMode(QPainter::CompositionMode_SourceIn);
   p.fillRect(pm.rect(), foreground);
-  return pm;
+  if (background.alpha() == 0) return pm;
+  p.end();
+  QPixmap filled {width, height};
+  filled.fill(background);
+  QPainter painter(&filled);
+  painter.drawPixmap(filled.rect(), pm, pm.rect());
+  return filled;
 }
 
 // Macro to time how long something takes

@@ -94,7 +94,18 @@ public:
   {
     return nullptr;
   }
-
+  
+  std::tuple<float, float> font_dimensions() const override
+  {
+    if (font_width_f <= 0.f)
+    {
+      return EditorArea::font_dimensions();
+    }
+    else
+    {
+      return {font_width_f, font_height_f};
+    }
+  }
 private:
   HWND hwnd = nullptr;
   ID2D1HwndRenderTarget* hwnd_target = nullptr;
@@ -107,8 +118,8 @@ private:
   ID2D1Device* device = nullptr;
   ID2D1DeviceContext* mtd_context = nullptr;
   QString font_name = "";
-  float font_width_f;
-  float font_height_f;
+  float font_width_f = -1.f;
+  float font_height_f = -1.f;
 
   // Override EditorArea draw_grid
   // We can use native Windows stuff here
@@ -211,7 +222,9 @@ private:
     D2D1_RECT_F clip_rect = D2D1::RectF(pt.x, pt.y, cur_pos.x, cur_pos.y);
     target->PushAxisAlignedClip(clip_rect, D2D1_ANTIALIAS_MODE_ALIASED);
     target->FillRectangle(bg_rect, bg_brush);
-    target->DrawTextLayout(pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
+    const float offset = float(linespace) / 2.f;
+    D2D1_POINT_2F text_pt = {pt.x, pt.y + offset};
+    target->DrawTextLayout(text_pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
     target->PopAxisAlignedClip();
     fg_brush->Release();
     bg_brush->Release();
@@ -387,6 +400,8 @@ protected:
       draw_cursor(device_context);
     }
     device_context->EndDraw();
+    if (!popup_menu.hidden()) draw_popup_menu();
+    else popup_menu.hide();
   }
 
   void resizeEvent(QResizeEvent* event) override

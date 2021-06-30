@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.19)
 if(MSVC)
   add_compile_options(/W4 /WX)
 else()
@@ -55,6 +55,8 @@ file(GLOB SOURCES
   src/window.cpp
   src/cursor.hpp
   src/cursor.cpp
+  src/popupmenu.hpp
+  src/popupmenu.cpp
 )
 if (WIN32)
   message("Windows detected.")
@@ -90,6 +92,11 @@ endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE
   ${Boost_LIBRARIES}
 )
+include(CheckIPOSupported)
+check_ipo_supported(RESULT LTOAvailable)
+if(LTOAvailable)
+  set_property(TARGET nvui PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 
 file(GLOB TEST_SOURCES
   src/msgpack_overrides.hpp
@@ -107,6 +114,8 @@ file(GLOB TEST_SOURCES
   src/cursor.hpp
   src/cursor.cpp
   test/*.cpp
+  src/popupmenu.hpp
+  src/popupmenu.cpp
 )
 add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
 target_link_libraries(nvui_test PRIVATE msgpackc msgpackc-cxx)

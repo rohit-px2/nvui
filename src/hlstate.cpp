@@ -207,7 +207,14 @@ void HLState::define(const msgpack::object& obj)
   int id = attr.hl_id;
   for(const AttrState& s : attr.state)
   {
-    name_to_id[s.hi_name] = id;
+    if (!s.hi_name.empty())
+    {
+      set_name_id(s.hi_name, id);
+    }
+    if (!s.ui_name.empty())
+    {
+      set_name_id(s.ui_name, id);
+    }
   }
   id_to_attr[id] = attr;
 }

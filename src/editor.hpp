@@ -16,6 +16,7 @@
 #include "hlstate.hpp"
 #include "nvim.hpp"
 #include "cursor.hpp"
+#include "popupmenu.hpp"
 
 // For easily changing the type of 'char' in a cell
 using grid_char = QString;
@@ -76,7 +77,7 @@ public:
   /**
    * Returns the font width and font height.
    */
-  std::tuple<std::uint16_t, std::uint16_t> font_dimensions() const;
+  virtual std::tuple<float, float> font_dimensions() const;
   /**
    * Ignores the next paintEvent call.
    * This is really only called after the window is moved.
@@ -133,6 +134,70 @@ public:
   {
     neovim_cursor.set_caret_extend(extend_top, extend_bottom);
   }
+
+  inline void popupmenu_show(const msgpack::object* obj, std::uint32_t size)
+  {
+    popup_menu.pum_show(obj, size);
+  }
+
+  inline void popupmenu_hide(const msgpack::object* obj, std::uint32_t size)
+  {
+    popup_menu.pum_hide(obj, size);
+  }
+
+  inline void popupmenu_select(const msgpack::object* obj, std::uint32_t size)
+  {
+    popup_menu.pum_sel(obj, size);
+  }
+
+  inline void popupmenu_icons_toggle()
+  {
+    popup_menu.toggle_icons_enabled();
+  }
+
+  inline void popupmenu_set_icon_size_offset(int offset)
+  {
+    popup_menu.set_icon_size_offset(offset);
+  }
+
+  inline void popupmenu_set_icon_spacing(float spacing)
+  {
+    popup_menu.set_icon_space(spacing);
+  }
+
+  inline void popupmenu_set_max_chars(std::size_t max) { popup_menu.set_max_chars(max); }
+  inline void popupmenu_set_max_items(std::size_t max) { popup_menu.set_max_items(max); }
+  inline void popupmenu_set_border_width(std::size_t width) { popup_menu.set_border_width(width); }
+  inline void popupmenu_set_border_color(QColor new_color)
+  {
+    popup_menu.set_border_color(new_color);
+  }
+
+  inline void popupmenu_set_icon_fg(const QString& icon_name, QColor color)
+  {
+    popup_menu.set_icon_fg(icon_name, std::move(color));
+  }
+
+  inline void popupmenu_set_icon_bg(const QString& icon_name, QColor color)
+  {
+    popup_menu.set_icon_bg(icon_name, std::move(color));
+  }
+
+  inline void popupmenu_set_icon_colors(const QString& icon_name, QColor fg, QColor bg)
+  {
+    popup_menu.set_icon_colors(icon_name, std::move(fg), std::move(bg));
+  }
+
+  inline void popupmenu_set_default_icon_bg(QColor bg)
+  {
+    popup_menu.set_default_icon_bg(std::move(bg));
+  }
+
+  inline void popupmenu_set_default_icon_fg(QColor fg)
+  {
+    popup_menu.set_default_icon_fg(std::move(fg));
+  }
+
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)
@@ -167,6 +232,7 @@ protected:
   Cursor neovim_cursor;
   int rows = -1;
   int cols = -1;
+  PopupMenu popup_menu;
   /**
    * Sets the current font to new_font.
    */
@@ -242,6 +308,19 @@ protected:
    * Draw the cursor
    */
   void draw_cursor(QPainter& painter);
+  /**
+   * Draw the popup menu.
+   * NOTE: This function does not check if the popup menu
+   * is hidden before drawing it.
+   */
+  void draw_popup_menu();
+  /**
+   * Hide the popup menu.
+   */
+  inline void hide_popup_menu()
+  {
+    popup_menu.hide();
+  }
 public slots:
   /**
    * Handle a window resize.

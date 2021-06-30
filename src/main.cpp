@@ -52,13 +52,19 @@ int main(int argc, char** argv)
     {"ext_multigrid", false},
     {"ext_cmdline", false},
     {"ext_popupmenu", false},
-    {"ext_linegrid", true}
+    {"ext_linegrid", true},
+    {"ext_hlstate", true}
   };
   for(const auto& capability : capabilities)
   {
+    // Ex. --ext_popupmenu=true
     on_argument(args, fmt::format("--{}=", capability.first), [&](std::string opt) {
       if (opt == "true") capabilities[capability.first] = true;
       else capabilities[capability.first] = false;
+    });
+    // Single argument (e.g. --ext_popupmenu)
+    on_argument(args, fmt::format("--{}", capability.first), [&](std::string opt) {
+      if (opt.size() == 0) capabilities[capability.first] = true;
     });
   }
   int width = 100;

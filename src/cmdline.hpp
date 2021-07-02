@@ -85,23 +85,35 @@ public:
   // is being displayed at the moment. If there is no text it still returns the base height.
   int fitting_height() const
   {
-    QFontMetrics metrics {font};
     if (lines.size() == 0) return big_font_height;
     int height = 0;
+    int max_width = inner_rect().width();
+    const int base_x = border_width + padding;
     for(std::size_t i = 0; i < lines.size(); ++i)
     {
-      int width = 0;
-      if (i == 0 && first_char) width += big_font_width;
+      int width = base_x;
+      if (i == 0 && first_char)
+      {
+        width += big_metrics.horizontalAdvance(first_char.value());
+      }
+      int num_lines = 1;
       for(const auto& seq : lines[i])
       {
-        width += metrics.horizontalAdvance(seq.first);
+        for(const QChar& c : seq.first)
+        {
+          int text_width = reg_metrics.horizontalAdvance(c);
+          if (width + text_width > max_width)
+          {
+            width = base_x;
+            ++num_lines;
+          }
+          width += text_width;
+        }
       }
-      int height_for_line = std::ceil(float(width) / float(inner_rect().width())) * font_height;
-      // Consider the height of the big font, but only for the first line,
-      // and only if the big font height is bigger than the regular font height.
+      int height_for_line = num_lines * font_height;
       if (i == 0 && first_char && big_font_height > font_height)
       {
-        height_for_line += big_font_height - font_height;
+        height_for_line += (big_font_height - font_height);
       }
       height += height_for_line;
     }

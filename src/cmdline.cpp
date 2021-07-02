@@ -156,7 +156,6 @@ void CmdLine::paintEvent(QPaintEvent* event)
     }
     pt.y += pt.y == base_y ? std::max(big_font_height, font_height) : font_height;
   }
-  p.setFont(font);
   QPen pen {border_color, border_width};
   p.setPen(pen);
   draw_border(p, rect(), border_width);

@@ -196,9 +196,12 @@ void Window::register_handlers()
     w->editor_area.grid_resize(obj, size);
   });
   set_handler("flush", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    Q_UNUSED(obj);
+    Q_UNUSED(size);
     w->editor_area.flush();
   });
   set_handler("win_pos", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    Q_UNUSED(size);
     w->editor_area.win_pos(obj);
   });
   set_handler("grid_clear", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
@@ -226,10 +229,35 @@ void Window::register_handlers()
     w->editor_area.popupmenu_select(obj, size);
   });
   set_handler("busy_start", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    Q_UNUSED(obj);
+    Q_UNUSED(size);
     w->editor_area.busy_start();
   });
   set_handler("busy_stop", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    Q_UNUSED(obj);
+    Q_UNUSED(size);
     w->editor_area.busy_stop();
+  });
+  set_handler("cmdline_show", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.cmdline_show(obj, size);
+  });
+  set_handler("cmdline_hide", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.cmdline_hide(obj, size);
+  });
+  set_handler("cmdline_cursor_pos", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.cmdline_cursor_pos(obj, size);
+  });
+  set_handler("cmdline_special_char", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.cmdline_special_char(obj, size);
+  });
+  set_handler("cmdline_block_show", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.cmdline_block_show(obj, size);
+  });
+  set_handler("cmdline_block_append", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.cmdline_block_append(obj, size);
+  });
+  set_handler("cmdline_block_hide", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.cmdline_block_hide(obj, size);
   });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
@@ -385,6 +413,112 @@ void Window::register_handlers()
     if (!QColor::isValidColor(bg_str)) return;
     editor_area.popupmenu_set_default_icon_bg({bg_str});
   });
+  listen_for_notification("NVUI_CMD_FONT_SIZE", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::FLOAT) return;
+    float size = params.ptr[0].as<float>();
+    if (size <= 0.f) return;
+    editor_area.cmdline_set_font_size(size);
+  });
+  listen_for_notification("NVUI_CMD_BIG_SCALE", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::FLOAT) return;
+    float scale = params.ptr[0].as<float>();
+    if (scale <= 0.f) return;
+    editor_area.cmdline_set_font_scale_ratio(scale);
+  });
+  listen_for_notification("NVUI_CMD_FONT_FAMILY", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::STR) return;
+    QString family = params.ptr[0].as<QString>();
+    editor_area.cmdline_set_font_family(family);
+  });
+  listen_for_notification("NVUI_CMD_BG", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::STR) return;
+    QString bg_str = params.ptr[0].as<QString>();
+    if (!QColor::isValidColor(bg_str)) return;
+    QColor bg {bg_str};
+    editor_area.cmdline_set_bg(bg);
+  });
+  listen_for_notification("NVUI_CMD_FG", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::STR) return;
+    QString fg_str = params.ptr[0].as<QString>();
+    if (!QColor::isValidColor(fg_str)) return;
+    QColor fg {fg_str};
+    editor_area.cmdline_set_fg(fg);
+  });
+  listen_for_notification("NVUI_CMD_BORDER_WIDTH", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::POSITIVE_INTEGER) return;
+    int width = params.ptr[0].as<int>();
+    if (width < 0.f) return;
+    editor_area.cmdline_set_border_width(width);
+  });
+  listen_for_notification("NVUI_CMD_BORDER_COLOR", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::STR) return;
+    QString color_str = params.ptr[0].as<QString>();
+    if (!QColor::isValidColor(color_str)) return;
+    QString color {color_str};
+    editor_area.cmdline_set_border_color(color);
+  });
+  listen_for_notification("NVUI_CMD_SET_LEFT", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::FLOAT) return;
+    float new_x = params.ptr[0].as<float>();
+    if (new_x < 0.f || new_x > 1.f) return;
+    editor_area.cmdline_set_x(new_x);
+  });
+  listen_for_notification("NVUI_CMD_YPOS", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::FLOAT) return;
+    float new_y = params.ptr[0].as<float>();
+    if (new_y < 0.f || new_y > 1.f) return;
+    editor_area.cmdline_set_y(new_y);
+  });
+  listen_for_notification("NVUI_CMD_WIDTH", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::FLOAT) return;
+    float new_width = params.ptr[0].as<float>();
+    if (new_width < 0.f || new_width > 1.f) return;
+    editor_area.cmdline_set_width(new_width);
+  });
+  listen_for_notification("NVUI_CMD_HEIGHT", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::FLOAT) return;
+    float new_height = params.ptr[0].as<float>();
+    if (new_height < 0.f || new_height > 1.f) return;
+    editor_area.cmdline_set_height(new_height);
+  });
+  listen_for_notification("NVUI_CMD_SET_CENTER_X", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::FLOAT) return;
+    float center_x = params.ptr[0].as<float>();
+    if (center_x < 0.f || center_x > 1.f) return;
+    editor_area.cmdline_set_center_x(center_x);
+  });
+  listen_for_notification("NVUI_CMD_SET_CENTER_Y", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::FLOAT) return;
+    float center_y = params.ptr[0].as<float>();
+    if (center_y < 0.f || center_y > 1.f) return;
+    editor_area.cmdline_set_center_y(center_y);
+  });
+  nvim->command("command! -nargs=1 NvuiCmdCenterXPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_X', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdCenterYPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_Y', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdLeftPos call rpcnotify(1, 'NVUI_CMD_SET_LEFT', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdTopPos call rpcnotify(1, 'NVUI_CMD_YPOS', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdWidth call rpcnotify(1, 'NVUI_CMD_WIDTH', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdHeight call rpcnotify(1, 'NVUI_CMD_HEIGHT', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdFontSize call rpcnotify(1, 'NVUI_CMD_FONT_SIZE', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdFontFamily call rpcnotify(1, 'NVUI_CMD_FONT_FAMILY', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdFg call rpcnotify(1, 'NVUI_CMD_FG', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdBg call rpcnotify(1, 'NVUI_CMD_BG', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdBorderWidth call rpcnotify(1, 'NVUI_CMD_BORDER_WIDTH', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdBorderColor call rpcnotify(1, 'NVUI_CMD_BORDER_COLOR', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdBigFontScaleFactor call rpcnotify(1, 'NVUI_CMD_BIG_SCALE', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuDefaultIconFg call rpcnotify(1, 'NVUI_PUM_DEFAULT_ICON_FG', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuDefaultIconBg call rpcnotify(1, 'NVUI_PUM_DEFAULT_ICON_BG', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuIconSpacing call rpcnotify(1, 'NVUI_PUM_ICON_SPACING', <args>)");

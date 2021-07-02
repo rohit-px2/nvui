@@ -57,6 +57,8 @@ file(GLOB SOURCES
   src/cursor.cpp
   src/popupmenu.hpp
   src/popupmenu.cpp
+  src/cmdline.hpp
+  src/cmdline.cpp
 )
 if (WIN32)
   message("Windows detected.")
@@ -116,6 +118,8 @@ file(GLOB TEST_SOURCES
   test/*.cpp
   src/popupmenu.hpp
   src/popupmenu.cpp
+  src/cmdline.hpp
+  src/cmdline.cpp
 )
 add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
 target_link_libraries(nvui_test PRIVATE msgpackc msgpackc-cxx)

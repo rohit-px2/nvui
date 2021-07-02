@@ -259,7 +259,10 @@ void PopupMenu::set_max_chars(std::size_t new_max)
 
 void PopupMenu::update_dimensions()
 {
-  pixmap = QPixmap(max_chars * cell_width + border_width * 2, max_items * cell_height + border_width * 2);
+  pixmap = QPixmap(
+    attached_width.value_or(max_chars * cell_width + border_width * 2),
+    max_items * cell_height + border_width * 2
+  );
   pixmap.fill(border_color);
   resize(available_rect().size());
 }

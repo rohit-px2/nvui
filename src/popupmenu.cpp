@@ -168,7 +168,7 @@ void PopupMenu::paint()
   int cur_y = std::ceil(border_width);
   bool nothing_selected = cur_selected == -1;
   if (nothing_selected) cur_selected = 0;
-  for(std::size_t i = 0; i < completion_items.size(); ++i)
+  for(std::size_t i = 0; i < std::min(completion_items.size(), max_items) + 1; ++i)
   {
     std::size_t index = (cur_selected + i) % completion_items.size();
     if (completion_items[index].selected)

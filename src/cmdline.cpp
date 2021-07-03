@@ -135,7 +135,9 @@ void CmdLine::paintEvent(QPaintEvent* event)
     int x;
     int y;
   } pt = {base_x, base_y};
-  pt.y += first_char ? big_metrics.ascent() : reg_metrics.ascent();
+  const int big_offset = big_metrics.ascent();
+  const int offset = reg_metrics.ascent();
+  pt.y += first_char ? std::max(big_offset, offset) : offset;
   if (first_char)
   {
     p.setFont(big_font);
@@ -143,8 +145,6 @@ void CmdLine::paintEvent(QPaintEvent* event)
     pt.x += big_metrics.horizontalAdvance(first_char.value());
   }
   p.setFont(font);
-  const int big_offset = big_metrics.ascent();
-  const int offset = reg_metrics.ascent();
   int cur_char = 0;
   bool cursor_drawn = false;
   QRect inner = inner_rect();

@@ -31,8 +31,8 @@ CmdLine::CmdLine(const HLState* hl_state, int width, int height, QWidget* parent
 
 void CmdLine::font_changed(const QFont& new_font)
 {
-  font = new_font;
-  big_font = new_font;
+  font.setFamily(new_font.family());
+  big_font.setFamily(new_font.family());
   font.setPointSizeF(font_size);
   big_font.setPointSizeF(font_size * big_font_scale_ratio);
   update_metrics();
@@ -111,7 +111,7 @@ void CmdLine::cmdline_block_hide(NvimObj obj, msg_size size)
 static void draw_border(QPainter& p, QRect rect, float border_size)
 {
   const int offset = std::ceil(border_size / 2.f);
-  rect.adjust(offset / 2.f, offset / 2.f, -offset, -offset);
+  rect.adjust(offset / 2, offset / 2, -offset, -offset);
   p.drawRect(rect);
 }
 
@@ -156,6 +156,7 @@ void CmdLine::paintEvent(QPaintEvent* event)
     }
     pt.y += pt.y == base_y ? std::max(big_font_height, font_height) : font_height;
   }
+  if (border_width == 0.f) return;
   QPen pen {border_color, border_width};
   p.setPen(pen);
   draw_border(p, rect(), border_width);

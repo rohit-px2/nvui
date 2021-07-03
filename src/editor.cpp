@@ -352,7 +352,6 @@ void EditorArea::update_font_metrics()
   font_width = std::round(metrics.horizontalAdvance(any_char) + charspace);
   font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
   popup_menu.font_changed(font, font_width, font_height, linespace);
-  cmdline.font_changed(font);
 }
 
 QSize EditorArea::to_rc(const QSize& pixel_size)

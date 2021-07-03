@@ -137,10 +137,10 @@ void PopupMenu::add_items(const msgpack::object_array& items)
     assert(item.type == msgpack::type::ARRAY);
     const msgpack::object_array& wkmi = item.via.array;
     assert(wkmi.size == 4);
-    assert(wkmi.ptr[0].type == mspgack::type::STR);
-    assert(wkmi.ptr[1].type == mspgack::type::STR);
-    assert(wkmi.ptr[2].type == mspgack::type::STR);
-    assert(wkmi.ptr[3].type == mspgack::type::STR);
+    assert(wkmi.ptr[0].type == msgpack::type::STR);
+    assert(wkmi.ptr[1].type == msgpack::type::STR);
+    assert(wkmi.ptr[2].type == msgpack::type::STR);
+    assert(wkmi.ptr[3].type == msgpack::type::STR);
     QString word = wkmi.ptr[0].as<QString>();
     QString kind = wkmi.ptr[1].as<QString>();
     QString menu = wkmi.ptr[2].as<QString>();
@@ -168,7 +168,7 @@ void PopupMenu::paint()
   int cur_y = std::ceil(border_width);
   bool nothing_selected = cur_selected == -1;
   if (nothing_selected) cur_selected = 0;
-  for(std::size_t i = 0; i < completion_items.size(); ++i)
+  for(std::size_t i = 0; i < std::min(completion_items.size(), max_items) + 1; ++i)
   {
     std::size_t index = (cur_selected + i) % completion_items.size();
     if (completion_items[index].selected)
@@ -259,7 +259,10 @@ void PopupMenu::set_max_chars(std::size_t new_max)
 
 void PopupMenu::update_dimensions()
 {
-  pixmap = QPixmap(max_chars * cell_width + border_width * 2, max_items * cell_height + border_width * 2);
+  pixmap = QPixmap(
+    attached_width.value_or(max_chars * cell_width + border_width * 2),
+    max_items * cell_height + border_width * 2
+  );
   pixmap.fill(border_color);
   resize(available_rect().size());
 }

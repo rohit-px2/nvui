@@ -186,7 +186,7 @@ public:
   {
     return QRect(
       0, 0, 
-      max_chars * cell_width + border_width * 2,
+      attached_width.value_or(max_chars * cell_width + border_width * 2),
       std::min(completion_items.size(), max_items) * cell_height + border_width * 2
     );
   }
@@ -275,6 +275,25 @@ public:
     icon_manager.set_default_bg(std::move(bg));
   }
 
+  inline void attach_cmdline(int width)
+  {
+    attached_width = width;
+    update_dimensions();
+    paint();
+  }
+
+  inline void cmdline_width_changed(int width)
+  {
+    if (!attached_width) return;
+    else attach_cmdline(width);
+  }
+
+  inline void detach_cmdline()
+  {
+    attached_width.reset();
+    update_dimensions();
+  }
+
 private:
   void update_dimensions();
   /**
@@ -290,6 +309,7 @@ private:
    * and with the given attribute.
    */
   void draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem& item, int y);
+  std::optional<int> attached_width;
   const HLState* hl_state;
   const HLAttr* pmenu = nullptr;
   const HLAttr* pmenu_sel = nullptr;

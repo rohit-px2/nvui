@@ -37,7 +37,8 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   nvim(nv),
   pixmap(QDesktopWidget().size()),
   neovim_cursor(),
-  popup_menu(hl_state, this)
+  popup_menu(hl_state, this),
+  cmdline(hl_state, &neovim_cursor, this)
 {
   setAttribute(Qt::WA_OpaquePaintEvent);
   setAutoFillBackground(false);
@@ -397,7 +398,7 @@ void EditorArea::paintEvent(QPaintEvent* event)
   }
   QPainter p(this);
   p.drawPixmap(rect(), pixmap, rect());
-  if (!neovim_cursor.hidden())
+  if (!neovim_cursor.hidden() && cmdline.isHidden())
   {
     draw_cursor(p);
   }
@@ -427,6 +428,9 @@ void EditorArea::resized(QSize sz)
     cols = new_rc.width();
     rows = new_rc.height();
   }
+  cmdline.parent_resized(size());
+  popup_menu.cmdline_width_changed(cmdline.width());
+  reposition_cmdline();
   nvim->resize(new_rc.width(), new_rc.height());
 }
 
@@ -724,15 +728,26 @@ void EditorArea::draw_popup_menu()
   QRect popup_rect = popup_menu.available_rect();
   auto&& [grid_num, row, col] = popup_menu.position();
   auto&& [font_width, font_height] = font_dimensions();
-  Grid* grid = find_grid(grid_num);
-  assert(grid);
-  int start_x = (grid->x + col) * font_width;
-  int start_y = (grid->y + row + 1) * font_height;
-  int p_width = popup_rect.width();
-  int p_height = popup_rect.height();
-  if (start_y + p_height > height() && (start_y - p_height - font_height) >= 0)
+  bool is_cmdline = grid_num == -1;
+  int start_x, start_y;
+  if (is_cmdline)
   {
-    start_y -= (p_height + font_height);
+    QPoint cmdline_pos = cmdline.popupmenu_pt(popup_rect.height(), size());
+    start_x = cmdline_pos.x();
+    start_y = cmdline_pos.y();
+  }
+  else
+  {
+    Grid* grid = find_grid(grid_num);
+    assert(grid);
+    start_x = (grid->x + col) * font_width;
+    start_y = (grid->y + row + 1) * font_height;
+    int p_width = popup_rect.width();
+    int p_height = popup_rect.height();
+    if (start_y + p_height > height() && (start_y - p_height - font_height) >= 0)
+    {
+      start_y -= (p_height + font_height);
+    }
   }
   popup_menu.move({start_x, start_y});
   popup_menu.setVisible(true);

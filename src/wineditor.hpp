@@ -395,7 +395,7 @@ protected:
     mtd_context->EndDraw();
     device_context->BeginDraw();
     device_context->DrawBitmap(dc_bitmap);
-    if (!neovim_cursor.hidden())
+    if (!neovim_cursor.hidden() && cmdline.isHidden())
     {
       draw_cursor(device_context);
     }

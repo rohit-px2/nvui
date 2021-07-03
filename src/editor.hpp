@@ -17,6 +17,7 @@
 #include "nvim.hpp"
 #include "cursor.hpp"
 #include "popupmenu.hpp"
+#include "cmdline.hpp"
 
 // For easily changing the type of 'char' in a cell
 using grid_char = QString;
@@ -44,6 +45,8 @@ class EditorArea : public QWidget
 {
   Q_OBJECT
 public:
+  using NeovimObj = const msgpack::object*;
+  using msg_size = std::uint32_t;
   EditorArea(
     QWidget* parent = nullptr,
     HLState* state = nullptr,
@@ -52,19 +55,19 @@ public:
   /**
    * Handles a Neovim "grid_resize" event.
    */
-  void grid_resize(const msgpack::object* obj, std::uint32_t size);
+  void grid_resize(NeovimObj obj, msg_size size);
   /**
    * Handles a Neovim "grid_line" event.
    */
-  void grid_line(const msgpack::object* obj, std::uint32_t size);
+  void grid_line(NeovimObj obj, msg_size size);
   /**
    * Paints the grid cursor at the given grid, row, and column.
    */
-  void grid_cursor_goto(const msgpack::object* obj, std::uint32_t size);
+  void grid_cursor_goto(NeovimObj obj, msg_size size);
   /**
    * Handles a Neovim "option_set" event.
    */
-  void option_set(const msgpack::object* obj, std::uint32_t size);
+  void option_set(NeovimObj obj, msg_size size);
   /**
    * Handles a Neovim "flush" event.
    * This paints the internal buffer onto the window.
@@ -73,7 +76,7 @@ public:
   /**
    * Handles a Neovim "win_pos" event.
    */
-  void win_pos(const msgpack::object* obj);
+  void win_pos(NeovimObj obj);
   /**
    * Returns the font width and font height.
    */
@@ -86,11 +89,11 @@ public:
   /**
    * Handles a Neovim "grid_clear" event
    */
-  void grid_clear(const msgpack::object* obj, std::uint32_t size);
+  void grid_clear(NeovimObj obj, msg_size size);
   /**
    * Handles a Neovim "grid_scroll" event
    */
-  void grid_scroll(const msgpack::object* obj, std::uint32_t size);
+  void grid_scroll(NeovimObj obj, msg_size size);
   /**
    * Notify the editor area when resizing is enabled/disabled.
    */
@@ -99,12 +102,12 @@ public:
    * Handles a "mode_info_set" Neovim redraw event.
    * Internally sends the data to neovim_cursor.
    */
-  void mode_info_set(const msgpack::object* obj, std::uint32_t size);
+  void mode_info_set(NeovimObj obj, msg_size size);
   /**
    * Handles a "mode_change" Neovim event.
    * Internally sends the data to neovim_cursor.
    */
-  void mode_change(const msgpack::object* obj, std::uint32_t size);
+  void mode_change(NeovimObj obj, msg_size size);
   /**
    * Handles a "busy_start" event, passing it to the Neovim cursor
    */
@@ -135,17 +138,17 @@ public:
     neovim_cursor.set_caret_extend(extend_top, extend_bottom);
   }
 
-  inline void popupmenu_show(const msgpack::object* obj, std::uint32_t size)
+  inline void popupmenu_show(NeovimObj obj, msg_size size)
   {
     popup_menu.pum_show(obj, size);
   }
 
-  inline void popupmenu_hide(const msgpack::object* obj, std::uint32_t size)
+  inline void popupmenu_hide(NeovimObj obj, msg_size size)
   {
     popup_menu.pum_hide(obj, size);
   }
 
-  inline void popupmenu_select(const msgpack::object* obj, std::uint32_t size)
+  inline void popupmenu_select(NeovimObj obj, msg_size size)
   {
     popup_menu.pum_sel(obj, size);
   }
@@ -198,6 +201,40 @@ public:
     popup_menu.set_default_icon_fg(std::move(fg));
   }
 
+  inline void cmdline_show(NeovimObj obj, msg_size size)
+  {
+    cmdline.cmdline_show(obj, size);
+    popup_menu.attach_cmdline(cmdline.width());
+  }
+  inline void cmdline_hide(NeovimObj obj, msg_size size)
+  {
+    cmdline.cmdline_hide(obj, size);
+    popup_menu.detach_cmdline();
+  }
+  inline void cmdline_cursor_pos(NeovimObj obj, msg_size size) { cmdline.cmdline_cursor_pos(obj, size); }
+  inline void cmdline_special_char(NeovimObj obj, msg_size size) { cmdline.cmdline_special_char(obj, size); }
+  inline void cmdline_block_show(NeovimObj obj, msg_size size) { cmdline.cmdline_block_show(obj, size); }
+  inline void cmdline_block_append(NeovimObj obj, msg_size size) { cmdline.cmdline_block_append(obj, size); }
+  inline void cmdline_block_hide(NeovimObj obj, msg_size size) { cmdline.cmdline_block_hide(obj, size); }
+  inline void reposition_cmdline()
+  {
+    QPointF rel_pos = cmdline.relative_pos();
+    cmdline.move(rel_pos.x() * size().width(), rel_pos.y() * size().height());
+  }
+  inline void cmdline_set_font_size(float size) { cmdline.set_font_size(size); }
+  inline void cmdline_set_font_family(const QString& family) { cmdline.set_font_family(family); }
+  inline void cmdline_set_fg(QColor fg) { cmdline.set_fg(fg); }
+  inline void cmdline_set_bg(QColor bg) { cmdline.set_bg(bg); }
+  inline void cmdline_set_border_width(int width) { cmdline.set_border_width(width); }
+  inline void cmdline_set_border_color(QColor color) { cmdline.set_border_color(color); }
+  inline void cmdline_set_font_scale_ratio(float ratio) { cmdline.set_big_font_scale_ratio(ratio); }
+  inline void cmdline_set_x(float x) { cmdline.set_x(x); reposition_cmdline(); }
+  inline void cmdline_set_y(float y) { cmdline.set_y(y); reposition_cmdline(); }
+  inline void cmdline_set_width(float width) { cmdline.set_width(width); reposition_cmdline(); }
+  inline void cmdline_set_height(float height) { cmdline.set_height(height); reposition_cmdline(); }
+  inline void cmdline_set_center_x(float x) { cmdline.set_center_x(x); reposition_cmdline(); }
+  inline void cmdline_set_center_y(float y) { cmdline.set_center_y(y); reposition_cmdline(); }
+  inline void cmdline_set_padding(int padding) { cmdline.set_padding(padding); }
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)
@@ -233,6 +270,7 @@ protected:
   int rows = -1;
   int cols = -1;
   PopupMenu popup_menu;
+  CmdLine cmdline;
   /**
    * Sets the current font to new_font.
    */

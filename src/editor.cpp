@@ -38,7 +38,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   pixmap(QDesktopWidget().size()),
   neovim_cursor(),
   popup_menu(hl_state, this),
-  cmdline(hl_state, width(), height(), this)
+  cmdline(hl_state, &neovim_cursor, this)
 {
   setAttribute(Qt::WA_OpaquePaintEvent);
   setAutoFillBackground(false);
@@ -398,7 +398,7 @@ void EditorArea::paintEvent(QPaintEvent* event)
   }
   QPainter p(this);
   p.drawPixmap(rect(), pixmap, rect());
-  if (!neovim_cursor.hidden())
+  if (!neovim_cursor.hidden() && cmdline.isHidden())
   {
     draw_cursor(p);
   }

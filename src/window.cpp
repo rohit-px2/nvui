@@ -244,7 +244,7 @@ void Window::register_handlers()
   set_handler("cmdline_hide", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.cmdline_hide(obj, size);
   });
-  set_handler("cmdline_cursor_pos", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+  set_handler("cmdline_pos", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.cmdline_cursor_pos(obj, size);
   });
   set_handler("cmdline_special_char", [](Window* w, const msgpack::object* obj, std::uint32_t size) {

@@ -11,9 +11,10 @@ static auto get_font_dimensions_for(const QFont& font)
   return std::make_tuple(fm.averageCharWidth(), fm.height());
 }
 
-CmdLine::CmdLine(const HLState* hl_state, int width, int height, QWidget* parent)
+CmdLine::CmdLine(const HLState* hl_state, Cursor* cursor, QWidget* parent)
 : QWidget(parent),
   state(hl_state),
+  nvim_cursor(cursor),
   font(),
   big_font(),
   reg_metrics(font),
@@ -59,12 +60,13 @@ void CmdLine::cmdline_show(NvimObj obj, msg_size size)
   assert(arr.ptr[0].type == msgpack::type::ARRAY);
   assert(arr.ptr[1].type == msgpack::type::POSITIVE_INTEGER);
   assert(arr.ptr[2].type == msgpack::type::STR);
-  assert(arr.ptr[3].type == mspgack::type::STR);
+  assert(arr.ptr[3].type == msgpack::type::STR);
   assert(arr.ptr[4].type == msgpack::type::POSITIVE_INTEGER);
   assert(arr.ptr[5].type == msgpack::type::POSITIVE_INTEGER);
   const auto& content = arr.ptr[0].via.array;
   add_line(content, lines);
-  const int cursor_pos = arr.ptr[1].as<int>();
+  const int c_pos = arr.ptr[1].as<int>();
+  cursor_pos = c_pos;
   QString firstc = arr.ptr[2].as<QString>();
   if (!firstc.isEmpty()) first_char = std::move(firstc);
   else first_char.reset();
@@ -86,6 +88,15 @@ void CmdLine::cmdline_hide(NvimObj obj, msg_size size)
 
 void CmdLine::cmdline_cursor_pos(NvimObj obj, msg_size size)
 {
+  assert(obj->type == msgpack::type::ARRAY);
+  const auto& arr = obj->via.array;
+  assert(arr.size == 2);
+  assert(arr.ptr[0].type == msgpack::type::POSITIVE_INTEGER);
+  assert(arr.ptr[1].type == msgpack::type::POSITIVE_INTEGER);
+  const int pos = arr.ptr[0].as<int>();
+  const int level = arr.ptr[1].as<int>();
+  cursor_pos = pos;
+  update();
 }
 
 void CmdLine::cmdline_special_char(NvimObj obj, msg_size size)
@@ -132,10 +143,18 @@ void CmdLine::paintEvent(QPaintEvent* event)
     pt.x += big_metrics.horizontalAdvance(first_char.value());
   }
   p.setFont(font);
+  const int big_offset = big_metrics.ascent();
+  const int offset = reg_metrics.ascent();
+  int cur_char = 0;
+  bool cursor_drawn = false;
   QRect inner = inner_rect();
-  for(const auto& line : lines)
+  const HLAttr& default_colors = state->default_colors_get();
+  static const auto is_first_line = [&](std::size_t i) -> bool {
+    return pt.y == base_y;
+  };
+  for(std::size_t i = 0; i < lines.size(); ++i)
   {
-    for(const auto& seq : line)
+    for(const auto& seq : lines[i])
     {
       for(const QChar& c : seq.first)
       {
@@ -147,10 +166,51 @@ void CmdLine::paintEvent(QPaintEvent* event)
           else pt.y += font_height;
         }
         p.drawText(QPoint {pt.x, pt.y}, c);
+        if (cursor_pos && cur_char == cursor_pos.value())
+        {
+          auto c_rect_opt = nvim_cursor->rect(font_width, font_height);
+          if (c_rect_opt)
+          {
+            auto&& c_rect = c_rect_opt.value();
+            const HLAttr& a = state->attr_for_id(c_rect.hl_id);
+            Color bg = a.has_bg ? a.background : default_colors.background;
+            Color fg = a.has_fg ? a.foreground : default_colors.foreground;
+            if (c_rect.hl_id == 0 || a.reverse) std::swap(fg, bg);
+            QRect rect = c_rect.rect.toRect();
+            int y = pt.y - offset;
+            rect.moveTo({pt.x, y});
+            p.fillRect(rect, QColor(bg.r, bg.g, bg.b));
+            cursor_drawn = true;
+          }
+        }
+        ++cur_char;
         pt.x += text_width;
       }
     }
-    pt.y += pt.y == base_y ? std::max(big_font_height, font_height) : font_height;
+    if (i != lines.size() - 1)
+    {
+      pt.y += pt.y == base_y 
+        ? std::max(big_font_height, font_height)
+        : font_height;
+    }
+  }
+  if (cursor_pos && !cursor_drawn)
+  {
+    auto c_rect_opt = nvim_cursor->rect(font_width, font_height);
+    if (c_rect_opt)
+    {
+      auto&& c_rect = c_rect_opt.value();
+      const HLAttr& a = state->attr_for_id(c_rect.hl_id);
+      Color bg = a.has_bg ? a.background : default_colors.background;
+      Color fg = a.has_fg ? a.foreground : default_colors.foreground;
+      if (c_rect.hl_id == 0 || a.reverse) std::swap(fg, bg);
+      if (pt.y == base_y) pt.y -= big_offset;
+      else pt.y -= offset;
+      QRect rect = c_rect.rect.toRect();
+      rect.moveTo({pt.x, pt.y});
+      p.fillRect(rect, QColor(bg.r, bg.g, bg.b));
+      cursor_drawn = true;
+    }
   }
   if (border_width == 0.f) return;
   QPen pen {border_color, border_width};
@@ -196,7 +256,7 @@ void CmdLine::add_line(
     const auto& arr = new_line.ptr[i].via.array;
     assert(arr.size == 2);
     assert(arr.ptr[0].type == msgpack::type::POSITIVE_INTEGER);
-    assert(arr.ptr[1].type == msgpack::type::STRING);
+    assert(arr.ptr[1].type == msgpack::type::STR);
     int hl_id = arr.ptr[0].as<int>();
     QString text = arr.ptr[1].as<QString>();
     line.push_back({std::move(text), hl_id});

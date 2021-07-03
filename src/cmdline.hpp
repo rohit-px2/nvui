@@ -7,13 +7,14 @@
 #include <msgpack.hpp>
 #include <optional>
 #include "hlstate.hpp"
+#include "cursor.hpp"
 
 class CmdLine : public QWidget
 {
 public:
   using NvimObj = const msgpack::object*;
   using msg_size = std::uint32_t;
-  CmdLine(const HLState* hl_state, int width, int height, QWidget* parent = nullptr);
+  CmdLine(const HLState* hl_state, Cursor* cursor, QWidget* parent = nullptr);
   /// Neovim event handlers
   void cmdline_show(NvimObj obj, msg_size size);
   void cmdline_hide(NvimObj obj, msg_size size);
@@ -234,6 +235,9 @@ private:
     std::vector<line>& line_arr
   );
   const HLState* state = nullptr;
+  // Owned by EditorArea, but so is the cmdline
+  // so there should be no problems
+  Cursor* nvim_cursor = nullptr;
   // Relative measures for the inner rectangle of the cmdline.
   // (Where text is drawn).
   QRectF rel_rect {0.25, 0, 0.5, 0.10};

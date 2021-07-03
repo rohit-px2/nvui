@@ -63,7 +63,7 @@ void CmdLine::cmdline_show(NvimObj obj, msg_size size)
   assert(arr.ptr[4].type == msgpack::type::POSITIVE_INTEGER);
   assert(arr.ptr[5].type == msgpack::type::POSITIVE_INTEGER);
   const auto& content = arr.ptr[0].via.array;
-  add_line(content);
+  add_line(content, lines);
   const int cursor_pos = arr.ptr[1].as<int>();
   QString firstc = arr.ptr[2].as<QString>();
   if (!firstc.isEmpty()) first_char = std::move(firstc);
@@ -188,7 +188,10 @@ void CmdLine::draw_text_and_bg(
   painter.drawText(text_start, text);
 }
 
-void CmdLine::add_line(const msgpack::object_array& new_line)
+void CmdLine::add_line(
+  const msgpack::object_array& new_line,
+  std::vector<line>& line_arr
+)
 {
   line line;
   for(msg_size i = 0; i < new_line.size; ++i)
@@ -202,5 +205,5 @@ void CmdLine::add_line(const msgpack::object_array& new_line)
     QString text = arr.ptr[1].as<QString>();
     line.push_back({std::move(text), hl_id});
   }
-  lines.push_back(std::move(line));
+  line_arr.push_back(std::move(line));
 }

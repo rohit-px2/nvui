@@ -234,6 +234,7 @@ public:
   inline void cmdline_set_height(float height) { cmdline.set_height(height); reposition_cmdline(); }
   inline void cmdline_set_center_x(float x) { cmdline.set_center_x(x); reposition_cmdline(); }
   inline void cmdline_set_center_y(float y) { cmdline.set_center_y(y); reposition_cmdline(); }
+  inline void cmdline_set_padding(int padding) { cmdline.set_padding(padding); }
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)

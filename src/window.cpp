@@ -506,6 +506,13 @@ void Window::register_handlers()
     if (center_y < 0.f || center_y > 1.f) return;
     editor_area.cmdline_set_center_y(center_y);
   });
+  listen_for_notification("NVUI_CMD_PADDING", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::POSITIVE_INTEGER) return;
+    int padding = params.ptr[0].as<int>();
+    editor_area.cmdline_set_padding(padding);
+  });
+  nvim->command("command! -nargs=1 NvuiCmdPadding call rpcnotify(1, 'NVUI_CMD_PADDING', <args>)");
   nvim->command("command! -nargs=1 NvuiCmdCenterXPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_X', <args>)");
   nvim->command("command! -nargs=1 NvuiCmdCenterYPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_Y', <args>)");
   nvim->command("command! -nargs=1 NvuiCmdLeftPos call rpcnotify(1, 'NVUI_CMD_SET_LEFT', <args>)");

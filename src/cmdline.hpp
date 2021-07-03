@@ -165,6 +165,12 @@ public:
   inline void set_fg(QColor fg) { inner_fg = fg; }
   inline void set_bg(QColor bg) { inner_bg = bg; }
   inline void set_border_width(int width) { border_width = width; }
+  inline void set_padding(int new_padding)
+  {
+    padding = new_padding;
+    resize(get_rect_for(get_parent()->size()).size());
+  }
+
   inline void set_x(float x)
   {
     if (x < 0.f || x > 1.0f) return;
@@ -210,6 +216,7 @@ public:
   }
   
 private:
+  using line = std::vector<std::pair<QString, int>>;
   void draw_text_and_bg(
     QPainter& painter,
     const QString& text,
@@ -221,8 +228,11 @@ private:
   );
   std::optional<float> centered_x;
   std::optional<float> centered_y;
-  // Set the content of the cmdline.
-  void add_line(const msgpack::object_array& new_line);
+  // Parse and add new lines from new_line to line_arr.
+  void add_line(
+    const msgpack::object_array& new_line,
+    std::vector<line>& line_arr
+  );
   const HLState* state = nullptr;
   // Relative measures for the inner rectangle of the cmdline.
   // (Where text is drawn).
@@ -236,8 +246,8 @@ private:
   QColor inner_bg = "black";
   QPixmap pixmap;
   std::optional<QString> first_char;
-  using line = std::vector<std::pair<QString, int>>;
   std::vector<line> lines;
+  std::vector<line> block_lines;
   // The command line contains its own, independent font size.
   // Not attached to guifont.
   // Neither is the command line font family.
@@ -255,6 +265,7 @@ private:
   QGraphicsDropShadowEffect shadow_effect;
   QFontMetrics reg_metrics;
   QFontMetrics big_metrics;
+  std::optional<int> cursor_pos;
 protected:
   void paintEvent(QPaintEvent* event) override;
   Q_OBJECT

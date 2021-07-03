@@ -137,10 +137,10 @@ void PopupMenu::add_items(const msgpack::object_array& items)
     assert(item.type == msgpack::type::ARRAY);
     const msgpack::object_array& wkmi = item.via.array;
     assert(wkmi.size == 4);
-    assert(wkmi.ptr[0].type == mspgack::type::STR);
-    assert(wkmi.ptr[1].type == mspgack::type::STR);
-    assert(wkmi.ptr[2].type == mspgack::type::STR);
-    assert(wkmi.ptr[3].type == mspgack::type::STR);
+    assert(wkmi.ptr[0].type == msgpack::type::STR);
+    assert(wkmi.ptr[1].type == msgpack::type::STR);
+    assert(wkmi.ptr[2].type == msgpack::type::STR);
+    assert(wkmi.ptr[3].type == msgpack::type::STR);
     QString word = wkmi.ptr[0].as<QString>();
     QString kind = wkmi.ptr[1].as<QString>();
     QString menu = wkmi.ptr[2].as<QString>();

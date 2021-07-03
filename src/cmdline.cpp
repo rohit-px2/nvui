@@ -90,22 +90,18 @@ void CmdLine::cmdline_cursor_pos(NvimObj obj, msg_size size)
 
 void CmdLine::cmdline_special_char(NvimObj obj, msg_size size)
 {
-  std::cout << *obj << '\n';
 }
 
 void CmdLine::cmdline_block_show(NvimObj obj, msg_size size)
 {
-  std::cout << "Block show: " << *obj << '\n';
 }
 
 void CmdLine::cmdline_block_append(NvimObj obj, msg_size size)
 {
-  std::cout << "Block append: " << *obj << '\n';
 }
 
 void CmdLine::cmdline_block_hide(NvimObj obj, msg_size size)
 {
-  std::cout << "block_hide: " << *obj << '\n';
 }
 
 static void draw_border(QPainter& p, QRect rect, float border_size)

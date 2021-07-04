@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QFileInfo>
 #include <QMetaObject>
 #include <QMetaType>
 #include <QMessageBox>
@@ -25,14 +26,28 @@ using std::vector;
 template<typename Func>
 void on_argument(const std::vector<string>& v, const std::string& s, const Func& f)
 {
-  const auto it = std::find_if(v.begin(), v.end(), [s](const auto& e) {
-    return e.rfind(s, 0) == 0;
-  });
-  if (it != v.end())
+  for(const auto& e : v)
   {
-    std::string a = it->substr(s.size());
-    f(std::move(a));
+    if (e == "--") return; // Don't process command line arguments beyond "--" (those are for Neovim)
+    if (e.rfind(s, 0) == 0) { f(e.substr(s.size())); return; }
   }
+}
+
+vector<string> neovim_args(const vector<string>& listofargs)
+{
+  vector<string> args;
+  for(std::size_t i = 0; i < listofargs.size(); ++i)
+  {
+    if (listofargs[i] == "--")
+    {
+      for(std::size_t j = i + 1; j < listofargs.size(); ++j)
+      {
+        args.push_back(listofargs[j]);
+      }
+      return args;
+    }
+  }
+  return args;
 }
 
 vector<string> get_args(int argc, char** argv)
@@ -47,6 +62,11 @@ const std::string geometry_opt = "--geometry=";
 int main(int argc, char** argv)
 {
   const auto args = get_args(argc, argv);
+  // Arguments to pass to nvim
+  vector<string> nvim_args {"--embed" };
+  vector<string> cl_nvim_args = neovim_args(args);
+  nvim_args.insert(nvim_args.end(), cl_nvim_args.begin(), cl_nvim_args.end());
+  string nvim_path = "";
   std::unordered_map<std::string, bool> capabilities = {
     {"ext_tabline", false},
     {"ext_multigrid", false},
@@ -67,6 +87,10 @@ int main(int argc, char** argv)
       if (opt.size() == 0) capabilities[capability.first] = true;
     });
   }
+  on_argument(args, "--nvim=", [&](std::string opt) {
+    QFileInfo nvim_path_info {QString::fromStdString(opt)};
+    if (nvim_path_info.exists() && nvim_path_info.isExecutable()) nvim_path = opt;
+  });
   int width = 100;
   int height = 50;
   std::ios_base::sync_with_stdio(false);
@@ -86,7 +110,7 @@ int main(int argc, char** argv)
   QApplication app {argc, argv};
   try
   {
-    const auto nvim = std::make_shared<Nvim>();
+    const auto nvim = std::make_shared<Nvim>(nvim_path, nvim_args);
     Window w {nullptr, nvim, width, height};
     w.register_handlers();
     w.show();

@@ -29,7 +29,7 @@ public:
    * Constructs an embedded Neovim instance and establishes communication.
    * The Neovim instance is created with the command "nvim --embed".
    */
-  Nvim();
+  Nvim(std::string path = "", std::vector<std::string> args = {"--embed"});
   /**
    * Get the exit code of the Neovim instance.
    * If Neovim is still running, the exit code that is return will be INT_MIN.

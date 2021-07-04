@@ -35,7 +35,7 @@ using Lock = std::lock_guard<std::mutex>;
   //return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
 //}
 /// Constructor
-Nvim::Nvim()
+Nvim::Nvim(std::string path, std::vector<std::string> args)
 : notification_handlers(),
   request_handlers(),
   closed(false),
@@ -46,14 +46,18 @@ Nvim::Nvim()
   stdin_pipe(),
   error()
 {
-  const auto nvim_path = bp::search_path("nvim");
-  if (nvim_path.empty())
+  auto nvim_path = boost::filesystem::path(path);
+  if (path.empty())
   {
-    throw std::exception("Neovim not found in PATH");
+    nvim_path = bp::search_path("nvim");
+    if (nvim_path.empty())
+    {
+      throw std::exception("Neovim not found in PATH");
+    }
   }
   nvim = bp::child(
     nvim_path,
-    "--embed",
+    args,
     bp::std_out > stdout_pipe,
     bp::std_in < stdin_pipe,
     bp::std_err > error,

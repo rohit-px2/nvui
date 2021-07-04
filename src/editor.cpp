@@ -538,7 +538,7 @@ void EditorArea::grid_scroll(const msgpack::object* obj, std::uint32_t size)
   assert(grid);
   if (rows > 0)
   {
-    for(int y = top; y < (bot-rows) && y < (grid->rows - rows); ++y)
+    for(int y = top; y < (bot - rows); ++y)
     {
       for(int x = left; x < right && x < grid->cols; ++x)
       {
@@ -548,7 +548,7 @@ void EditorArea::grid_scroll(const msgpack::object* obj, std::uint32_t size)
   }
   else if (rows < 0)
   {
-    for(int y = (bot-1); y > top && y >= -rows; --y)
+    for(int y = (bot-1); y >= (top - rows); --y)
     {
       for(int x = left; x <= right && x < grid->cols; ++x)
       {

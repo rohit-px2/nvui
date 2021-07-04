@@ -6,6 +6,8 @@
 #include <QApplication>
 #include <QDebug>
 #include <QDesktopWidget>
+#include <QFileInfo>
+#include <QMimeData>
 #include <QPainter>
 #include <QScreen>
 #include <algorithm>
@@ -42,6 +44,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 {
   setAttribute(Qt::WA_OpaquePaintEvent);
   setAutoFillBackground(false);
+  setAcceptDrops(true);
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setFocusPolicy(Qt::StrongFocus);
   setFocus();
@@ -751,4 +754,33 @@ void EditorArea::draw_popup_menu()
   }
   popup_menu.move({start_x, start_y});
   popup_menu.setVisible(true);
+}
+
+static bool is_image(const QString& file)
+{
+  return !QImage(file).isNull();
+}
+
+void EditorArea::dropEvent(QDropEvent* event)
+{
+  const QMimeData* mime_data = event->mimeData();
+  if (mime_data->hasUrls())
+  {
+    for(const auto& url : mime_data->urls())
+    {
+      if (!url.isLocalFile()) continue;
+      if (is_image(url.toLocalFile()))
+      {
+        // Do something special for images?
+      }
+      std::string cmd = fmt::format("e {}", url.toLocalFile().toStdString());
+      nvim->command(cmd);
+    }
+  }
+  event->acceptProposedAction();
+}
+
+void EditorArea::dragEnterEvent(QDragEnterEvent* event)
+{
+  if (event->mimeData()->hasUrls()) event->acceptProposedAction();
 }

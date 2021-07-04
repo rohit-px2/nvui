@@ -375,6 +375,8 @@ protected:
   void mousePressEvent(QMouseEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   bool focusNextPrevChild(bool next) override;
+  void dropEvent(QDropEvent* event) override;
+  void dragEnterEvent(QDragEnterEvent* event) override;
 };
 
 #endif // NVUI_EDITOR_HPP

@@ -211,6 +211,7 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   pmenu_font.setItalic(attr.font_opts & FontOpts::Italic);
   pmenu_font.setUnderline(attr.font_opts & FontOpts::Underline);
   p.setFont(pmenu_font);
+  const QPixmap* icon_ptr = icon_manager.icon_for_kind(item.kind);
   int start_x = std::ceil(border_width);
   int end_y = y + cell_height;
   int end_x = pixmap.width() - border_width;
@@ -218,15 +219,28 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   p.fillRect(QRect(start_x, y, end_x, cell_height), QColor(bg.r, bg.g, bg.b));
   QPoint text_start = {start_x, int(y + offset)};
   p.setPen(QColor(fg.r, fg.g, fg.b));
-  const QPixmap* icon_ptr = icon_manager.icon_for_kind(item.kind);
   if (icon_ptr && icons_enabled)
   {
-    p.drawPixmap(
-      {start_x, y - icon_size_offset / 2,
-      icon_ptr->width(), icon_ptr->height()},
-      *icon_ptr, icon_ptr->rect()
-    );
-    text_start.setX(text_start.x() + icon_ptr->width() * icon_space);
+    if (icons_on_right)
+    {
+      p.drawPixmap(
+        {end_x - icon_ptr->width(), y - icon_size_offset / 2,
+        icon_ptr->width(), icon_ptr->height()},
+        *icon_ptr, icon_ptr->rect()
+      );
+      // Ensure text does not enter the pixmap's area
+      int w = end_x - icon_ptr->width() - start_x;
+      p.setClipRect(start_x, y, w, cell_height);
+    }
+    else
+    {
+      p.drawPixmap(
+        {start_x, y - icon_size_offset / 2,
+        icon_ptr->width(), icon_ptr->height()},
+        *icon_ptr, icon_ptr->rect()
+      );
+      text_start.setX(text_start.x() + icon_ptr->width() * icon_space);
+    }
   }
   p.drawText(text_start, item.word);
 }

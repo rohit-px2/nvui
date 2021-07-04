@@ -294,6 +294,12 @@ public:
     update_dimensions();
   }
 
+  inline void set_icons_on_right(bool right_icons)
+  {
+    icons_on_right = right_icons;
+    paint();
+  }
+
 private:
   void update_dimensions();
   /**
@@ -333,6 +339,7 @@ private:
   bool has_scrollbar = false;
   bool is_hidden = true;
   bool icons_enabled = true;
+  bool icons_on_right = false;
   float icon_space = 1.5f;
   int icon_size_offset = 0;
   QFont pmenu_font;

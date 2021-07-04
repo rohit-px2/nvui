@@ -413,6 +413,12 @@ void Window::register_handlers()
     if (!QColor::isValidColor(bg_str)) return;
     editor_area.popupmenu_set_default_icon_bg({bg_str});
   });
+  listen_for_notification("NVUI_PUM_ICONS_RIGHT", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::BOOLEAN) return;
+    bool icons_on_right = params.ptr[0].as<bool>();
+    editor_area.popupmenu_set_icons_right(icons_on_right);
+  });
   listen_for_notification("NVUI_CMD_FONT_SIZE", [this](notification params) {
     if (params.size == 0) return;
     if (params.ptr[0].type != msgpack::type::FLOAT) return;
@@ -512,6 +518,7 @@ void Window::register_handlers()
     int padding = params.ptr[0].as<int>();
     editor_area.cmdline_set_padding(padding);
   });
+  nvim->command("command! -nargs=1 NvuiPopupMenuIconsRightAlign call rpcnotify(1, 'NVUI_PUM_ICONS_RIGHT', <args>)");
   nvim->command("command! -nargs=1 NvuiCmdPadding call rpcnotify(1, 'NVUI_CMD_PADDING', <args>)");
   nvim->command("command! -nargs=1 NvuiCmdCenterXPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_X', <args>)");
   nvim->command("command! -nargs=1 NvuiCmdCenterYPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_Y', <args>)");

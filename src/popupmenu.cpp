@@ -61,10 +61,22 @@ void PopupMenuIconManager::load_icons(int width)
 
 const QPixmap* PopupMenuIconManager::icon_for_kind(const QString& kind)
 {
-  const auto it = icons.find(kind_to_iname(kind).trimmed());
+  static const auto not_found = [this] {
+    return nullptr;
+  };
+  if (kind.isEmpty()) return not_found();
+  QString iname = kind_to_iname(kind).trimmed();
+  const auto it = icons.find(iname);
   if (it == icons.end())
   {
-    return nullptr;
+    // Check the icons folder for the icon file
+    QPixmap p = load_icon(iname, sq_width);
+    if (p.isNull()) return not_found();
+    else
+    {
+      icons[iname] = std::move(p);
+      return &icons[iname];
+    }
   }
   else return &it->second;
 }

@@ -356,7 +356,7 @@ void Window::register_handlers()
   });
   listen_for_notification("NVUI_PUM_ICON_OFFSET", [this](notification params) {
     if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::NEGATIVE_INTEGER) return;
+    if (!is_num(params.ptr[0])) return;
     int offset = params.ptr[0].as<int>();
     editor_area.popupmenu_set_icon_size_offset(offset);
   });

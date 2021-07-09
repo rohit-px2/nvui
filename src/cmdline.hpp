@@ -84,42 +84,7 @@ public:
   
   // Returns the height of the inner rectangle that is needed to fit all of the text that
   // is being displayed at the moment. If there is no text it still returns the base height.
-  int fitting_height() const
-  {
-    if (lines.size() == 0) return big_font_height;
-    int height = 0;
-    int max_width = inner_rect().width();
-    const int base_x = border_width + padding;
-    for(std::size_t i = 0; i < lines.size(); ++i)
-    {
-      int width = base_x;
-      if (i == 0 && first_char)
-      {
-        width += big_metrics.horizontalAdvance(first_char.value());
-      }
-      int num_lines = 1;
-      for(const auto& seq : lines[i])
-      {
-        for(const QChar& c : seq.first)
-        {
-          int text_width = reg_metrics.horizontalAdvance(c);
-          if (width + text_width > max_width)
-          {
-            width = base_x;
-            ++num_lines;
-          }
-          width += text_width;
-        }
-      }
-      int height_for_line = num_lines * font_height;
-      if (i == 0 && first_char && big_font_height > font_height)
-      {
-        height_for_line += (big_font_height - font_height);
-      }
-      height += height_for_line;
-    }
-    return height;
-  }
+  int fitting_height();
 
   int padded(int dim)
   {
@@ -248,7 +213,7 @@ private:
   // (background and foreground)
   QColor inner_fg = "white";
   QColor inner_bg = "black";
-  QPixmap pixmap;
+  QPixmap pixmap {1, 1};
   std::optional<QString> first_char;
   std::vector<line> lines;
   std::vector<line> block_lines;

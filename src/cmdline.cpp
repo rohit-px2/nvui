@@ -142,7 +142,7 @@ void CmdLine::paintEvent(QPaintEvent* event)
   {
     p.setFont(big_font);
     p.drawText(QPoint {pt.x, pt.y}, first_char.value());
-    pt.x += big_metrics.horizontalAdvance(first_char.value());
+    pt.x += p.fontMetrics().horizontalAdvance(first_char.value());
   }
   p.setFont(font);
   int cur_char = 0;
@@ -158,7 +158,7 @@ void CmdLine::paintEvent(QPaintEvent* event)
     {
       for(const QChar& c : seq.first)
       {
-        int text_width = reg_metrics.horizontalAdvance(c);
+        int text_width = p.fontMetrics().horizontalAdvance(c);
         if (pt.x + text_width > inner.width())
         {
           pt.x = base_x;
@@ -262,4 +262,45 @@ void CmdLine::add_line(
     line.push_back({std::move(text), hl_id});
   }
   line_arr.push_back(std::move(line));
+}
+
+
+int CmdLine::fitting_height()
+{
+  if (lines.size() == 0) return big_font_height;
+  int height = 0;
+  QPainter p(&pixmap);
+  p.setFont(big_font);
+  int max_width = inner_rect().width();
+  const int base_x = border_width + padding;
+  for(std::size_t i = 0; i < lines.size(); ++i)
+  {
+    int width = base_x;
+    if (i == 0 && first_char)
+    {
+      width += p.fontMetrics().horizontalAdvance(first_char.value());
+      p.setFont(font);
+    }
+    int num_lines = 1;
+    for(const auto& seq : lines[i])
+    {
+      for(const QChar& c : seq.first)
+      {
+        int text_width = p.fontMetrics().horizontalAdvance(c);
+        if (width + text_width > max_width)
+        {
+          width = base_x;
+          ++num_lines;
+        }
+        width += text_width;
+      }
+    }
+    int height_for_line = num_lines * font_height;
+    if (i == 0 && first_char && big_font_height > font_height)
+    {
+      height_for_line += (big_font_height - font_height);
+    }
+    height += height_for_line;
+  }
+  return height;
 }

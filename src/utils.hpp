@@ -1,5 +1,6 @@
 #ifndef NVUI_UTILS_HPP
 #define NVUI_UTILS_HPP
+#include <QCoreApplication>
 #include <QIcon>
 #include <QString>
 #include <QFile>
@@ -81,5 +82,10 @@ inline std::optional<QPixmap> pixmap_from_svg(
 #else
 #define TIME(expr) (expr)
 #endif // NDEBUG
+
+inline QString normalize_path(const QString& path)
+{
+  return QCoreApplication::applicationDirPath() + "/" + path;
+}
 
 #endif // NVUI_UTILS_HPP

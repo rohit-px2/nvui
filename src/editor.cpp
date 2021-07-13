@@ -49,7 +49,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   setFocusPolicy(Qt::StrongFocus);
   setFocus();
   setMouseTracking(true);
-  font.setPixelSize(15);
+  font.setPointSizeF(11.25);
   update_font_metrics();
   QObject::connect(&neovim_cursor, &Cursor::cursor_hidden, this, [this] {
     update();

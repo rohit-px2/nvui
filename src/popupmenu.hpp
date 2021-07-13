@@ -11,9 +11,8 @@
 #include "utils.hpp"
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include "constants.hpp"
 
-// popup menu icon filepath
-static const QString picon_fp = "../assets/icons/popup/";
 /// Manages the popup menu icons and gives the appropriate
 /// icon for each popup menu item kind (useful for LSP).
 /// Icons are square
@@ -84,6 +83,7 @@ private:
     {"class", {}},
     {"color", {}},
     {"constant", {}},
+    {"constructor", {}},
     {"enum-member", {}},
     {"enum", {}},
     {"event", {}},
@@ -95,11 +95,13 @@ private:
     {"keyword", {}},
     {"method", {}},
     {"misc", {}},
+    {"module", {}},
     {"namespace", {}},
     {"numeric", {}},
     {"operator", {}},
     {"parameter", {}},
     {"property", {}},
+    {"reference", {}},
     {"ruler", {}},
     {"snippet", {}},
     {"string", {}},
@@ -112,6 +114,7 @@ private:
     {"class", {}},
     {"color", {}},
     {"constant", {}},
+    {"constructor", {}},
     {"enum-member", {}},
     {"enum", {}},
     {"event", {}},
@@ -123,11 +126,13 @@ private:
     {"keyword", {}},
     {"method", {}},
     {"misc", {}},
+    {"module", {}},
     {"namespace", {}},
     {"numeric", {}},
     {"operator", {}},
     {"parameter", {}},
     {"property", {}},
+    {"reference", {}},
     {"ruler", {}},
     {"snippet", {}},
     {"string", {}},
@@ -294,6 +299,12 @@ public:
     update_dimensions();
   }
 
+  inline void set_icons_on_right(bool right_icons)
+  {
+    icons_on_right = right_icons;
+    paint();
+  }
+
 private:
   void update_dimensions();
   /**
@@ -333,6 +344,7 @@ private:
   bool has_scrollbar = false;
   bool is_hidden = true;
   bool icons_enabled = true;
+  bool icons_on_right = false;
   float icon_space = 1.5f;
   int icon_size_offset = 0;
   QFont pmenu_font;

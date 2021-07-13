@@ -201,6 +201,8 @@ public:
     popup_menu.set_default_icon_fg(std::move(fg));
   }
 
+  inline void popupmenu_set_icons_right(bool right) { popup_menu.set_icons_on_right(right); }
+
   inline void cmdline_show(NeovimObj obj, msg_size size)
   {
     cmdline.cmdline_show(obj, size);

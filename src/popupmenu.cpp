@@ -47,7 +47,7 @@ static std::pair<QColor, QColor> find_or_default(
 QPixmap PopupMenuIconManager::load_icon(const QString& iname, int width)
 {
   auto&& [fg, bg] = find_or_default(colors, iname, default_fg, default_bg);
-  auto&& px = pixmap_from_svg(picon_fp % iname % ".svg", fg, bg, width, width);
+  auto&& px = pixmap_from_svg(constants::picon_fp() % iname % ".svg", fg, bg, width, width);
   return px.value_or(QPixmap());
 }
 
@@ -61,10 +61,22 @@ void PopupMenuIconManager::load_icons(int width)
 
 const QPixmap* PopupMenuIconManager::icon_for_kind(const QString& kind)
 {
-  const auto it = icons.find(kind_to_iname(kind).trimmed());
+  static const auto not_found = [this] {
+    return nullptr;
+  };
+  if (kind.isEmpty()) return not_found();
+  QString iname = kind_to_iname(kind).trimmed();
+  const auto it = icons.find(iname);
   if (it == icons.end())
   {
-    return nullptr;
+    // Check the icons folder for the icon file
+    QPixmap p = load_icon(iname, sq_width);
+    if (p.isNull()) return not_found();
+    else
+    {
+      icons[iname] = std::move(p);
+      return &icons[iname];
+    }
   }
   else return &it->second;
 }
@@ -211,6 +223,7 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   pmenu_font.setItalic(attr.font_opts & FontOpts::Italic);
   pmenu_font.setUnderline(attr.font_opts & FontOpts::Underline);
   p.setFont(pmenu_font);
+  const QPixmap* icon_ptr = icon_manager.icon_for_kind(item.kind);
   int start_x = std::ceil(border_width);
   int end_y = y + cell_height;
   int end_x = pixmap.width() - border_width;
@@ -218,15 +231,28 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   p.fillRect(QRect(start_x, y, end_x, cell_height), QColor(bg.r, bg.g, bg.b));
   QPoint text_start = {start_x, int(y + offset)};
   p.setPen(QColor(fg.r, fg.g, fg.b));
-  const QPixmap* icon_ptr = icon_manager.icon_for_kind(item.kind);
   if (icon_ptr && icons_enabled)
   {
-    p.drawPixmap(
-      {start_x, y - icon_size_offset / 2,
-      icon_ptr->width(), icon_ptr->height()},
-      *icon_ptr, icon_ptr->rect()
-    );
-    text_start.setX(text_start.x() + icon_ptr->width() * icon_space);
+    if (icons_on_right)
+    {
+      p.drawPixmap(
+        {end_x - icon_ptr->width(), y - icon_size_offset / 2,
+        icon_ptr->width(), icon_ptr->height()},
+        *icon_ptr, icon_ptr->rect()
+      );
+      // Ensure text does not enter the pixmap's area
+      int w = end_x - icon_ptr->width() - start_x;
+      p.setClipRect(start_x, y, w, cell_height);
+    }
+    else
+    {
+      p.drawPixmap(
+        {start_x, y - icon_size_offset / 2,
+        icon_ptr->width(), icon_ptr->height()},
+        *icon_ptr, icon_ptr->rect()
+      );
+      text_start.setX(text_start.x() + icon_ptr->width() * icon_space);
+    }
   }
   p.drawText(text_start, item.word);
 }

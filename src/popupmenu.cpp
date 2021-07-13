@@ -47,7 +47,7 @@ static std::pair<QColor, QColor> find_or_default(
 QPixmap PopupMenuIconManager::load_icon(const QString& iname, int width)
 {
   auto&& [fg, bg] = find_or_default(colors, iname, default_fg, default_bg);
-  auto&& px = pixmap_from_svg(picon_fp % iname % ".svg", fg, bg, width, width);
+  auto&& px = pixmap_from_svg(constants::picon_fp() % iname % ".svg", fg, bg, width, width);
   return px.value_or(QPixmap());
 }
 

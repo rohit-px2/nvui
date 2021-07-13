@@ -18,6 +18,7 @@
 #include <QSizeGrip>
 #include <sstream>
 #include <thread>
+#include "constants.hpp"
 
 /// Default is just for logging purposes.
 //constexpr auto default_handler = [](Window* w, const msgpack::object& obj) {
@@ -51,7 +52,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   emit resize_done(size());
   title_bar = std::make_unique<TitleBar>("nvui", this);
   QObject::connect(title_bar.get(), &TitleBar::resize_move, this, &Window::resize_or_move);
-  setWindowIcon(QIcon("../assets/appicon.png"));
+  setWindowIcon(QIcon(constants::appicon()));
   title_bar->set_separator(" • ");
   // We'll do this later
   setCentralWidget(&editor_area);

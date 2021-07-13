@@ -11,9 +11,8 @@
 #include "utils.hpp"
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include "constants.hpp"
 
-// popup menu icon filepath
-static const QString picon_fp = "../assets/icons/popup/";
 /// Manages the popup menu icons and gives the appropriate
 /// icon for each popup menu item kind (useful for LSP).
 /// Icons are square

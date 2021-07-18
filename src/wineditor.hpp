@@ -123,9 +123,9 @@ private:
 
   // Override EditorArea draw_grid
   // We can use native Windows stuff here
-  template<typename T>
-  inline void draw_grid(const Grid& grid, const QRect& rect, T* target, std::unordered_set<int>& drawn)
+  inline void draw_grid(const Grid& grid, const QRect& rect, ID2D1RenderTarget* target, std::unordered_set<int>& drawn)
   {
+    using d2pt = D2D1_POINT_2F;
     QString buffer;
     buffer.reserve(100);
     const int start_x = rect.x();
@@ -141,7 +141,14 @@ private:
       float right = left + (font_width_f * num_chars);
       return std::make_tuple(D2D1::Point2F(left, top), D2D1::Point2F(right, bottom));
     };
-    D2D1_POINT_2F cur_start = {0., 0.};
+    const auto draw_buf = [&](const d2pt& start, const d2pt& end, const HLAttr& main, const HLAttr& fallback) {
+      if (!buffer.isEmpty())
+      {
+        draw_text_and_bg(buffer, start, main, target, end, fallback);
+        buffer.clear();
+      }
+    };
+    d2pt cur_start = {0., 0.};
     for(int y = start_y; y <= end_y && y < grid.rows; ++y)
     {
       // Check if we already drew the line
@@ -151,7 +158,17 @@ private:
       for(int x = 0; x < grid.cols; ++x)
       {
         const auto& gc = grid.area[y * grid.cols + x];
-        if (prev_hl_id == gc.hl_id)
+        if (gc.double_width)
+        {
+          auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 2);
+          d2pt buf_end = {top_left.x, top_left.y + font_height_f};
+          draw_buf(cur_start, buf_end, state->attr_for_id(prev_hl_id), def_clrs);
+          buffer.append(gc.text);
+          draw_buf(top_left, bot_right, state->attr_for_id(gc.hl_id), def_clrs);
+          prev_hl_id = gc.hl_id;
+          cur_start = {bot_right.x, bot_right.y - font_height_f};
+        }
+        else if (prev_hl_id == gc.hl_id)
         {
           buffer.append(gc.text);
           continue;
@@ -159,24 +176,14 @@ private:
         else
         {
           auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
-          if (!buffer.isEmpty())
-          {
-            const HLAttr& attr = state->attr_for_id(prev_hl_id);
-            draw_text_and_bg(buffer, cur_start, attr, target, bot_right, def_clrs);
-            buffer.clear();
-          }
+          draw_buf(cur_start, bot_right, state->attr_for_id(prev_hl_id), def_clrs);
           cur_start = top_left;
           buffer.append(gc.text);
         }
         prev_hl_id = gc.hl_id;
       }
-      if (!buffer.isEmpty())
-      {
-        const HLAttr& attr = state->attr_for_id(prev_hl_id);
-        auto [top_left, bot_right] = get_pos(grid.x + (grid.cols-1), grid.y + y, 1);
-        draw_text_and_bg(buffer, cur_start, attr, target, bot_right, def_clrs);
-        buffer.clear();
-      }
+      auto [top_left, bot_right] = get_pos(grid.x + (grid.cols-1), grid.y + y, 1);
+      draw_buf(cur_start, bot_right, state->attr_for_id(prev_hl_id), def_clrs);
     }
   }
   
@@ -264,9 +271,15 @@ private:
 
   void draw_cursor(ID2D1RenderTarget* target)
   {
-    const auto rect_opt = neovim_cursor.rect(font_width_f, font_height_f);
-    if (!rect_opt.has_value()) return;
-    const CursorRect rect = rect_opt.value();
+    const auto pos_opt = neovim_cursor.pos();
+    if (!pos_opt) return;
+    const auto pos = pos_opt.value();
+    Grid* grid = find_grid(pos.grid_num);
+    if (!grid) return;
+    const auto& gc = grid->area[pos.row * grid->cols + pos.col];
+    float scale_factor = 1.0f;
+    if (gc.double_width) scale_factor = 2.0f;
+    const CursorRect rect = neovim_cursor.rect(font_width_f, font_height_f, scale_factor).value();
     ID2D1SolidColorBrush* bg_brush = nullptr;
     const HLAttr& def_clrs = state->default_colors_get();
     HLAttr attr = state->attr_for_id(rect.hl_id);
@@ -292,16 +305,10 @@ private:
     if (rect.should_draw_text)
     {
       // If the rect exists, the pos must exist as well.
-      const auto pos = neovim_cursor.pos().value();
       if (rect.hl_id == 0) attr.reverse = true;
-      Grid* grid = find_grid(pos.grid_num);
-      if (grid)
-      {
-        const auto& text = grid->area[pos.row * grid->cols + pos.col].text;
-        const auto start = D2D1::Point2F(fill_rect.left, fill_rect.top);
-        const auto end = D2D1::Point2F(fill_rect.right, fill_rect.bottom);
-        draw_text_and_bg(text, start, attr, target, end, state->default_colors_get());
-      }
+      const auto start = D2D1::Point2F(fill_rect.left, fill_rect.top);
+      const auto end = D2D1::Point2F(fill_rect.right, fill_rect.bottom);
+      draw_text_and_bg(gc.text, start, attr, target, end, state->default_colors_get());
     }
     SafeRelease(&bg_brush);
   }

@@ -281,7 +281,7 @@ void Window::register_handlers()
   listen_for_notification("NVUI_WINOPACITY", [this](const msgpack::object_array& params) {
     if (params.size == 0) return;
     const msgpack::object& param = params.ptr[0];
-    if (param.type != msgpack::type::FLOAT) return;
+    if (!is_num(param)) return;
     const double opacity = param.as<double>();
     if (opacity <= 0.0 || opacity > 1.0) return;
     setWindowOpacity(opacity);

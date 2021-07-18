@@ -176,7 +176,7 @@ void Cursor::go_to(CursorPos pos)
 
 /// Returns a CursorRect containing the cursor rectangle
 /// in pixels, based on the row, column, font width, and font height.
-static CursorRect get_rect(const ModeInfo& mode, int row, int col, float font_width, float font_height, float caret_extend_top, float caret_extend_bottom)
+static CursorRect get_rect(const ModeInfo& mode, int row, int col, float font_width, float font_height, float caret_extend_top, float caret_extend_bottom, float scale = 1.0f)
 {
   // These do nothing for now
   bool should_draw_text = mode.cursor_shape == CursorShape::Block;
@@ -184,11 +184,13 @@ static CursorRect get_rect(const ModeInfo& mode, int row, int col, float font_wi
   QPointF top_left = {col * font_width, row * font_height};
   QRectF rect;
   /// Depending on the cursor shape, the rectangle it occupies will be different
+  /// Block and Underline shapes' width will change depending on the scale factor,
+  /// but not the vertical shape. 
   switch(mode.cursor_shape)
   {
     case CursorShape::Block:
     {
-      rect = {top_left.x(), top_left.y(), font_width, font_height};
+      rect = {top_left.x(), top_left.y(), font_width * scale, font_height};
       break;
     }
     case CursorShape::Vertical:
@@ -202,27 +204,41 @@ static CursorRect get_rect(const ModeInfo& mode, int row, int col, float font_wi
     {
       float height = (font_height * mode.cell_percentage) / 100.f;
       float start_y = top_left.y() + font_height - height;
-      rect = {top_left.x(), start_y, font_width, height};
+      rect = {top_left.x(), start_y, font_width * scale, height};
       break;
     }
   }
   return {rect, mode.attr_id, should_draw_text};
 }
 
-std::optional<CursorRect> Cursor::rect(float font_width, float font_height) const noexcept
+std::optional<CursorRect> Cursor::rect(float font_width, float font_height, float scale) const noexcept
 {
   if (!cur_pos.has_value()) return std::nullopt;
-  else return std::optional<CursorRect>(get_rect(cur_mode, cur_pos->grid_y + cur_pos->row, cur_pos->grid_x + cur_pos->col, font_width, font_height, caret_extend_top, caret_extend_bottom));
+  return get_rect(
+    cur_mode,
+    cur_pos->grid_y + cur_pos->row,
+    cur_pos->grid_x + cur_pos->col,
+    font_width, font_height,
+    caret_extend_top,
+    caret_extend_bottom,
+    scale
+  );
 }
 
 std::optional<CursorRect> Cursor::old_rect(float font_width, float font_height) const noexcept
 {
   if (!prev_pos.has_value()) return std::nullopt;
-  else
-  {
-    const auto& old_mode = mode_info.at(old_mode_idx);
-    return get_rect(old_mode, prev_pos->grid_y + prev_pos->row, prev_pos->grid_x + prev_pos->col, font_width, font_height, caret_extend_top, caret_extend_bottom);
-  }
+  const auto& old_mode = mode_info.at(old_mode_idx);
+  return get_rect(
+    old_mode,
+    prev_pos->grid_y + prev_pos->row,
+    prev_pos->grid_x + prev_pos->col,
+    font_width,
+    font_height,
+    caret_extend_top,
+    caret_extend_bottom,
+    old_mode_scale
+  );
 }
 
 void Cursor::busy_start()

@@ -110,6 +110,7 @@ void EditorArea::grid_resize(const msgpack::object *obj, std::uint32_t size)
 
 void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
 {
+  QFontMetrics fm {font};
   //std::stringstream ss;
   std::uint16_t hl_id = 0;
   //std::cout << "Received grid line.\nNum params: " << size << '\n';
@@ -139,9 +140,17 @@ void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
       const auto& seq = o.via.array;
       assert(seq.size >= 1 && seq.size <= 3);
       int repeat = 1;
-      bool is_dbl = false;
       assert(seq.ptr[0].type == msgpack::type::STR);
       grid_char text = seq.ptr[0].as<decltype(text)>();
+      // If the previous char was a double-width char,
+      // the current char is an empty string.
+      bool prev_was_dbl = text.isEmpty();
+      //bool is_dbl = !text.isEmpty() && fm.horizontalAdvance(text) != font_width;
+      bool is_dbl = false;
+      if (prev_was_dbl)
+      {
+        grid_ptr->area[start_row * grid_ptr->cols + col - 1].double_width = true;
+      }
       //ss << text.size() << ' ';
       switch(seq.size)
       {
@@ -163,7 +172,7 @@ void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
       }
       //std::cout << "Code point: " << c << "\n";
       set_text(g, std::move(text), start_row, col, hl_id, repeat, is_dbl);
-      col += repeat + is_dbl; // 0 if not, 1 if it is
+      col += repeat;
     }
     //ss << '\n';
     // Update the area that we modified
@@ -472,7 +481,17 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
     for(int x = 0; x < grid.cols; ++x)
     {
       const auto& gc = grid.area[y * grid.cols + x];
-      if (gc.hl_id == prev_hl_id)
+      if (gc.double_width)
+      {
+        auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 2);
+        QPointF buf_end = {top_left.x(), top_left.y() + font_height};
+        draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, buf_end);
+        buffer.append(gc.text);
+        draw_buf(buffer, state->attr_for_id(gc.hl_id), def_clrs, top_left, bot_right);
+        start = {bot_right.x(), bot_right.y() - font_height};
+        prev_hl_id = gc.hl_id;
+      }
+      else if (gc.hl_id == prev_hl_id)
       {
         buffer.append(gc.text);
         continue;
@@ -701,28 +720,30 @@ void EditorArea::draw_text_and_bg(
 
 void EditorArea::draw_cursor(QPainter& painter)
 {
+  auto pos_opt = neovim_cursor.pos();
+  if (!pos_opt) return;
+  auto p = pos_opt.value();
+  Grid* grid = find_grid(p.grid_num);
+  if (!grid) return;
+  const auto& gc = grid->area[p.row * grid->cols + p.col];
+  float scale_factor = 1.0f;
+  if (gc.double_width) scale_factor = 2.0f;
+  auto rect = neovim_cursor.rect(font_width, font_height, scale_factor).value();
   QFontMetrics fm {font};
   const int offset = get_offset(font, linespace);
-  auto rect_opt = neovim_cursor.rect(font_width, font_height);
-  if (rect_opt.has_value())
+  const auto pos = neovim_cursor.pos().value();
+  const HLAttr& def_clrs = state->default_colors_get();
+  const HLAttr& attr = state->attr_for_id(rect.hl_id);
+  Color bg = rect.hl_id == 0 ? def_clrs.foreground : (attr.reverse ? (attr.has_fg ? attr.foreground : def_clrs.foreground) : (attr.has_bg ? attr.background : def_clrs.background));
+  painter.fillRect(rect.rect, QColor(bg.r, bg.g, bg.b));
+  if (rect.should_draw_text)
   {
-    auto rect = rect_opt.value();
-    const auto pos = neovim_cursor.pos().value();
-    Grid* grid = find_grid(pos.grid_num);
-    const auto& gc = grid->area[pos.row * grid->cols + pos.col];
-    const HLAttr& def_clrs = state->default_colors_get();
-    const HLAttr& attr = state->attr_for_id(rect.hl_id);
-    Color bg = rect.hl_id == 0 ? def_clrs.foreground : (attr.reverse ? (attr.has_fg ? attr.foreground : def_clrs.foreground) : (attr.has_bg ? attr.background : def_clrs.background));
-    painter.fillRect(rect.rect, QColor(bg.r, bg.g, bg.b));
-    if (rect.should_draw_text)
-    {
-      const QPoint bot_left = { (grid->x + pos.col) * font_width, (grid->y + pos.row) * font_height + offset};
-      const Color fgc = rect.hl_id == 0 ? def_clrs.background : (attr.reverse ? (attr.has_bg ? attr.background : def_clrs.background) : (attr.has_fg ? attr.foreground : def_clrs.background));
-      const QColor fg = {fgc.r, fgc.g, fgc.b};
-      painter.setFont(font);
-      painter.setPen(fg);
-      painter.drawText(bot_left, gc.text);
-    }
+    const QPoint bot_left = { (grid->x + pos.col) * font_width, (grid->y + pos.row) * font_height + offset};
+    const Color fgc = rect.hl_id == 0 ? def_clrs.background : (attr.reverse ? (attr.has_bg ? attr.background : def_clrs.background) : (attr.has_fg ? attr.foreground : def_clrs.background));
+    const QColor fg = {fgc.r, fgc.g, fgc.b};
+    painter.setFont(font);
+    painter.setPen(fg);
+    painter.drawText(bot_left, gc.text);
   }
 }
 

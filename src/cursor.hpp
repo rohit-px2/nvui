@@ -77,8 +77,10 @@ public:
   /**
    * Get the rectangle the cursor occupies at the current moment.
    * This in pixels, and is calculated using the given font width and font height.
+   * If 'dbl' is true, the width of the cursor is doubled for the 'block' and 'underline'
+   * cursor shapes. The vertical cursor shape remains the same.
    */
-  std::optional<CursorRect> rect(float font_width, float font_height) const noexcept;
+  std::optional<CursorRect> rect(float font_width, float font_height, float scale = 1.0f) const noexcept;
   /**
    * Same as rect(), but based on the old cursor position and mode.
    */
@@ -138,6 +140,7 @@ private:
   ModeInfo cur_mode;
   std::size_t cur_mode_idx;
   std::size_t old_mode_idx;
+  float old_mode_scale = 1.0f;
   std::string cur_mode_name;
 signals:
   void cursor_visible();

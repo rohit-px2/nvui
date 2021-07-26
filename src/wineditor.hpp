@@ -1,6 +1,7 @@
 #ifndef NVUI_WINEDITOR_HPP
 #define NVUI_WINEDITOR_HPP
 #include "editor.hpp"
+#include <DWrite.h>
 #include <QBackingStore>
 #include <QDebug>
 #include <QDesktopWidget>
@@ -79,6 +80,7 @@ public:
 
   ~WinEditorArea()
   {
+    for(auto& tf : text_formats) SafeRelease(&tf);
     SafeRelease(&hwnd_target);
     SafeRelease(&d2d_factory);
     SafeRelease(&factory);
@@ -106,12 +108,14 @@ public:
       return {font_width_f, font_height_f};
     }
   }
+
 private:
   HWND hwnd = nullptr;
   ID2D1HwndRenderTarget* hwnd_target = nullptr;
   ID2D1Factory* d2d_factory = nullptr;
   DWriteFactory* factory = nullptr;
   IDWriteTextFormat* text_format = nullptr;
+  std::vector<IDWriteTextFormat*> text_formats;
   IDWriteTypography* typography = nullptr;
   ID2D1DeviceContext* device_context = nullptr;
   ID2D1Bitmap1* dc_bitmap = nullptr;
@@ -141,31 +145,49 @@ private:
       float right = left + (font_width_f * num_chars);
       return std::make_tuple(D2D1::Point2F(left, top), D2D1::Point2F(right, bottom));
     };
-    const auto draw_buf = [&](const d2pt& start, const d2pt& end, const HLAttr& main, const HLAttr& fallback) {
+    const auto draw_buf = [&](const d2pt& start, const d2pt& end, const HLAttr& main, const HLAttr& fallback, std::uint32_t font_idx) {
       if (!buffer.isEmpty())
       {
-        draw_text_and_bg(buffer, start, main, target, end, fallback);
+        draw_text_and_bg(buffer, text_formats[font_idx], main, fallback, start, end, target);
         buffer.clear();
       }
     };
-    d2pt cur_start = {0., 0.};
     for(int y = start_y; y <= end_y && y < grid.rows; ++y)
     {
       // Check if we already drew the line
+      d2pt cur_start = {grid.x * font_width_f, (grid.y + y) * font_height_f};
       if (drawn.contains(grid.y + y)) continue;
       else drawn.insert(grid.y + y);
       std::uint16_t prev_hl_id = UINT16_MAX;
+      std::uint32_t cur_font_idx = 0;
       for(int x = 0; x < grid.cols; ++x)
       {
         const auto& gc = grid.area[y * grid.cols + x];
+        // The second condition is for supporting Nerd fonts
+        auto font_idx = font_for_ucs(gc.ucs);
+        if (font_idx != cur_font_idx && !(gc.text.isEmpty() || gc.text.at(0).isSpace()))
+        {
+          auto&& [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
+          d2pt buf_end = {top_left.x + font_width_f, top_left.y + font_height_f};
+          draw_buf(cur_start, buf_end, state->attr_for_id(prev_hl_id), def_clrs, cur_font_idx);
+          cur_start = top_left;
+          cur_font_idx = font_idx;
+        }
         if (gc.double_width)
         {
           auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 2);
-          d2pt buf_end = {top_left.x, top_left.y + font_height_f};
-          draw_buf(cur_start, buf_end, state->attr_for_id(prev_hl_id), def_clrs);
+          // Directwrite sometimes makes the content overflow (draws the last char
+          // of the text on the next line). Since we do clipping this shows up as
+          // the last character before a double-width character disappearing. This
+          // doesn't happen all the time, but I've seen it happen.
+          // To solve this we make the ending point a little further to the right than
+          // it should be.
+          d2pt buf_end = {top_left.x + font_width_f, top_left.y + font_height_f};
+          draw_buf(cur_start, buf_end, state->attr_for_id(prev_hl_id), def_clrs, cur_font_idx);
           buffer.append(gc.text);
-          draw_buf(top_left, bot_right, state->attr_for_id(gc.hl_id), def_clrs);
+          draw_buf(top_left, bot_right, state->attr_for_id(gc.hl_id), def_clrs, cur_font_idx);
           prev_hl_id = gc.hl_id;
+          ++x;
           cur_start = {bot_right.x, bot_right.y - font_height_f};
         }
         else if (prev_hl_id == gc.hl_id)
@@ -176,22 +198,30 @@ private:
         else
         {
           auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
-          draw_buf(cur_start, bot_right, state->attr_for_id(prev_hl_id), def_clrs);
+          draw_buf(cur_start, bot_right, state->attr_for_id(prev_hl_id), def_clrs, cur_font_idx);
           cur_start = top_left;
           buffer.append(gc.text);
         }
         prev_hl_id = gc.hl_id;
       }
       auto [top_left, bot_right] = get_pos(grid.x + (grid.cols-1), grid.y + y, 1);
-      draw_buf(cur_start, bot_right, state->attr_for_id(prev_hl_id), def_clrs);
+      draw_buf(cur_start, bot_right, state->attr_for_id(prev_hl_id), def_clrs, cur_font_idx);
     }
   }
   
   template<typename T>
-  inline int draw_text_and_bg(const QString& text, const D2D1_POINT_2F pt, const HLAttr& attr, T* target, D2D1_POINT_2F cur_pos, const HLAttr& def_clrs)
+  inline int draw_text_and_bg(
+    const QString& text,
+    IDWriteTextFormat* format,
+    const HLAttr& attr,
+    const HLAttr& def_clrs,
+    const D2D1_POINT_2F start,
+    const D2D1_POINT_2F end,
+    T* target
+  )
   {
     IDWriteTextLayout1* t_layout = nullptr;
-    factory->CreateTextLayout((LPCWSTR)text.utf16(), text.size(), text_format, cur_pos.x - pt.x, cur_pos.y - pt.y, reinterpret_cast<IDWriteTextLayout**>(&t_layout));
+    factory->CreateTextLayout((LPCWSTR)text.utf16(), text.size(), format, end.x - start.x, end.y - start.y, reinterpret_cast<IDWriteTextLayout**>(&t_layout));
     DWRITE_TEXT_RANGE text_range {0, (std::uint32_t) text.size()};
     if (charspace)
     {
@@ -216,27 +246,21 @@ private:
       std::swap(fg, bg);
     }
     // cur_pos's y-value should be the bottom
-    D2D1_RECT_F bg_rect = {
-      .left = pt.x,
-      .top = pt.y,
-      .right = cur_pos.x,
-      .bottom = cur_pos.y
-    };
+    D2D1_RECT_F bg_rect = D2D1::RectF(start.x, start.y, end.x, end.y);
     ID2D1SolidColorBrush* fg_brush = nullptr;
     ID2D1SolidColorBrush* bg_brush = nullptr;
     target->CreateSolidColorBrush(D2D1::ColorF(fg.to_uint32()), &fg_brush);
     target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
-    D2D1_RECT_F clip_rect = D2D1::RectF(pt.x, pt.y, cur_pos.x, cur_pos.y);
-    target->PushAxisAlignedClip(clip_rect, D2D1_ANTIALIAS_MODE_ALIASED);
+    //target->PushAxisAlignedClip(bg_rect, D2D1_ANTIALIAS_MODE_ALIASED);
     target->FillRectangle(bg_rect, bg_brush);
     const float offset = float(linespace) / 2.f;
-    D2D1_POINT_2F text_pt = {pt.x, pt.y + offset};
+    D2D1_POINT_2F text_pt = {start.x, start.y + offset};
     target->DrawTextLayout(text_pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
-    target->PopAxisAlignedClip();
-    fg_brush->Release();
-    bg_brush->Release();
-    t_layout->Release();
-    return cur_pos.x - pt.x;
+    //target->PopAxisAlignedClip();
+    SafeRelease(&fg_brush);
+    SafeRelease(&bg_brush);
+    SafeRelease(&t_layout);
+    return end.x - start.x;
   }
 
   inline void clear_grid(const Grid& grid, const QRect& rect, ID2D1RenderTarget* target)
@@ -305,33 +329,59 @@ private:
     if (rect.should_draw_text)
     {
       // If the rect exists, the pos must exist as well.
+       std::uint32_t font_idx = font_for_ucs(gc.ucs);
+      assert(font_idx < text_formats.size());
       if (rect.hl_id == 0) attr.reverse = true;
       const auto start = D2D1::Point2F(fill_rect.left, fill_rect.top);
       const auto end = D2D1::Point2F(fill_rect.right, fill_rect.bottom);
-      draw_text_and_bg(gc.text, start, attr, target, end, state->default_colors_get());
+      draw_text_and_bg(gc.text, text_formats[font_idx], attr, def_clrs, start, end, target);
     }
     SafeRelease(&bg_brush);
   }
 
 protected:
-  void update_font_metrics() override
+  void update_font_metrics(bool update_fonts) override
   {
+    // Create a text format from a QFont, modifies *tf to hold the new text format
+    // If *tf contained a text format before it should be released before calling this
+    constexpr auto create_format = 
+      [](DWriteFactory* factory, const QFont& f, IDWriteTextFormat** tf) {
+        HRESULT hr = factory->CreateTextFormat(
+          (LPCWSTR) f.family().utf16(),
+          NULL,
+          DWRITE_FONT_WEIGHT_NORMAL,
+          DWRITE_FONT_STYLE_NORMAL,
+          DWRITE_FONT_STRETCH_NORMAL,
+          f.pointSizeF() * (96.0f / 72.0f),
+          L"en-us",
+          tf
+        );
+        return hr;
+    };
+    HRESULT hr;
     EditorArea::update_font_metrics();
+    if (update_fonts)
+    {
+      for(auto& tf : text_formats) SafeRelease(&tf);
+      text_formats.clear();
+      text_formats.resize(fonts.size());
+      for(std::size_t i = 0; i < fonts.size(); ++i)
+      {
+        const QFont& idx_font = fonts[i].font();
+        hr = create_format(factory, idx_font, &text_formats[i]);
+        if (FAILED(hr))
+        {
+          fmt::print("Create format failed for family {}\n", idx_font.family().toStdString());
+          text_formats[i] = nullptr;
+        }
+      }
+    }
     SafeRelease(&text_format);
-    factory->CreateTextFormat(
-      (LPCWSTR) font.family().utf16(),
-      NULL,
-      DWRITE_FONT_WEIGHT_NORMAL,
-      DWRITE_FONT_STYLE_NORMAL,
-      DWRITE_FONT_STRETCH_NORMAL,
-      font.pointSizeF() * (96.0f / 72.0f),
-      L"en-us",
-      &text_format
-    );
+    create_format(factory, font, &text_format);
     constexpr const wchar_t* text = L"W";
     constexpr std::uint32_t len = 1;
     IDWriteTextLayout* text_layout = nullptr;
-    HRESULT hr = factory->CreateTextLayout(
+    hr = factory->CreateTextLayout(
       text, len, text_format, font_width * 2, font_height * 2, &text_layout
     );
     if (SUCCEEDED(hr) && text_layout != nullptr)

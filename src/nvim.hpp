@@ -23,6 +23,8 @@ using msgpack_callback = std::function<void (msgpack::object_handle*)>;
 /// using the msgpack-rpc protocol.
 class Nvim
 {
+private:
+  using response_cb = std::function<void (msgpack::object, msgpack::object)>;
 public:
   ~Nvim();
   /**
@@ -122,10 +124,30 @@ public:
    * Attach a function which is called when Neovim exits.
    */
   void on_exit(std::function<void ()> handler);
+  /**
+   * Send a request and execute a callback with the response and error
+   * objects when the response is received.
+   */
+  template<typename T>
+  void send_request_cb(
+    const std::string& method,
+    const T& params,
+    response_cb cb
+  );
+  /**
+   * Resize and send a callback when a response is received.
+   */
+  void resize_cb(const int width, const int height, response_cb cb);
+  /**
+   * Evaluate the VimL expression and call the given callback with
+   * the response/error.
+   */
+  void eval_cb(const std::string& expr, response_cb cb);
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
   std::unordered_map<std::string, msgpack_callback> request_handlers;
+  std::unordered_map<std::uint32_t, response_cb> singleshot_callbacks;
   std::thread err_reader;
   std::thread out_reader;
   // Condition variable to check if we are closing
@@ -140,6 +162,7 @@ private:
   std::mutex notification_handlers_mutex;
   std::mutex request_handlers_mutex;
   std::mutex exit_handler_mutex;
+  std::mutex response_cb_mutex;
   std::uint32_t num_responses;
   std::uint32_t current_msgid;
   boost::process::group proc_group;

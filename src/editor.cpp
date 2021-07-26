@@ -33,6 +33,45 @@ static int get_offset(const QFont& font, const int linespacing)
   return fm.ascent() + (linespacing / 2);
 }
 
+/**
+ * Sets relative's point size to a point size that is such that the horizontal
+ * advance of the character 'a' is within tolerance of the target's horizontal
+ * advance for the same character.
+ * This is done using a binary search algorithm between
+ * (0, target.pointSizeF() * 2.). The algorithm runs in a loop, the number
+ * of times can be limited using max_iterations. If max_iterations is 0
+ * the loop will run without stopping until it is within error.
+ */
+static void set_relative_font_size(
+  const QFont& target,
+  QFont& modified,
+  const double tolerance,
+  const std::uint32_t max_iterations
+)
+{ 
+  constexpr auto width = [](const QFontMetricsF& m) {
+    return m.horizontalAdvance('a');
+  };
+  QFontMetricsF target_metrics {target};
+  const double target_width = width(target_metrics);
+  double low = 0.;
+  double high = target.pointSizeF() * 2.;
+  modified.setPointSizeF(high);
+  for(std::uint32_t rep = 0;
+      (rep < max_iterations || max_iterations == 0) && low <= high;
+      ++rep)
+  {
+    double mid = (low + high) / 2.;
+    modified.setPointSizeF(mid);
+    QFontMetricsF metrics {modified};
+    const double diff =  target_width - width(metrics);
+    if (std::abs(diff) <= tolerance) return;
+    if (diff < 0) /** point size too big */ high = mid;
+    else if (diff > 0) /** point size too low */ low = mid;
+    else return;
+  }
+}
+
 EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 : QWidget(parent),
   state(hl_state),
@@ -50,7 +89,8 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   setFocus();
   setMouseTracking(true);
   font.setPointSizeF(11.25);
-  update_font_metrics();
+  fonts.push_back({font});
+  update_font_metrics(true);
   QObject::connect(&neovim_cursor, &Cursor::cursor_hidden, this, [this] {
     update();
   });
@@ -69,6 +109,11 @@ void EditorArea::set_text(
   bool is_dbl_width
 )
 {
+  const auto unicode_list = c.toUcs4();
+  std::uint32_t ucs;
+  if (c.isEmpty()) ucs = 0;
+  else if (unicode_list.size() == 0) return;
+  else ucs = unicode_list.first();
   //std::cout << "Set " << repeat << " texts at (" << row << ", " << col << ").\n";
   // Neovim should make sure this isn't out-of-bounds
   assert(col + repeat <= grid.cols);
@@ -76,7 +121,7 @@ void EditorArea::set_text(
   {
     // row * grid.cols - get current row
     assert(row * grid.cols + col + i < grid.area.size());
-    grid.area[row * grid.cols + col + i] = GridChar {hl_id, c, is_dbl_width};
+    grid.area[row * grid.cols + col + i] = {hl_id, c, is_dbl_width, ucs};
   }
 }
 
@@ -307,29 +352,32 @@ void EditorArea::set_guifont(const QString& new_font)
   // We want to consider the fonts one at a time so we have to first
   // split the text. The delimiter that signifies a new font is a comma.
   const QStringList lst = new_font.split(",");
+  fonts.clear();
+  font_for_unicode.clear();
   // No need for complicated stuff if there's only one font to deal with
-  if (lst.size() == 1)
+  if (lst.size() == 0) return;
+  const auto [font_name, font_size, font_opts] = parse_guifont(lst.at(0));
+  font.setFamily(font_name);
+  if (font_size > 0)
   {
-    const auto [font_name, font_size, font_opts] = parse_guifont(lst.at(0));
-    font.setFamily(font_name);
-
-    if (font_size > 0)
-    {
-      font.setPointSizeF(font_size);
-    }
-
-    if (font_opts & FontOpts::Bold)
-    {
-      font.setBold(true);
-    }
-    if (font_opts & FontOpts::Italic)
-    {
-      font.setItalic(true);
-    }
+    font.setPointSizeF(font_size);
   }
-  update_font_metrics();
+  font.setBold(font_opts & FontOpts::Bold);
+  font.setItalic(font_opts & FontOpts::Italic);
+  fonts.push_back({font});
+  for(int i = 1; i < lst.size(); ++i)
+  {
+    auto&& [font_name, font_size, font_opts] = parse_guifont(lst[i]);
+    QFont f;
+    f.setFamily(font_name);
+    set_relative_font_size(font, f, 0.0001, 1000);
+    // The widths at the same point size can be different,
+    // normalize the widths
+    Font fo = f;
+    fonts.push_back(std::move(fo));
+  }
+  update_font_metrics(true);
   resized(size());
-  // TODO: Handle multiple fonts (font fallback)
 }
 
 
@@ -353,7 +401,7 @@ QRect EditorArea::to_pixels(
   };
 }
 
-void EditorArea::update_font_metrics()
+void EditorArea::update_font_metrics(bool)
 {
   QFontMetricsF metrics {font};
   float combined_height = std::max(metrics.height(), metrics.lineSpacing());
@@ -464,11 +512,13 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
     float right = left + (font_width * num_chars);
     return std::make_tuple(QPointF(left, top), QPointF(right, bottom));
   };
-  const auto draw_buf = [&](QString& text, const HLAttr& attr, const HLAttr& def_clrs, const QPointF& start, const QPointF& end)
-  {
+  QFont cur_font = font;
+  const auto draw_buf = [&](QString& text, const HLAttr& attr, const HLAttr& def_clrs,
+      const QPointF& start, const QPointF& end, std::uint32_t font_idx) {
     if (!text.isEmpty())
     {
-      draw_text_and_bg(painter, text, attr, def_clrs, start, end, offset);
+      cur_font = fonts[font_idx].font();
+      draw_text_and_bg(painter, text, attr, def_clrs, start, end, offset, cur_font);
       text.clear();
     }
   };
@@ -478,16 +528,26 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
     if (drawn_rows.contains(grid.y + y)) continue;
     else drawn_rows.insert(grid.y + y);
     std::uint16_t prev_hl_id = UINT16_MAX;
+    std::uint32_t cur_font_idx = 0;
     for(int x = 0; x < grid.cols; ++x)
     {
       const auto& gc = grid.area[y * grid.cols + x];
+      auto font_idx = font_for_ucs(gc.ucs);
+      if (font_idx != cur_font_idx && !(gc.text.isEmpty() || gc.text.at(0).isSpace()))
+      {
+        auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
+        QPointF buf_end = {top_left.x(), top_left.y() + font_height};
+        draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, buf_end, cur_font_idx);
+        start = top_left;
+        cur_font_idx = font_idx;
+      }
       if (gc.double_width)
       {
         auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 2);
         QPointF buf_end = {top_left.x(), top_left.y() + font_height};
-        draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, buf_end);
+        draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, buf_end, cur_font_idx);
         buffer.append(gc.text);
-        draw_buf(buffer, state->attr_for_id(gc.hl_id), def_clrs, top_left, bot_right);
+        draw_buf(buffer, state->attr_for_id(gc.hl_id), def_clrs, top_left, bot_right, cur_font_idx);
         start = {bot_right.x(), bot_right.y() - font_height};
         prev_hl_id = gc.hl_id;
       }
@@ -499,14 +559,14 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
       else
       {
         auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
-        draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, bot_right);
+        draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, bot_right, cur_font_idx);
         start = top_left;
         buffer.append(gc.text);
         prev_hl_id = gc.hl_id;
       }
     }
     auto [top_left, bot_right] = get_pos(grid.x + (grid.cols - 1), grid.y + y, 1);
-    draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, bot_right);
+    draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, bot_right, cur_font_idx);
   }
 }
 
@@ -699,7 +759,8 @@ void EditorArea::draw_text_and_bg(
   const HLAttr& def_clrs,
   const QPointF& start,
   const QPointF& end,
-  const int offset
+  const int offset,
+  QFont font
 )
 {
   font.setItalic(attr.font_opts & FontOpts::Italic);
@@ -741,7 +802,8 @@ void EditorArea::draw_cursor(QPainter& painter)
     const QPoint bot_left = { (grid->x + pos.col) * font_width, (grid->y + pos.row) * font_height + offset};
     const Color fgc = rect.hl_id == 0 ? def_clrs.background : (attr.reverse ? (attr.has_bg ? attr.background : def_clrs.background) : (attr.has_fg ? attr.foreground : def_clrs.background));
     const QColor fg = {fgc.r, fgc.g, fgc.b};
-    painter.setFont(font);
+    auto font_idx = font_for_ucs(gc.ucs);
+    painter.setFont(fonts[font_idx].font());
     painter.setPen(fg);
     painter.drawText(bot_left, gc.text);
   }
@@ -804,4 +866,26 @@ void EditorArea::dropEvent(QDropEvent* event)
 void EditorArea::dragEnterEvent(QDragEnterEvent* event)
 {
   if (event->mimeData()->hasUrls()) event->acceptProposedAction();
+}
+
+void EditorArea::set_fallback_for_ucs(std::uint32_t ucs)
+{
+  for(std::uint32_t i = 0; i < fonts.size(); ++i)
+  {
+    if (fonts[i].raw().supportsCharacter(ucs))
+    {
+      font_for_unicode[ucs] = i;
+      return;
+    }
+  }
+  font_for_unicode[ucs] = 0;
+}
+
+std::uint32_t EditorArea::font_for_ucs(std::uint32_t ucs)
+{
+  if (fonts.size() <= 1) return 0;
+  auto it = font_for_unicode.find(ucs);
+  if (it != font_for_unicode.end()) return it->second;
+  set_fallback_for_ucs(ucs);
+  return font_for_unicode.at(ucs);
 }

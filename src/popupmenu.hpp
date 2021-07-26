@@ -48,12 +48,19 @@ public:
 
   inline void set_bg_for_name(const QString& name, QColor bg)
   {
-    colors[name].second = std::move(bg);
+    fg_bg pair = {default_fg, default_bg};
+    if (colors.contains(name)) pair = colors[name];
+    pair.second = std::move(bg);
+    colors[name] = pair;
     update_icon(name);
   }
+
   inline void set_fg_for_name(const QString& name, QColor fg)
   {
-    colors[name].first = std::move(fg);
+    fg_bg pair = {default_fg, default_bg};
+    if (colors.contains(name)) pair = colors[name];
+    pair.first = fg;
+    colors[name] = pair;
     update_icon(name);
   }
 

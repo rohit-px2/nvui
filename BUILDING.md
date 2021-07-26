@@ -1,20 +1,23 @@
 ## BUILDING
 <hr>
 You Need:
-<li> C++ Compiler that supports C++17
-<li> CMake </li>
+<ul>
+  <li> C++ Compiler that supports C++17</li>
+  <li> CMake </li>
+</ul>
 
 For package management, I use vcpkg @ 807a79876.  
 <code>git clone https://github.com/microsoft/vcpkg.git vcpkg</code>  
 <code>./vcpkg/bootstrap-vcpkg.(bat|sh) -disableMetrics</code>  
 The packages used in this project are:
-<li> qt5-base
-<li> qt5-svg
-<li> fmt
-<li> boost-process
-<li> msgpack
-<li> Catch2 (testing only)
-
+<ul>
+  <li> qt5-base</li>
+  <li> qt5-svg</li>
+  <li> fmt</li>
+  <li> boost-process</li>
+  <li> msgpack</li>
+  <li> Catch2 (testing only)</li>
+</ul>
 Install these packages. Then create a new subdirectory, say <code>build</code>, and <code>cd</code> into it.
 
 When these packages are installed on vcpkg, set DCMAKE_TOOLCHAIN_FILE to your vcpkg cmake file. If a build type is not specified, the build type defaults to Debug.  

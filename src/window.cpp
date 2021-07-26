@@ -635,25 +635,19 @@ void Window::resize_or_move(const QPointF& p)
   if (edges != 0 && !isMaximized())
   {
     if (handle->startSystemResize(edges)) {
-      resizing = true;
-      editor_area.set_resizing(true);
     }
     else
     {
       std::cout << "Resize didn't work\n";
-      editor_area.setUpdatesEnabled(true);
     }
   }
   else
   {
-    editor_area.setUpdatesEnabled(false);
     if (handle->startSystemMove()) {
-      moving = true;
     }
     else
     {
       std::cout << "Move didn't work\n";
-      editor_area.setUpdatesEnabled(true);
     }
   }
   title_bar->update_maxicon();
@@ -674,19 +668,6 @@ void Window::mousePressEvent(QMouseEvent* event)
 void Window::mouseReleaseEvent(QMouseEvent* event)
 {
   Q_UNUSED(event) // at least, for now
-  if (resizing)
-  {
-    resizing = false;
-    editor_area.set_resizing(false);
-    emit resize_done(size());
-  }
-  if (moving)
-  {
-    moving = false;
-    // setUpdatesEnabled calls update(), but we want to ignore
-    editor_area.ignore_next_paint_event();
-    editor_area.setUpdatesEnabled(true);
-  }
 }
 
 void Window::mouseMoveEvent(QMouseEvent* event)

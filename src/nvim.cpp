@@ -224,6 +224,23 @@ void Nvim::read_output_sync()
                 last_response = arr.ptr[3];
               }
             }
+            else
+            {
+              Lock lock {response_cb_mutex};
+              if (singleshot_callbacks.contains(msgid))
+              {
+                const auto& cb = singleshot_callbacks.at(msgid);
+                if (!arr.ptr[2].is_nil())
+                {
+                  cb(msgpack::object(), arr.ptr[2]);
+                }
+                else
+                {
+                  cb(arr.ptr[3], msgpack::object());
+                }
+                singleshot_callbacks.erase(msgid);
+              }
+            }
             break;
           }
           default:
@@ -392,6 +409,28 @@ void Nvim::on_exit(std::function<void ()> handler)
 {
   Lock lock {exit_handler_mutex};
   on_exit_handler = std::move(handler);
+}
+
+template<typename T>
+void Nvim::send_request_cb(
+  const std::string& method,
+  const T& params,
+  response_cb cb
+)
+{
+  std::unique_lock<std::mutex> lock {response_cb_mutex};
+  singleshot_callbacks[current_msgid] = std::move(cb);
+  send_request(method, params, false);
+}
+
+void Nvim::resize_cb(const int width, const int height, response_cb cb)
+{
+  send_request_cb("nvim_ui_try_resize", std::make_tuple(width, height), std::move(cb));
+}
+
+void Nvim::eval_cb(const std::string& expr, response_cb cb)
+{
+  send_request_cb("nvim_eval", std::make_tuple(expr), std::move(cb));
 }
 
 Nvim::~Nvim()

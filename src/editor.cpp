@@ -34,8 +34,9 @@ static int get_offset(const QFont& font, const int linespacing)
 }
 
 /**
- * Returns relative with a point size that is modified for its maximum
- * character width to be within tolerance of target's maximum character width.
+ * Sets relative's point size to a point size that is such that the horizontal
+ * advance of the character 'a' is within tolerance of the target's horizontal
+ * advance for the same character.
  * This is done using a binary search algorithm between
  * (0, target.pointSizeF() * 2.). The algorithm runs in a loop, the number
  * of times can be limited using max_iterations. If max_iterations is 0

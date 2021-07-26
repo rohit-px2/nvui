@@ -18,6 +18,7 @@
 #include "cursor.hpp"
 #include "popupmenu.hpp"
 #include "cmdline.hpp"
+#include "font.hpp"
 
 // For easily changing the type of 'char' in a cell
 using grid_char = QString;
@@ -27,6 +28,7 @@ struct GridChar
   std::uint16_t hl_id; // Shouldn't have more than 65k highlight attributes
   grid_char text;
   bool double_width = false;
+  std::uint32_t ucs;
 };
 
 struct Grid
@@ -261,7 +263,7 @@ protected:
   std::vector<Grid> grids;
   bool bold = false;
   // For font fallback, not used if a single font is set.
-  std::vector<QFont> fonts;
+  std::vector<Font> fonts;
   std::uint16_t font_width;
   std::uint16_t font_height;
   QFont font;
@@ -273,6 +275,9 @@ protected:
   int cols = -1;
   PopupMenu popup_menu;
   CmdLine cmdline;
+  bool neovim_is_resizing = false;
+  std::optional<QSize> queued_resize = std::nullopt;
+  std::unordered_map<std::uint32_t, std::uint32_t> font_for_unicode;
   /**
    * Sets the current font to new_font.
    */
@@ -313,7 +318,7 @@ protected:
   /**
    * Updates the font metrics, such as font_width and font_height.
    */
-  virtual void update_font_metrics();
+  virtual void update_font_metrics(bool update_fonts = false);
   /**
    * Draws a portion of the grid on the screen
    * (the area to draw is given by rect).
@@ -342,7 +347,8 @@ protected:
     const HLAttr& def_clrs,
     const QPointF& start,
     const QPointF& end,
-    const int offset
+    const int offset,
+    QFont font
   );
   /**
    * Draw the cursor
@@ -372,6 +378,8 @@ public slots:
    * lines for us.
    */
   virtual void default_colors_changed(QColor fg, QColor bg);
+  void set_fallback_for_ucs(std::uint32_t ucs);
+  std::uint32_t font_for_ucs(std::uint32_t ucs);
 protected:
   void paintEvent(QPaintEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;

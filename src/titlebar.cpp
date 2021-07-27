@@ -282,6 +282,7 @@ void TitleBar::update_text()
   {
     label->setText(left_text % separator % middle_text % separator % right_text);
   }
+  win->setWindowTitle(label->text());
 }
 
 void TitleBar::set_right_text(QString text)

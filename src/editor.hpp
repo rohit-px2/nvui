@@ -381,6 +381,7 @@ public slots:
   void set_fallback_for_ucs(std::uint32_t ucs);
   std::uint32_t font_for_ucs(std::uint32_t ucs);
 protected:
+  void resizeEvent(QResizeEvent* event) override;
   void paintEvent(QPaintEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;

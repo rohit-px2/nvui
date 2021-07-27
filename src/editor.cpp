@@ -76,7 +76,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 : QWidget(parent),
   state(hl_state),
   nvim(nv),
-  pixmap(QDesktopWidget().size()),
+  pixmap(width(), height()),
   neovim_cursor(),
   popup_menu(hl_state, this),
   cmdline(hl_state, &neovim_cursor, this)
@@ -888,4 +888,14 @@ std::uint32_t EditorArea::font_for_ucs(std::uint32_t ucs)
   if (it != font_for_unicode.end()) return it->second;
   set_fallback_for_ucs(ucs);
   return font_for_unicode.at(ucs);
+}
+
+void EditorArea::resizeEvent(QResizeEvent* event)
+{
+  QSize new_size = event->size();
+  pixmap = QPixmap(new_size);
+  QPainter p(&pixmap);
+  QColor bg = state->default_colors_get().background.to_uint32();
+  p.fillRect(pixmap.rect(), bg);
+  events.push({PaintKind::Redraw, 0, QRect()});
 }

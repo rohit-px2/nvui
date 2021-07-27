@@ -35,6 +35,21 @@ inline void SafeRelease(T** ppT)
   }
 }
 
+static void
+create_default_bitmap(ID2D1DeviceContext* t, ID2D1Bitmap1** ppb, D2D1_SIZE_U size)
+{
+  t->CreateBitmap(size, nullptr, 0,
+    D2D1::BitmapProperties1(
+      D2D1_BITMAP_OPTIONS_TARGET,
+      D2D1::PixelFormat(
+        DXGI_FORMAT_B8G8R8A8_UNORM,
+        D2D1_ALPHA_MODE_PREMULTIPLIED
+      )
+    ),
+    ppb
+  );
+}
+
 /// The WinEditorArea is a version of the EditorArea that only works on
 /// Windows, since it uses Direct2D and DirectWrite for rendering instead
 /// of Qt's cross-platform solution.
@@ -58,22 +73,11 @@ public:
       D2D1::HwndRenderTargetProperties(hwnd, sz),
       &hwnd_target
     );
-    const QSize max_size = QDesktopWidget().size();
-    D2D1_SIZE_U bitmap_sz = D2D1::SizeU(max_size.width(), max_size.height());
     d2d_factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(), D2D1::HwndRenderTargetProperties(hwnd, sz), &hwnd_target);
     hwnd_target->QueryInterface(&device_context);
     device_context->GetDevice(&device);
     device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_ENABLE_MULTITHREADED_OPTIMIZATIONS, &mtd_context);
-    mtd_context->CreateBitmap(bitmap_sz, nullptr, 0,
-      D2D1::BitmapProperties1(
-        D2D1_BITMAP_OPTIONS_TARGET,
-        D2D1::PixelFormat(
-          DXGI_FORMAT_B8G8R8A8_UNORM,
-          D2D1_ALPHA_MODE_PREMULTIPLIED
-        )
-      ),
-      &dc_bitmap
-    );
+    create_default_bitmap(mtd_context, &dc_bitmap, sz);
     mtd_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
     mtd_context->SetTarget(dc_bitmap);
   }
@@ -465,7 +469,20 @@ protected:
   {
     auto sz = D2D1::SizeU(event->size().width(), event->size().height());
     hwnd_target->Resize(sz);
-    //update();
+    // Bitmaps have to be re-created
+    SafeRelease(&dc_bitmap);
+    create_default_bitmap(mtd_context, &dc_bitmap, sz);
+    mtd_context->SetTarget(dc_bitmap);
+    // Fill with the background color so it doesn't look ugly
+    auto r = D2D1::RectF(0, 0, sz.width, sz.height);
+    const auto clr = D2D1::ColorF(state->default_colors_get().background.to_uint32());
+    ID2D1SolidColorBrush* bg_brush = nullptr;
+    mtd_context->BeginDraw();
+    mtd_context->CreateSolidColorBrush(clr, &bg_brush);
+    mtd_context->FillRectangle(r, bg_brush);
+    mtd_context->EndDraw();
+    SafeRelease(&bg_brush);
+    events.push({PaintKind::Redraw, 0, QRect()});
   }
 };
 

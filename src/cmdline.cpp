@@ -173,8 +173,8 @@ void CmdLine::paintEvent(QPaintEvent* event)
           {
             auto&& c_rect = c_rect_opt.value();
             const HLAttr& a = state->attr_for_id(c_rect.hl_id);
-            Color bg = a.has_bg ? a.background : default_colors.background;
-            Color fg = a.has_fg ? a.foreground : default_colors.foreground;
+            Color bg = a.bg().value_or(*default_colors.bg());
+            Color fg = a.fg().value_or(*default_colors.fg());
             if (c_rect.hl_id == 0 || a.reverse) std::swap(fg, bg);
             QRect rect = c_rect.rect.toRect();
             int y = pt.y - offset;
@@ -201,8 +201,8 @@ void CmdLine::paintEvent(QPaintEvent* event)
     {
       auto&& c_rect = c_rect_opt.value();
       const HLAttr& a = state->attr_for_id(c_rect.hl_id);
-      Color bg = a.has_bg ? a.background : default_colors.background;
-      Color fg = a.has_fg ? a.foreground : default_colors.foreground;
+      Color bg = a.bg().value_or(*default_colors.bg());
+      Color fg = a.fg().value_or(*default_colors.fg());
       if (c_rect.hl_id == 0 || a.reverse) std::swap(fg, bg);
       if (pt.y == base_y) pt.y -= big_offset;
       else pt.y -= offset;
@@ -233,8 +233,8 @@ void CmdLine::draw_text_and_bg(
   font.setUnderline(attr.font_opts & FontOpts::Underline);
   font.setStrikeOut(attr.font_opts & FontOpts::Strikethrough);
   painter.setFont(font);
-  Color fg = attr.has_fg ? attr.foreground : def_clrs.foreground;
-  Color bg = attr.has_bg ? attr.background : def_clrs.background;
+  Color fg = attr.fg().value_or(*def_clrs.fg());
+  Color bg = attr.bg().value_or(*def_clrs.bg());
   if (attr.reverse) std::swap(fg, bg);
   const QRectF rect = {start, end};
   painter.setClipRect(rect);

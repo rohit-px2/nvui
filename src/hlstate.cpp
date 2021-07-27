@@ -24,12 +24,10 @@ namespace hl
       const std::string k = kv.key.as<std::string>();
       if (k == "foreground")
       {
-        attr.has_fg = true;
         attr.foreground = Color(kv.val.as<std::uint32_t>());
       }
       else if (k == "background")
       {
-        attr.has_bg = true;
         attr.background = Color(kv.val.as<std::uint32_t>());
       }
       else if (k == "reverse")
@@ -38,7 +36,6 @@ namespace hl
       }
       else if (k == "special")
       {
-        attr.has_special = true;
         attr.special = Color(kv.val.as<std::uint32_t>());
       }
       else if (k == "italic")
@@ -114,9 +111,6 @@ HLAttr::HLAttr(const HLAttr& other)
   special(other.special),
   foreground(other.foreground),
   background(other.background),
-  has_fg(other.has_fg),
-  has_bg(other.has_bg),
-  has_special(other.has_special),
   state(other.state),
   opacity(other.opacity) {}
 
@@ -189,9 +183,6 @@ void HLState::default_colors_set(const msgpack::object& obj)
   default_colors.foreground = params.ptr[0].as<std::uint32_t>();
   default_colors.background = params.ptr[1].as<std::uint32_t>();
   default_colors.special = params.ptr[2].as<std::uint32_t>();
-  default_colors.has_fg = true;
-  default_colors.has_bg = true;
-  default_colors.has_special = true;
 }
 
 

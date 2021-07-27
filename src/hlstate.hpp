@@ -5,9 +5,11 @@
 #include <iostream>
 #include <unordered_map>
 #include <variant>
+#include <optional>
 #include <vector>
 #include <string>
 #include <msgpack.hpp>
+#include <QColor>
 
 using uint8 = std::uint8_t;
 using uint16 = std::uint16_t;
@@ -38,6 +40,11 @@ struct Color
   {
     return r << 16 | g << 8 | b;
   }
+
+  QColor qcolor() const
+  {
+    return {r, g, b};
+  }
 };
 
 struct AttrState
@@ -65,12 +72,9 @@ public:
   std::uint8_t font_opts = FontOpts::Normal;
   int hl_id;
   bool reverse = false;
-  Color special;
-  Color foreground;
-  Color background;
-  bool has_fg = false;
-  bool has_bg = false;
-  bool has_special = false;
+  std::optional<Color> special;
+  std::optional<Color> foreground;
+  std::optional<Color> background;
   /// We don't need a detailed view of the highlight state
   // right now so we won't do anything with this.
   std::vector<AttrState> state;
@@ -81,6 +85,9 @@ public:
   HLAttr(HLAttr&& other);
   HLAttr& operator=(const HLAttr&) = default;
   HLAttr& operator=(HLAttr&&);
+  std::optional<Color> fg() const { return foreground; }
+  std::optional<Color> bg() const { return background; }
+  std::optional<Color> sp() const { return special; }
 };
 
 /// Keeps the highlight state of Neovim

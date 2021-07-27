@@ -243,8 +243,8 @@ private:
     {
       t_layout->SetUnderline(true, text_range);
     }
-    Color fg = attr.has_fg ? attr.foreground : def_clrs.foreground;
-    Color bg = attr.has_bg ? attr.background : def_clrs.background;
+    Color fg = attr.fg().value_or(*def_clrs.fg());
+    Color bg = attr.bg().value_or(*def_clrs.bg());
     if (attr.reverse)
     {
       std::swap(fg, bg);
@@ -271,7 +271,7 @@ private:
   {
     const HLAttr& def_clrs = state->default_colors_get();
     ID2D1SolidColorBrush* bg_brush;
-    Color bg = def_clrs.background;
+    Color bg = *def_clrs.background;
     target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
     D2D1_RECT_F bg_rect {
       .left = (float) (grid.x + rect.left()) * font_width,
@@ -289,7 +289,7 @@ private:
     if (!old_rect_opt.has_value()) return;
     const CursorRect old_rect = old_rect_opt.value();
     ID2D1SolidColorBrush* bg_brush = nullptr;
-    const Color& bg = state->default_colors_get().background;
+    const Color& bg = *state->default_colors_get().background;
     target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
     const QRectF& r = old_rect.rect;
     auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());
@@ -312,16 +312,16 @@ private:
     const HLAttr& def_clrs = state->default_colors_get();
     HLAttr attr = state->attr_for_id(rect.hl_id);
     Color bg;
-    if (rect.hl_id == 0) bg = def_clrs.foreground;
+    if (rect.hl_id == 0) bg = *def_clrs.foreground;
     else
     {
       if (attr.reverse)
       {
-        bg = attr.has_fg ? attr.foreground : def_clrs.foreground;
+        bg = attr.fg().value_or(*def_clrs.fg());
       }
       else
       {
-        bg = attr.has_bg ? attr.background : def_clrs.background;
+        bg = attr.bg().value_or(*def_clrs.bg());
       }
     }
     target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
@@ -410,7 +410,7 @@ protected:
     };
     ID2D1SolidColorBrush* bg_brush = nullptr;
     const HLAttr& attr = state->default_colors_get();
-    mtd_context->CreateSolidColorBrush(D2D1::ColorF(attr.background.to_uint32()), &bg_brush);
+    mtd_context->CreateSolidColorBrush(D2D1::ColorF(attr.background->to_uint32()), &bg_brush);
     mtd_context->FillRectangle(rect, bg_brush);
     mtd_context->EndDraw();
     events.push({PaintKind::Redraw, 0, QRect()});
@@ -475,7 +475,7 @@ protected:
     mtd_context->SetTarget(dc_bitmap);
     // Fill with the background color so it doesn't look ugly
     auto r = D2D1::RectF(0, 0, sz.width, sz.height);
-    const auto clr = D2D1::ColorF(state->default_colors_get().background.to_uint32());
+    const auto clr = D2D1::ColorF(state->default_colors_get().background->to_uint32());
     ID2D1SolidColorBrush* bg_brush = nullptr;
     mtd_context->BeginDraw();
     mtd_context->CreateSolidColorBrush(clr, &bg_brush);

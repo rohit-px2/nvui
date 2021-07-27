@@ -20,11 +20,11 @@ TEST_CASE("default_colors are set properly", "[default_colors_set]")
     const msgpack::object& obj = oh.get();
     hl_state.default_colors_set(obj);
     const auto& def = hl_state.default_colors_get();
-    REQUIRE(def.has_fg);
-    REQUIRE(def.has_bg);
-    REQUIRE(def.has_special);
-    REQUIRE(def.foreground.to_uint32() == 16777215);
-    REQUIRE(def.background.to_uint32() == 0);
-    REQUIRE(def.special.to_uint32() == 16711680);
+    REQUIRE(def.fg());
+    REQUIRE(def.bg());
+    REQUIRE(def.sp());
+    REQUIRE(def.fg()->to_uint32() == 16777215);
+    REQUIRE(def.bg()->to_uint32() == 0);
+    REQUIRE(def.sp()->to_uint32() == 16711680);
   }
 }

@@ -216,8 +216,8 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
 {
   float offset = font_ascent + (linespace / 2.f);
   const HLAttr& def_clrs = hl_state->default_colors_get();
-  Color fg = attr.has_fg ? attr.foreground : def_clrs.foreground;
-  Color bg = attr.has_bg ? attr.background : def_clrs.background;
+  Color fg = attr.fg().value_or(*def_clrs.fg());
+  Color bg = attr.bg().value_or(*def_clrs.bg());
   if (attr.reverse) std::swap(fg, bg);
   pmenu_font.setBold(attr.font_opts & FontOpts::Bold);
   pmenu_font.setItalic(attr.font_opts & FontOpts::Italic);

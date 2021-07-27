@@ -181,10 +181,8 @@ void Window::register_handlers()
       w->hl_state.default_colors_set(obj[i]);
     }
     const HLAttr& def_clrs = w->hl_state.default_colors_get();
-    const Color& fgc = def_clrs.foreground;
-    const Color& bgc = def_clrs.background;
-    QColor fg {fgc.r, fgc.g, fgc.b};
-    QColor bg {bgc.r, bgc.g, bgc.b};
+    auto fg = def_clrs.fg()->qcolor();
+    auto bg = def_clrs.bg()->qcolor();
     emit w->default_colors_changed(fg, bg);
   });
   set_handler("grid_line", [](Window* w, const msgpack::object* obj, std::uint32_t size) {

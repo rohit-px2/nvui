@@ -573,7 +573,7 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
 void EditorArea::clear_grid(QPainter& painter, const Grid& grid, const QRect& rect)
 {
   const HLAttr& def_clrs = state->default_colors_get();
-  QColor bg = to_qcolor(def_clrs.background);
+  QColor bg = def_clrs.background->to_uint32();
   // The rect was given in terms of rows and columns, convert to pixels
   // before filling
   const QRect r = to_pixels(grid.x + rect.x(), grid.y + rect.y(), rect.width(), rect.height());
@@ -768,8 +768,8 @@ void EditorArea::draw_text_and_bg(
   font.setUnderline(attr.font_opts & FontOpts::Underline);
   font.setStrikeOut(attr.font_opts & FontOpts::Strikethrough);
   painter.setFont(font);
-  Color fg = attr.has_fg ? attr.foreground : def_clrs.foreground;
-  Color bg = attr.has_bg ? attr.background : def_clrs.background;
+  Color fg = attr.fg().value_or(*def_clrs.fg());
+  Color bg = attr.bg().value_or(*def_clrs.bg());
   if (attr.reverse) std::swap(fg, bg);
   const QRectF rect = {start, end};
   painter.setClipRect(rect);
@@ -795,12 +795,16 @@ void EditorArea::draw_cursor(QPainter& painter)
   const auto pos = neovim_cursor.pos().value();
   const HLAttr& def_clrs = state->default_colors_get();
   const HLAttr& attr = state->attr_for_id(rect.hl_id);
-  Color bg = rect.hl_id == 0 ? def_clrs.foreground : (attr.reverse ? (attr.has_fg ? attr.foreground : def_clrs.foreground) : (attr.has_bg ? attr.background : def_clrs.background));
+  Color bg = rect.hl_id == 0 ? *def_clrs.fg() : (attr.reverse ? (attr.fg().value_or(*def_clrs.fg())) : (attr.bg().value_or(*def_clrs.bg())));
   painter.fillRect(rect.rect, QColor(bg.r, bg.g, bg.b));
   if (rect.should_draw_text)
   {
     const QPoint bot_left = { (grid->x + pos.col) * font_width, (grid->y + pos.row) * font_height + offset};
-    const Color fgc = rect.hl_id == 0 ? def_clrs.background : (attr.reverse ? (attr.has_bg ? attr.background : def_clrs.background) : (attr.has_fg ? attr.foreground : def_clrs.background));
+    const Color fgc = rect.hl_id == 0
+      ? *def_clrs.bg()
+      : (attr.reverse
+          ? (attr.bg().value_or(*def_clrs.bg()))
+          : attr.fg().value_or(*def_clrs.fg()));
     const QColor fg = {fgc.r, fgc.g, fgc.b};
     auto font_idx = font_for_ucs(gc.ucs);
     painter.setFont(fonts[font_idx].font());
@@ -895,7 +899,7 @@ void EditorArea::resizeEvent(QResizeEvent* event)
   QSize new_size = event->size();
   pixmap = QPixmap(new_size);
   QPainter p(&pixmap);
-  QColor bg = state->default_colors_get().background.to_uint32();
+  QColor bg = state->default_colors_get().background->to_uint32();
   p.fillRect(pixmap.rect(), bg);
   events.push({PaintKind::Redraw, 0, QRect()});
 }

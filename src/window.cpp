@@ -276,7 +276,8 @@ void Window::register_handlers()
       this, "dirchanged_titlebar", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
-  listen_for_notification("NVUI_WINOPACITY", [this](const msgpack::object_array& params) {
+  using notification = const msgpack::object_array&;
+  listen_for_notification("NVUI_WINOPACITY", [this](notification params) {
     if (params.size == 0) return;
     const msgpack::object& param = params.ptr[0];
     if (!is_num(param)) return;
@@ -284,31 +285,11 @@ void Window::register_handlers()
     if (opacity <= 0.0 || opacity > 1.0) return;
     setWindowOpacity(opacity);
   });
-  listen_for_notification("NVUI_TOGGLE_FRAMELESS", [this](const msgpack::object_array& params) {
+  listen_for_notification("NVUI_TOGGLE_FRAMELESS", [this](notification params) {
     Q_UNUSED(params);
-    auto flags = windowFlags();
-    if (flags & Qt::FramelessWindowHint)
-    {
-      if (title_bar) title_bar->hide();
-      frameless_window = false;
-      flags &= ~Qt::FramelessWindowHint;
-      setWindowFlags(flags);
-      show();
-      emit resize_done(size());
-    }
-    else
-    {
-      if (title_bar) title_bar->show();
-      frameless_window = true;
-      setWindowFlags(
-        Qt::FramelessWindowHint | Qt::WindowMinimizeButtonHint
-        | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint
-      );
-      show();
-      emit resize_done(size());
-    }
+    if (is_frameless()) disable_frameless_window();
+    else enable_frameless_window();
   });
-  using notification = const msgpack::object_array&;
   listen_for_notification("NVUI_CHARSPACE", [this](notification params) {
     if (params.size == 0) return;
     const auto& space_obj = params.ptr[0];
@@ -727,4 +708,26 @@ void Window::listen_for_notification(
       );
     })
   );
+}
+
+void Window::disable_frameless_window()
+{
+  auto flags = windowFlags();
+  if (!(flags & Qt::FramelessWindowHint)) /* Already disabled */ return;
+  if (title_bar) title_bar->hide();
+  flags &= ~Qt::FramelessWindowHint;
+  setWindowFlags(flags);
+  show();
+  emit resize_done(size());
+}
+
+void Window::enable_frameless_window()
+{
+  auto flags = windowFlags();
+  if (flags & Qt::FramelessWindowHint) /* Already enabled */ return;
+  if (title_bar) title_bar->show();
+  flags |= Qt::FramelessWindowHint;
+  setWindowFlags(flags);
+  show();
+  emit resize_done(size());
 }

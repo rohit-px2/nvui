@@ -67,6 +67,13 @@ public slots:
    * 2. Updating a file tree (if it ever gets added)
    */
   void dirchanged_titlebar(msgpack::object_handle* dir_args);
+  /**
+   * Returns whether the window is frameless or not
+   */
+  inline bool is_frameless() const
+  {
+    return windowFlags() & Qt::FramelessWindowHint;
+  }
 private:
   /**
    * Wraps func around a blocking semaphore.
@@ -91,6 +98,18 @@ private:
    * passed just have to deal with their logic.
    */
   void listen_for_notification(std::string method, std::function<void (const msgpack::object_array&)> cb);
+  /**
+   * Disable the frameless window.
+   * The window should be in frameless mode,
+   * so windowState() & Qt::FramelessWindowHint should be true.
+   */
+  void disable_frameless_window();
+  /**
+   * Enable the frameless window.
+   * The window should not be in frameless window mode,
+   * so windowState() & Qt::FramelessWindowHint should be false.
+   */
+  void enable_frameless_window();
   QSemaphore semaphore;
   bool resizing;
   bool maximized = false;

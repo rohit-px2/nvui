@@ -498,6 +498,13 @@ void Window::register_handlers()
     int padding = params.ptr[0].as<int>();
     editor_area.cmdline_set_padding(padding);
   });
+  nvim->exec_viml(R"(
+  function! NvuiNotify(name, ...)
+    call call("rpcnotify", extend([1, a:name], a:000))
+  endfunction
+  )");
+  nvim->command("command! -nargs=* NvuiPopupMenuIconBg call NvuiNotify('NVUI_PUM_ICON_BG', <f-args>)");
+  nvim->command("command! -nargs=* NvuiPopupMenuIconFg call NvuiNotify('NVUI_PUM_ICON_FG', <f-args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuIconsRightAlign call rpcnotify(1, 'NVUI_PUM_ICONS_RIGHT', <args>)");
   nvim->command("command! -nargs=1 NvuiCmdPadding call rpcnotify(1, 'NVUI_CMD_PADDING', <args>)");
   nvim->command("command! -nargs=1 NvuiCmdCenterXPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_X', <args>)");
@@ -507,18 +514,18 @@ void Window::register_handlers()
   nvim->command("command! -nargs=1 NvuiCmdWidth call rpcnotify(1, 'NVUI_CMD_WIDTH', <args>)");
   nvim->command("command! -nargs=1 NvuiCmdHeight call rpcnotify(1, 'NVUI_CMD_HEIGHT', <args>)");
   nvim->command("command! -nargs=1 NvuiCmdFontSize call rpcnotify(1, 'NVUI_CMD_FONT_SIZE', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdFontFamily call rpcnotify(1, 'NVUI_CMD_FONT_FAMILY', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdFg call rpcnotify(1, 'NVUI_CMD_FG', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdBg call rpcnotify(1, 'NVUI_CMD_BG', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdFontFamily call NvuiNotify('NVUI_CMD_FONT_FAMILY', <f-args>)");
+  nvim->command("command! -nargs=1 NvuiCmdFg call NvuiNotify('NVUI_CMD_FG', <f-args>)");
+  nvim->command("command! -nargs=1 NvuiCmdBg call NvuiNotify('NVUI_CMD_BG', <f-args>)");
   nvim->command("command! -nargs=1 NvuiCmdBorderWidth call rpcnotify(1, 'NVUI_CMD_BORDER_WIDTH', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdBorderColor call rpcnotify(1, 'NVUI_CMD_BORDER_COLOR', <args>)");
+  nvim->command("command! -nargs=1 NvuiCmdBorderColor call NvuiNotify('NVUI_CMD_BORDER_COLOR', <f-args>)");
   nvim->command("command! -nargs=1 NvuiCmdBigFontScaleFactor call rpcnotify(1, 'NVUI_CMD_BIG_SCALE', <args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuDefaultIconFg call rpcnotify(1, 'NVUI_PUM_DEFAULT_ICON_FG', <args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuDefaultIconBg call rpcnotify(1, 'NVUI_PUM_DEFAULT_ICON_BG', <args>)");
+  nvim->command("command! -nargs=1 NvuiPopupMenuDefaultIconFg call NvuiNotify('NVUI_PUM_DEFAULT_ICON_FG', <f-args>)");
+  nvim->command("command! -nargs=1 NvuiPopupMenuDefaultIconBg call NvuiNotify('NVUI_PUM_DEFAULT_ICON_BG', <f-args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuIconSpacing call rpcnotify(1, 'NVUI_PUM_ICON_SPACING', <args>)");
   nvim->command("command! NvuiPopupMenuIconsToggle call rpcnotify(1, 'NVUI_PUM_ICONS_TOGGLE')");
   nvim->command("command! -nargs=1 NvuiPopupMenuIconOffset call rpcnotify(1, 'NVUI_PUM_ICON_OFFSET', <args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuBorderColor call rpcnotify(1, 'NVUI_PUM_BORDER_COLOR', <args>)");
+  nvim->command("command! -nargs=1 NvuiPopupMenuBorderColor call NvuiNotify('NVUI_PUM_BORDER_COLOR', <f-args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuBorderWidth call rpcnotify(1, 'NVUI_PUM_BORDER_WIDTH', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuMaxChars call rpcnotify(1, 'NVUI_PUM_MAX_CHARS', <args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuMaxItems call rpcnotify(1, 'NVUI_PUM_MAX_ITEMS', <args>)");

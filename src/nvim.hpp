@@ -9,6 +9,7 @@
 #include <thread>
 #include <msgpack.hpp>
 #include <atomic>
+#include <optional>
 
 enum Type : std::uint64_t {
   Request = 0,
@@ -127,6 +128,9 @@ public:
   /**
    * Send a request and execute a callback with the response and error
    * objects when the response is received.
+   * NOTE: For callbacks, cb is run on the Neovim thread.
+   * Make sure you take precautions before handling the data on another
+   * thread.
    */
   template<typename T>
   void send_request_cb(
@@ -143,6 +147,17 @@ public:
    * the response/error.
    */
   void eval_cb(const std::string& expr, response_cb cb);
+  /**
+   * Execute a block of VimL code. If response_cb contains a callback,
+   * the callback is called with the result.
+   * If capture_output is true, any output (e.g. printing) in the
+   * code becomes part of the result.
+   */
+  void exec_viml(
+    const std::string& str,
+    bool capture_output = false,
+    std::optional<response_cb> cb = std::nullopt
+  );
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;

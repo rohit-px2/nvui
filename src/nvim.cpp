@@ -433,6 +433,22 @@ void Nvim::eval_cb(const std::string& expr, response_cb cb)
   send_request_cb("nvim_eval", std::make_tuple(expr), std::move(cb));
 }
 
+void Nvim::exec_viml(
+  const std::string& str,
+  bool capture_output,
+  std::optional<response_cb> cb
+)
+{
+  if (cb)
+  {
+    send_request_cb("nvim_exec", std::make_tuple(str, capture_output), *cb);
+  }
+  else
+  {
+    send_notification("nvim_exec", std::make_tuple(str, capture_output));
+  }
+}
+
 Nvim::~Nvim()
 {
   // Close I/O Pipes and terminate process

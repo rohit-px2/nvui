@@ -75,6 +75,10 @@ public slots:
     return windowFlags() & Qt::FramelessWindowHint;
   }
   
+  /**
+   * Maximize the window.
+   */
+  void maximize();
 private:
   /**
    * Wraps func around a blocking semaphore.
@@ -137,6 +141,15 @@ private:
    * otherwise reverts back to how it was before.
    */
   void set_fullscreen(bool fullscreen);
+  /**
+   * Turn the window fullscreen.
+   * If the window is already fullscreen, this does nothing.
+   */
+  void fullscreen();
+  /**
+   * Un-fullscreen the window, restoring its original state.
+   */
+  void un_fullscreen();
   QSemaphore semaphore;
   bool resizing;
   bool maximized = false;
@@ -156,6 +169,7 @@ signals:
   void resize_done(QSize size);
   void default_colors_changed(QColor fg, QColor bg);
 protected:
+  bool nativeEvent(const QByteArray& e_type, void* msg, long* result) override;
   void changeEvent(QEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;

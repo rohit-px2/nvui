@@ -17,16 +17,14 @@
 /// on hover. For more info, see the implementation
 class MenuButton;
 
+class Window;
+
 /// Custom titlebar implementation that operates on the Window class.
-/// The only "special" thing that makes it work with the Window class
-/// is that we call use its resize/move function, so if it is to work
-/// with another class, that class must have a function called
-/// "resize_or_move" that takes a const QPointF&.
 class TitleBar : public QWidget
 {
   Q_OBJECT
 public:
-  TitleBar(QString text, QMainWindow* window);
+  TitleBar(QString text, Window* window);
   /**
    * Sets the right-side text to text.
    */
@@ -98,7 +96,7 @@ private:
   //QPushButton* close_btn;
   //QPushButton* max_btn;
   //QPushButton* min_btn;
-  QMainWindow* win;
+  Window* win;
   QFont title_font;
   QString left_text;
   QString right_text;

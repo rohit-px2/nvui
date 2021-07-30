@@ -21,6 +21,31 @@
 #include <thread>
 #include "constants.hpp"
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
+
+
+/// Add margin to a HWND window
+static void add_margin(HWND hwnd, MARGINS margins)
+{
+  DwmExtendFrameIntoClientArea(hwnd, &margins);
+}
+
+/// Remove margins from a HWND window
+static void remove_margin(HWND hwnd)
+{
+  MARGINS margins {0, 0, 0, 0};
+  DwmExtendFrameIntoClientArea(hwnd, &margins);
+}
+
+static void windows_setup_frameless(HWND hwnd)
+{
+  add_margin(hwnd, {0, 0, 1, 0});
+  SetWindowLong(hwnd, GWL_STYLE, WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CAPTION);
+}
+#endif
 /// Default is just for logging purposes.
 //constexpr auto default_handler = [](Window* w, const msgpack::object& obj) {
   //std::cout << obj << '\n';
@@ -45,10 +70,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   setMouseTracking(true);
   QObject::connect(this, &Window::resize_done, &editor_area, &decltype(editor_area)::resized);
   prev_state = windowState();
-  setWindowFlags(
-    Qt::FramelessWindowHint | Qt::WindowMinimizeButtonHint
-    | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint
-  );
+  setWindowFlags(Qt::FramelessWindowHint);
   const auto font_dims = editor_area.font_dimensions();
   resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
   emit resize_done(size());
@@ -61,6 +83,9 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   editor_area.setFocus();
   QObject::connect(this, &Window::default_colors_changed, title_bar.get(), &TitleBar::colors_changed);
   QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
+#ifdef Q_OS_WIN
+  windows_setup_frameless((HWND) winId());
+#endif
 }
 
 void Window::handle_redraw(msgpack::object_handle* redraw_args)
@@ -511,11 +536,18 @@ void Window::register_handlers()
     if (isFullScreen()) set_fullscreen(false);
     else set_fullscreen(true);
   });
+  listen_for_notification("NVUI_TB_SEPARATOR", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::STR) return;
+    QString new_sep = params.ptr[0].as<QString>();
+    title_bar->set_separator(std::move(new_sep));
+  });
   nvim->exec_viml(R"(
   function! NvuiNotify(name, ...)
     call call("rpcnotify", extend([1, a:name], a:000))
   endfunction
   )");
+  nvim->command("command! -nargs=1 NvuiTitlebarSeparator call rpcnotify(1, 'NVUI_TB_SEPARATOR', <args>)");
   nvim->command("command! -nargs=* NvuiPopupMenuIconBg call NvuiNotify('NVUI_PUM_ICON_BG', <f-args>)");
   nvim->command("command! -nargs=* NvuiPopupMenuIconFg call NvuiNotify('NVUI_PUM_ICON_FG', <f-args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuIconsRightAlign call rpcnotify(1, 'NVUI_PUM_ICONS_RIGHT', <args>)");
@@ -698,6 +730,19 @@ void Window::resizeEvent(QResizeEvent* event)
 
 void Window::moveEvent(QMoveEvent* event)
 {
+#ifdef Q_OS_WIN
+  static QScreen* cur_screen = nullptr;
+  if (!is_frameless()) return;
+  if (!cur_screen) cur_screen = screen();
+  else if (cur_screen != screen())
+  {
+    cur_screen = screen();
+    SetWindowPos((HWND) winId(), nullptr, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                   SWP_NOOWNERZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE);
+    return;
+  }
+#endif
   title_bar->update_maxicon();
   QMainWindow::moveEvent(event);
 }
@@ -738,8 +783,11 @@ void Window::disable_frameless_window()
   if (!(flags & Qt::FramelessWindowHint)) /* Already disabled */ return;
   if (title_bar) title_bar->hide();
   flags &= ~Qt::FramelessWindowHint;
+#ifdef Q_OS_WIN
+  remove_margin((HWND) winId());
+#endif
   setWindowFlags(flags);
-  show();
+  showNormal();
   emit resize_done(size());
 }
 
@@ -750,29 +798,22 @@ void Window::enable_frameless_window()
   if (title_bar) title_bar->show();
   flags |= Qt::FramelessWindowHint;
   setWindowFlags(flags);
-  show();
+#ifdef Q_OS_WIN
+  windows_setup_frameless((HWND) winId());
+#endif
+  // Kick the window out of any maximized/fullscreen state.
+  showNormal();
   emit resize_done(size());
 }
 
-void Window::set_fullscreen(bool fullscreen)
+void Window::set_fullscreen(bool enable_fullscreen)
 {
-  if (isFullScreen() == fullscreen) return;
-  if (fullscreen)
-  {
-    title_bar->hide();
-    showFullScreen();
-  }
+  if (isFullScreen() == enable_fullscreen) return;
+  if (enable_fullscreen) fullscreen();
   else
   {
-    if (prev_state & Qt::WindowMaximized)
-    {
-      setWindowState(Qt::WindowMaximized);
-      setGeometry(screen()->availableGeometry());
-    }
-    else showNormal();
-    show_title_bar();
+    un_fullscreen();
   }
-  emit resize_done(size());
 }
 
 void Window::changeEvent(QEvent* event)
@@ -781,6 +822,71 @@ void Window::changeEvent(QEvent* event)
   {
     auto ev = static_cast<QWindowStateChangeEvent*>(event);
     prev_state = ev->oldState();
+#ifdef Q_OS_WIN
+    if ((windowState() & Qt::WindowMaximized) && is_frameless())
+    {
+      // 8px bigger on each side when maximized on Windows as a frameless
+      // window
+      setContentsMargins(8, 8, 8, 8);
+    }
+    else
+    {
+      setContentsMargins(0, 0, 0, 0);
+    }
+#endif
   }
   QMainWindow::changeEvent(event);
+}
+
+bool Window::nativeEvent(const QByteArray& e_type, void* msg, long* result)
+{
+#ifdef Q_OS_WIN
+  Q_UNUSED(e_type);
+  if (!is_frameless()) return false;
+  MSG* message = static_cast<MSG*>(msg);
+  switch(message->message)
+  {
+    case WM_NCCALCSIZE:
+      *result = 0;
+      return true;
+  }
+#endif
+  return false;
+}
+
+void Window::maximize()
+{
+  setWindowState(Qt::WindowMaximized);
+  setGeometry(screen()->availableGeometry());
+}
+
+void Window::fullscreen()
+{
+  if (isFullScreen()) return;
+  title_bar->hide();
+#ifdef Q_OS_WIN
+  if (is_frameless())
+  {
+    // Remove margins (otherwise you see a border in fullscreen mode)
+    remove_margin((HWND) winId());
+  }
+#endif
+  showFullScreen();
+  emit resize_done(size());
+}
+
+void Window::un_fullscreen()
+{
+  if (!isFullScreen()) return;
+#ifdef Q_OS_WIN
+  if (is_frameless())
+  {
+    // Set the margins back to get the aero effects
+    add_margin((HWND) winId(), {0, 0, 1, 0});
+  }
+#endif
+  if (prev_state & Qt::WindowMaximized) maximize();
+  else showNormal();
+  show_title_bar();
+  emit resize_done(size());
 }

@@ -74,6 +74,7 @@ public slots:
   {
     return windowFlags() & Qt::FramelessWindowHint;
   }
+  
 private:
   /**
    * Wraps func around a blocking semaphore.
@@ -110,6 +111,32 @@ private:
    * so windowState() & Qt::FramelessWindowHint should be false.
    */
   void enable_frameless_window();
+  /**
+   * Hides the title bar.
+   * This just always hides it,
+   * since there is no reason not to, unlike with showing.
+   */
+  inline void hide_title_bar()
+  {
+    title_bar->hide();
+  }
+  
+  /**
+   * Shows the titlebar. Only activates if the window is a
+   * frameless window (otherwise you would get two title bars,
+   * the OS one and the custom one).
+   */
+  inline void show_title_bar()
+  {
+    if (!is_frameless()) return;
+    title_bar->show();
+  }
+
+  /**
+   * If fullscreen is true, shows the window in fullscreen mode,
+   * otherwise reverts back to how it was before.
+   */
+  void set_fullscreen(bool fullscreen);
   QSemaphore semaphore;
   bool resizing;
   bool maximized = false;
@@ -119,6 +146,7 @@ private:
   HLState hl_state;
   Nvim* nvim;
   std::unordered_map<std::string, obj_ref_cb> handlers;
+  QFlags<Qt::WindowState> prev_state;
 #ifdef Q_OS_WIN
   WinEditorArea editor_area;
 #else
@@ -128,6 +156,7 @@ signals:
   void resize_done(QSize size);
   void default_colors_changed(QColor fg, QColor bg);
 protected:
+  void changeEvent(QEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;

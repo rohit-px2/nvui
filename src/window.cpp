@@ -13,6 +13,7 @@
 #include <QApplication>
 #include <QPainter>
 #include <QPixmap>
+#include <QScreen>
 #include <QIcon>
 #include <QWindow>
 #include <QSizeGrip>
@@ -43,6 +44,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   assert(width > 0 && height > 0);
   setMouseTracking(true);
   QObject::connect(this, &Window::resize_done, &editor_area, &decltype(editor_area)::resized);
+  prev_state = windowState();
   setWindowFlags(
     Qt::FramelessWindowHint | Qt::WindowMinimizeButtonHint
     | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint
@@ -498,6 +500,17 @@ void Window::register_handlers()
     int padding = params.ptr[0].as<int>();
     editor_area.cmdline_set_padding(padding);
   });
+  listen_for_notification("NVUI_FULLSCREEN", [this](notification params) {
+    if (params.size == 0) return;
+    if (params.ptr[0].type != msgpack::type::BOOLEAN) return;
+    bool fullscreen = params.ptr[0].via.boolean;
+    set_fullscreen(fullscreen);
+  });
+  listen_for_notification("NVUI_TOGGLE_FULLSCREEN", [this](notification params) {
+    Q_UNUSED(params);
+    if (isFullScreen()) set_fullscreen(false);
+    else set_fullscreen(true);
+  });
   nvim->exec_viml(R"(
   function! NvuiNotify(name, ...)
     call call("rpcnotify", extend([1, a:name], a:000))
@@ -532,6 +545,8 @@ void Window::register_handlers()
   nvim->command("command! NvuiToggleFrameless call rpcnotify(1, 'NVUI_TOGGLE_FRAMELESS')");
   nvim->command("command! -nargs=1 NvuiOpacity call rpcnotify(1, 'NVUI_WINOPACITY', <args>)");
   nvim->command("command! -nargs=1 NvuiCharspace call rpcnotify(1, 'NVUI_CHARSPACE', <args>)");
+  nvim->command("command! -nargs=1 NvuiFullscreen call rpcnotify(1, 'NVUI_FULLSCREEN', <args>)");
+  nvim->command("command! NvuiToggleFullscreen call rpcnotify(1, 'NVUI_TOGGLE_FULLSCREEN')");
   // Display current file in titlebar 
   nvim->command("autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))");
   // Display current dir / update file tree on directory change
@@ -737,4 +752,35 @@ void Window::enable_frameless_window()
   setWindowFlags(flags);
   show();
   emit resize_done(size());
+}
+
+void Window::set_fullscreen(bool fullscreen)
+{
+  if (isFullScreen() == fullscreen) return;
+  if (fullscreen)
+  {
+    title_bar->hide();
+    showFullScreen();
+  }
+  else
+  {
+    if (prev_state & Qt::WindowMaximized)
+    {
+      setWindowState(Qt::WindowMaximized);
+      setGeometry(screen()->availableGeometry());
+    }
+    else showNormal();
+    show_title_bar();
+  }
+  emit resize_done(size());
+}
+
+void Window::changeEvent(QEvent* event)
+{
+  if (event->type() == QEvent::WindowStateChange)
+  {
+    auto ev = static_cast<QWindowStateChangeEvent*>(event);
+    prev_state = ev->oldState();
+  }
+  QMainWindow::changeEvent(event);
 }

@@ -166,6 +166,7 @@ private:
   EditorArea editor_area;
 #endif
 signals:
+  void win_state_changed(Qt::WindowStates new_state);
   void resize_done(QSize size);
   void default_colors_changed(QColor fg, QColor bg);
 protected:

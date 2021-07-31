@@ -377,3 +377,8 @@ void TitleBar::colors_changed(QColor fg, QColor bg)
 {
   set_color(fg, bg.lightness() > 127 ? bg.darker(110) : bg.lighter(120));
 }
+
+void TitleBar::win_state_changed(Qt::WindowStates state)
+{
+  update_maxicon();
+}

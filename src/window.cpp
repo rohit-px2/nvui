@@ -56,6 +56,10 @@ void for_each_in_tuple(std::tuple<Types...>& t, Func&& f)
   }
 }
 
+/**
+ * Automatically unpack msgpack::object_array into the desired parameters,
+ * or exit if it doesn't match.
+ */
 template<typename... T, typename Func>
 static std::function<void (const msgpack::object_array&)> paramify(Func f)
 {
@@ -105,6 +109,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   editor_area.setFocus();
   QObject::connect(this, &Window::default_colors_changed, title_bar.get(), &TitleBar::colors_changed);
   QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
+  QObject::connect(this, &Window::win_state_changed, title_bar.get(), &TitleBar::win_state_changed);
 #ifdef Q_OS_WIN
   windows_setup_frameless((HWND) winId());
 #endif
@@ -201,12 +206,6 @@ msgpack::object_handle Window::safe_copy(msgpack::object_handle* obj)
   semaphore.release();
   return oh;
 }
-
-static bool is_num(const msgpack::object& o) {
-  return o.type == msgpack::type::POSITIVE_INTEGER
-  || o.type == msgpack::type::NEGATIVE_INTEGER
-  || o.type == msgpack::type::FLOAT;
-};
 
 void Window::register_handlers()
 {
@@ -338,14 +337,16 @@ void Window::register_handlers()
   listen_for_notification("NVUI_CHARSPACE", paramify<std::uint16_t>([this](std::uint16_t space) {
     editor_area.set_charspace(space);
   }));
-  listen_for_notification("NVUI_CARET_EXTEND", [this](notification params) {
-    if (params.size == 0) return;
-    float caret_top = 0.f;
-    float caret_bottom = 0.f;
-    if (is_num(params.ptr[0])) caret_top = params.ptr[0].as<float>();
-    if (params.size >= 2 && is_num(params.ptr[1])) caret_bottom = params.ptr[1].as<float>();
-    editor_area.set_caret_dimensions(caret_top, caret_bottom);
-  });
+  listen_for_notification("NVUI_CARET_EXTEND", paramify<float, float>([this](float top, float bot) {
+    editor_area.set_caret_top(top);
+    editor_area.set_caret_bottom(bot);
+  }));
+  listen_for_notification("NVUI_CARET_EXTEND_TOP", paramify<float>([this](float caret_top) {
+    editor_area.set_caret_top(caret_top);
+  }));
+  listen_for_notification("NVUI_CARET_EXTEND_BOTTOM", paramify<float>([this](float bot) {
+    editor_area.set_caret_bottom(bot);
+  }));
   listen_for_notification("NVUI_PUM_MAX_ITEMS", paramify<std::size_t>([this](std::size_t max_items) {
     editor_area.popupmenu_set_max_items(max_items);
   }));
@@ -466,11 +467,31 @@ void Window::register_handlers()
   listen_for_notification("NVUI_TB_SEPARATOR", paramify<QString>([this](QString new_sep) {
     title_bar->set_separator(std::move(new_sep));
   }));
+  listen_for_notification("NVUI_TITLEBAR_FONT_FAMILY", paramify<QString>([this](QString family) {
+    title_bar->set_font_family(family);
+    emit resize_done(size());
+  }));
+  listen_for_notification("NVUI_TITLEBAR_FONT_SIZE", paramify<double>([&](double sz) {
+    auto prev = prev_state;
+    auto state = windowState();
+    title_bar->set_font_size(sz);
+    // Editor area doesn't resize properly to fit unless you resize the window
+    // with a different size
+    resize(width() + 1, height() + 1);
+    resize(width() - 1, height() - 1);
+    setWindowState(state);
+    // prev_state gets overriden, so we set it back to what it was before
+    prev_state = prev;
+  }));
   nvim->exec_viml(R"(
   function! NvuiNotify(name, ...)
     call call("rpcnotify", extend([1, a:name], a:000))
   endfunction
   )");
+  nvim->command("command! -nargs=1 NvuiTitlebarFontFamily call NvuiNotify('NVUI_TITLEBAR_FONT_FAMILY', <f-args>)");
+  nvim->command("command! -nargs=1 NvuiTitlebarFontSize call rpcnotify(1, 'NVUI_TITLEBAR_FONT_SIZE', <args>)");
+  nvim->command("command! -nargs=1 NvuiCaretExtendTop call rpcnotify(1, 'NVUI_CARET_EXTEND_TOP', <args>)");
+  nvim->command("command! -nargs=1 NvuiCaretExtendBottom call rpcnotify(1, 'NVUI_CARET_EXTEND_BOTTOM', <args>)");
   nvim->command("command! -nargs=1 NvuiTitlebarSeparator call rpcnotify(1, 'NVUI_TB_SEPARATOR', <args>)");
   nvim->command("command! -nargs=* NvuiPopupMenuIconFgBg call NvuiNotify('NVUI_PUM_ICON_COLORS', <f-args>)");
   nvim->command("command! -nargs=* NvuiPopupMenuIconBg call NvuiNotify('NVUI_PUM_ICON_BG', <f-args>)");
@@ -745,6 +766,7 @@ void Window::changeEvent(QEvent* event)
 {
   if (event->type() == QEvent::WindowStateChange)
   {
+    emit win_state_changed(windowState());
     auto ev = static_cast<QWindowStateChangeEvent*>(event);
     prev_state = ev->oldState();
 #ifdef Q_OS_WIN

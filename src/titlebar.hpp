@@ -71,6 +71,20 @@ public:
     if (titlebar_widget->isVisible()) return;
     titlebar_widget->show();
   }
+  inline void set_font_family(QString new_fam)
+  {
+    title_font.setFamily(new_fam);
+    label->setFont(title_font);
+  }
+  inline void set_font_size(double new_size)
+  {
+    title_font.setPointSizeF(new_size);
+    label->setFont(title_font);
+  }
+  inline QWidget* widget() const
+  {
+    return titlebar_widget;
+  }
 private:
   /**
    * Updates the titlebar with new colors.
@@ -107,6 +121,7 @@ private:
 public slots:
   void minimize_maximize();
   void colors_changed(QColor fg, QColor bg);
+  void win_state_changed(Qt::WindowStates state);
 signals:
   void resize_move(QPointF p);
 };

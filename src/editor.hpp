@@ -139,6 +139,8 @@ public:
   {
     neovim_cursor.set_caret_extend(extend_top, extend_bottom);
   }
+  inline void set_caret_top(float top) { neovim_cursor.set_caret_extend_top(top); }
+  inline void set_caret_bottom(float bot) { neovim_cursor.set_caret_extend_bottom(bot); }
 
   inline void popupmenu_show(NeovimObj obj, msg_size size)
   {

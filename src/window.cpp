@@ -21,15 +21,62 @@
 #include <thread>
 #include "constants.hpp"
 
-/// Default is just for logging purposes.
-//constexpr auto default_handler = [](Window* w, const msgpack::object& obj) {
-  //std::cout << obj << '\n';
-//};
 
-//static void print_rect(const std::string& prefix, const QRect& rect)
-//{
-  ////std::cout << prefix << "\n(" << rect.x() << ", " << rect.y() << ", " << rect.width() << ", " << rect.height() << ")\n";
-//}
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
+/// Add margin to a HWND window
+static void add_margin(HWND hwnd, MARGINS margins)
+{
+  DwmExtendFrameIntoClientArea(hwnd, &margins);
+}
+/// Remove margins from a HWND window
+static void remove_margin(HWND hwnd)
+{
+  MARGINS margins {0, 0, 0, 0};
+  DwmExtendFrameIntoClientArea(hwnd, &margins);
+}
+/// Setup the frameless window for aero snap, etc.
+static void windows_setup_frameless(HWND hwnd)
+{
+  add_margin(hwnd, {0, 0, 1, 0});
+  SetWindowLong(hwnd, GWL_STYLE, WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CAPTION);
+}
+#endif
+
+template<std::size_t idx = 0, typename... Types, typename Func>
+void for_each_in_tuple(std::tuple<Types...>& t, Func&& f)
+{
+  constexpr auto s = std::integral_constant<std::size_t, idx> {};
+  f(std::get<s>(t));
+  if constexpr(idx != sizeof...(Types) - 1)
+  {
+    for_each_in_tuple<idx + 1>(t, std::forward<Func>(f));
+  }
+}
+
+template<typename... T, typename Func>
+static std::function<void (const msgpack::object_array&)> paramify(Func f)
+{
+  return [f](const msgpack::object_array& arg_list) {
+    std::tuple<T...> t;
+    constexpr std::size_t types_len = sizeof...(T);
+    if (arg_list.size < types_len) return;
+    bool valid = true;
+    std::size_t idx = 0;
+    for_each_in_tuple(t, [&](auto& p) {
+      try
+      {
+        p = arg_list.ptr[idx].as<std::remove_reference_t<decltype(p)>>();
+      }
+      catch(...) { valid = false; }
+      ++idx;
+    });
+    if (!valid) return;
+    std::apply(f, t);
+  };
+}
 
 Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
 : QMainWindow(parent),
@@ -45,10 +92,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   setMouseTracking(true);
   QObject::connect(this, &Window::resize_done, &editor_area, &decltype(editor_area)::resized);
   prev_state = windowState();
-  setWindowFlags(
-    Qt::FramelessWindowHint | Qt::WindowMinimizeButtonHint
-    | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint
-  );
+  setWindowFlags(Qt::FramelessWindowHint);
   const auto font_dims = editor_area.font_dimensions();
   resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
   emit resize_done(size());
@@ -61,6 +105,9 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   editor_area.setFocus();
   QObject::connect(this, &Window::default_colors_changed, title_bar.get(), &TitleBar::colors_changed);
   QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
+#ifdef Q_OS_WIN
+  windows_setup_frameless((HWND) winId());
+#endif
 }
 
 void Window::handle_redraw(msgpack::object_handle* redraw_args)
@@ -279,25 +326,18 @@ void Window::register_handlers()
     );
   }));
   using notification = const msgpack::object_array&;
-  listen_for_notification("NVUI_WINOPACITY", [this](notification params) {
-    if (params.size == 0) return;
-    const msgpack::object& param = params.ptr[0];
-    if (!is_num(param)) return;
-    const double opacity = param.as<double>();
+  listen_for_notification("NVUI_WINOPACITY", paramify<float>([this](double opacity) {
     if (opacity <= 0.0 || opacity > 1.0) return;
     setWindowOpacity(opacity);
-  });
+  }));
   listen_for_notification("NVUI_TOGGLE_FRAMELESS", [this](notification params) {
     Q_UNUSED(params);
     if (is_frameless()) disable_frameless_window();
     else enable_frameless_window();
   });
-  listen_for_notification("NVUI_CHARSPACE", [this](notification params) {
-    if (params.size == 0) return;
-    const auto& space_obj = params.ptr[0];
-    if (space_obj.type != msgpack::type::POSITIVE_INTEGER) return;
-    editor_area.set_charspace(space_obj.as<std::uint16_t>());
-  });
+  listen_for_notification("NVUI_CHARSPACE", paramify<std::uint16_t>([this](std::uint16_t space) {
+    editor_area.set_charspace(space);
+  }));
   listen_for_notification("NVUI_CARET_EXTEND", [this](notification params) {
     if (params.size == 0) return;
     float caret_top = 0.f;
@@ -306,216 +346,133 @@ void Window::register_handlers()
     if (params.size >= 2 && is_num(params.ptr[1])) caret_bottom = params.ptr[1].as<float>();
     editor_area.set_caret_dimensions(caret_top, caret_bottom);
   });
-  listen_for_notification("NVUI_PUM_MAX_ITEMS", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::POSITIVE_INTEGER) return;
-    std::size_t max_items = params.ptr[0].as<std::size_t>();
+  listen_for_notification("NVUI_PUM_MAX_ITEMS", paramify<std::size_t>([this](std::size_t max_items) {
     editor_area.popupmenu_set_max_items(max_items);
-  });
-  listen_for_notification("NVUI_PUM_MAX_CHARS", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::POSITIVE_INTEGER) return;
-    std::size_t max_chars = params.ptr[0].as<std::size_t>();
+  }));
+  listen_for_notification("NVUI_PUM_MAX_CHARS", paramify<std::size_t>([this](std::size_t max_chars) {
     editor_area.popupmenu_set_max_chars(max_chars);
-  });
-  listen_for_notification("NVUI_PUM_BORDER_WIDTH", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::POSITIVE_INTEGER) return;
-    std::size_t b_width = params.ptr[0].as<std::size_t>();
+  }));
+  listen_for_notification("NVUI_PUM_BORDER_WIDTH", paramify<std::size_t>([this](std::size_t b_width) {
     editor_area.popupmenu_set_border_width(b_width);
-  });
-  listen_for_notification("NVUI_PUM_BORDER_COLOR", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    QString potential_clr = params.ptr[0].as<QString>();
+  }));
+  listen_for_notification("NVUI_PUM_BORDER_COLOR", paramify<QString>([this](QString potential_clr) {
     if (!QColor::isValidColor(potential_clr)) return;
     QColor new_pum_border_color {potential_clr};
     editor_area.popupmenu_set_border_color(new_pum_border_color);
-  });
+  }));
   listen_for_notification("NVUI_PUM_ICONS_TOGGLE", [this](notification params) {
     Q_UNUSED(params);
     editor_area.popupmenu_icons_toggle();
   });
-  listen_for_notification("NVUI_PUM_ICON_OFFSET", [this](notification params) {
-    if (params.size == 0) return;
-    if (!is_num(params.ptr[0])) return;
-    int offset = params.ptr[0].as<int>();
+  listen_for_notification("NVUI_PUM_ICON_OFFSET", paramify<int>([this](int offset) {
     editor_area.popupmenu_set_icon_size_offset(offset);
-  });
-  listen_for_notification("NVUI_PUM_ICON_SPACING", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::FLOAT) return;
-    float spacing = params.ptr[0].as<float>();
+  }));
+  listen_for_notification("NVUI_PUM_ICON_SPACING", paramify<float>([this](float spacing) {
     editor_area.popupmenu_set_icon_spacing(spacing);
-  });
+  }));
   // :call rpcnotify(1, 'NVUI_PUM_ICON_FG', '(iname)', '(background color)')
-  listen_for_notification("NVUI_PUM_ICON_BG", [this](notification params) {
-    if (params.size < 2) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    QString icon_name = params.ptr[0].as<QString>();
-    QString color_str = params.ptr[1].as<QString>();
+  listen_for_notification("NVUI_PUM_ICON_BG",
+    paramify<QString, QString>([this](QString icon_name, QString color_str) {
     if (!QColor::isValidColor(color_str)) return;
     editor_area.popupmenu_set_icon_bg(std::move(icon_name), {color_str});
-  });
+  }));
   // :call rpcnotify(1, 'NVUI_PUM_ICON_FG', '(iname)', '(foreground color)')
-  listen_for_notification("NVUI_PUM_ICON_FG", [this](notification params) {
-    if (params.size < 2) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    if (params.ptr[1].type != msgpack::type::STR) return;
-    QString icon_name = params.ptr[0].as<QString>();
-    QString color_str = params.ptr[1].as<QString>();
-    if (!QColor::isValidColor(color_str)) return;
-    editor_area.popupmenu_set_icon_fg(std::move(icon_name), {color_str});
-  });
-  // :call rpcnotify(1, 'NVUI_PUM_ICON_COLORS', '(iname)', '(foreground color)', '(background color)')
-  listen_for_notification("NVUI_PUM_ICON_COLORS", [this](notification params) {
-    if (params.size < 3) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    if (params.ptr[1].type != msgpack::type::STR) return;
-    if (params.ptr[2].type != msgpack::type::STR) return;
-    QString icon_name = params.ptr[0].as<QString>();
-    QString fg_str = params.ptr[1].as<QString>();
-    QString bg_str = params.ptr[2].as<QString>();
-    if (!QColor::isValidColor(fg_str) || !QColor::isValidColor(bg_str)) return;
-    QColor fg {fg_str}, bg {bg_str};
-    editor_area.popupmenu_set_icon_colors(icon_name, std::move(fg), std::move(bg));
-  });
-  listen_for_notification("NVUI_PUM_DEFAULT_ICON_FG", [this](notification params) {
-    if (params.size < 1) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    QString fg_str = params.ptr[0].as<QString>();
+  listen_for_notification("NVUI_PUM_ICON_FG",
+    paramify<QString, QString>([this](QString icon_name, QString color_str) {
+      if (!QColor::isValidColor(color_str)) return;
+      editor_area.popupmenu_set_icon_fg(std::move(icon_name), {color_str});
+  }));
+  listen_for_notification("NVUI_PUM_ICON_COLORS",
+    paramify<QString, QString, QString>([this](QString icon_name, QString fg_str, QString bg_str) {
+      if (!QColor::isValidColor(fg_str) || !QColor::isValidColor(bg_str)) return;
+      QColor fg {fg_str}, bg {bg_str};
+      editor_area.popupmenu_set_icon_colors(icon_name, std::move(fg), std::move(bg));
+  }));
+  listen_for_notification("NVUI_PUM_DEFAULT_ICON_FG", paramify<QString>([this](QString fg_str) {
     if (!QColor::isValidColor(fg_str)) return;
     editor_area.popupmenu_set_default_icon_fg({fg_str});
-  });
-  listen_for_notification("NVUI_PUM_DEFAULT_ICON_BG", [this](notification params) {
-    if (params.size < 1) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    QString bg_str = params.ptr[0].as<QString>();
+  }));
+  listen_for_notification("NVUI_PUM_DEFAULT_ICON_BG", paramify<QString>([this](QString bg_str) {
     if (!QColor::isValidColor(bg_str)) return;
     editor_area.popupmenu_set_default_icon_bg({bg_str});
-  });
-  listen_for_notification("NVUI_PUM_ICONS_RIGHT", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::BOOLEAN) return;
-    bool icons_on_right = params.ptr[0].as<bool>();
+  }));
+  listen_for_notification("NVUI_PUM_ICONS_RIGHT", paramify<bool>([this](bool icons_on_right) {
     editor_area.popupmenu_set_icons_right(icons_on_right);
-  });
-  listen_for_notification("NVUI_CMD_FONT_SIZE", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::FLOAT) return;
-    float size = params.ptr[0].as<float>();
+  }));
+  listen_for_notification("NVUI_CMD_FONT_SIZE", paramify<float>([this](float size) {
     if (size <= 0.f) return;
     editor_area.cmdline_set_font_size(size);
-  });
-  listen_for_notification("NVUI_CMD_BIG_SCALE", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::FLOAT) return;
-    float scale = params.ptr[0].as<float>();
+  }));
+  listen_for_notification("NVUI_CMD_BIG_SCALE", paramify<float>([this](float scale) {
     if (scale <= 0.f) return;
     editor_area.cmdline_set_font_scale_ratio(scale);
-  });
-  listen_for_notification("NVUI_CMD_FONT_FAMILY", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    QString family = params.ptr[0].as<QString>();
+  }));
+  listen_for_notification("NVUI_CMD_FONT_FAMILY", paramify<QString>([this](QString family) {
     editor_area.cmdline_set_font_family(family);
-  });
-  listen_for_notification("NVUI_CMD_BG", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    QString bg_str = params.ptr[0].as<QString>();
+  }));
+  listen_for_notification("NVUI_CMD_BG", paramify<QString>([this](QString bg_str) {
     if (!QColor::isValidColor(bg_str)) return;
     QColor bg {bg_str};
     editor_area.cmdline_set_bg(bg);
-  });
-  listen_for_notification("NVUI_CMD_FG", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    QString fg_str = params.ptr[0].as<QString>();
+  }));
+  listen_for_notification("NVUI_CMD_FG", paramify<QString>([this](QString fg_str) {
     if (!QColor::isValidColor(fg_str)) return;
     QColor fg {fg_str};
     editor_area.cmdline_set_fg(fg);
-  });
-  listen_for_notification("NVUI_CMD_BORDER_WIDTH", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::POSITIVE_INTEGER) return;
-    int width = params.ptr[0].as<int>();
+  }));
+  listen_for_notification("NVUI_CMD_BORDER_WIDTH", paramify<int>([this](int width) {
     if (width < 0.f) return;
     editor_area.cmdline_set_border_width(width);
-  });
-  listen_for_notification("NVUI_CMD_BORDER_COLOR", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::STR) return;
-    QString color_str = params.ptr[0].as<QString>();
+  }));
+  listen_for_notification("NVUI_CMD_BORDER_COLOR", paramify<QString>([this](QString color_str) {
     if (!QColor::isValidColor(color_str)) return;
     QString color {color_str};
     editor_area.cmdline_set_border_color(color);
-  });
-  listen_for_notification("NVUI_CMD_SET_LEFT", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::FLOAT) return;
-    float new_x = params.ptr[0].as<float>();
+  }));
+  listen_for_notification("NVUI_CMD_SET_LEFT", paramify<float>([this](float new_x) {
     if (new_x < 0.f || new_x > 1.f) return;
     editor_area.cmdline_set_x(new_x);
-  });
-  listen_for_notification("NVUI_CMD_YPOS", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::FLOAT) return;
-    float new_y = params.ptr[0].as<float>();
+  }));
+  listen_for_notification("NVUI_CMD_YPOS", paramify<float>([this](float new_y) {
     if (new_y < 0.f || new_y > 1.f) return;
     editor_area.cmdline_set_y(new_y);
-  });
-  listen_for_notification("NVUI_CMD_WIDTH", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::FLOAT) return;
-    float new_width = params.ptr[0].as<float>();
+  }));
+  listen_for_notification("NVUI_CMD_WIDTH", paramify<float>([this](float new_width) {
     if (new_width < 0.f || new_width > 1.f) return;
     editor_area.cmdline_set_width(new_width);
-  });
-  listen_for_notification("NVUI_CMD_HEIGHT", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::FLOAT) return;
-    float new_height = params.ptr[0].as<float>();
+  }));
+  listen_for_notification("NVUI_CMD_HEIGHT", paramify<float>([this](float new_height) {
     if (new_height < 0.f || new_height > 1.f) return;
     editor_area.cmdline_set_height(new_height);
-  });
-  listen_for_notification("NVUI_CMD_SET_CENTER_X", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::FLOAT) return;
-    float center_x = params.ptr[0].as<float>();
+  }));
+  listen_for_notification("NVUI_CMD_SET_CENTER_X", paramify<float>([this](float center_x) {
     if (center_x < 0.f || center_x > 1.f) return;
     editor_area.cmdline_set_center_x(center_x);
-  });
-  listen_for_notification("NVUI_CMD_SET_CENTER_Y", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::FLOAT) return;
-    float center_y = params.ptr[0].as<float>();
+  }));
+  listen_for_notification("NVUI_CMD_SET_CENTER_Y", paramify<float>([this](float center_y) {
     if (center_y < 0.f || center_y > 1.f) return;
     editor_area.cmdline_set_center_y(center_y);
-  });
-  listen_for_notification("NVUI_CMD_PADDING", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::POSITIVE_INTEGER) return;
-    int padding = params.ptr[0].as<int>();
+  }));
+  listen_for_notification("NVUI_CMD_PADDING", paramify<int>([this](int padding) {
     editor_area.cmdline_set_padding(padding);
-  });
-  listen_for_notification("NVUI_FULLSCREEN", [this](notification params) {
-    if (params.size == 0) return;
-    if (params.ptr[0].type != msgpack::type::BOOLEAN) return;
-    bool fullscreen = params.ptr[0].via.boolean;
-    set_fullscreen(fullscreen);
-  });
-  listen_for_notification("NVUI_TOGGLE_FULLSCREEN", [this](notification params) {
-    Q_UNUSED(params);
+  }));
+  listen_for_notification("NVUI_FULLSCREEN", paramify<bool>([this](bool b) {
+    set_fullscreen(b);
+  }));
+  listen_for_notification("NVUI_TOGGLE_FULLSCREEN", [this](auto) {
     if (isFullScreen()) set_fullscreen(false);
     else set_fullscreen(true);
   });
+  listen_for_notification("NVUI_TB_SEPARATOR", paramify<QString>([this](QString new_sep) {
+    title_bar->set_separator(std::move(new_sep));
+  }));
   nvim->exec_viml(R"(
   function! NvuiNotify(name, ...)
     call call("rpcnotify", extend([1, a:name], a:000))
   endfunction
   )");
+  nvim->command("command! -nargs=1 NvuiTitlebarSeparator call rpcnotify(1, 'NVUI_TB_SEPARATOR', <args>)");
+  nvim->command("command! -nargs=* NvuiPopupMenuIconFgBg call NvuiNotify('NVUI_PUM_ICON_COLORS', <f-args>)");
   nvim->command("command! -nargs=* NvuiPopupMenuIconBg call NvuiNotify('NVUI_PUM_ICON_BG', <f-args>)");
   nvim->command("command! -nargs=* NvuiPopupMenuIconFg call NvuiNotify('NVUI_PUM_ICON_FG', <f-args>)");
   nvim->command("command! -nargs=1 NvuiPopupMenuIconsRightAlign call rpcnotify(1, 'NVUI_PUM_ICONS_RIGHT', <args>)");
@@ -698,6 +655,19 @@ void Window::resizeEvent(QResizeEvent* event)
 
 void Window::moveEvent(QMoveEvent* event)
 {
+#ifdef Q_OS_WIN
+  static QScreen* cur_screen = nullptr;
+  if (!is_frameless()) return;
+  if (!cur_screen) cur_screen = screen();
+  else if (cur_screen != screen())
+  {
+    cur_screen = screen();
+    SetWindowPos((HWND) winId(), nullptr, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                   SWP_NOOWNERZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE);
+    return;
+  }
+#endif
   title_bar->update_maxicon();
   QMainWindow::moveEvent(event);
 }
@@ -738,8 +708,11 @@ void Window::disable_frameless_window()
   if (!(flags & Qt::FramelessWindowHint)) /* Already disabled */ return;
   if (title_bar) title_bar->hide();
   flags &= ~Qt::FramelessWindowHint;
+#ifdef Q_OS_WIN
+  remove_margin((HWND) winId());
+#endif
   setWindowFlags(flags);
-  show();
+  showNormal();
   emit resize_done(size());
 }
 
@@ -750,29 +723,22 @@ void Window::enable_frameless_window()
   if (title_bar) title_bar->show();
   flags |= Qt::FramelessWindowHint;
   setWindowFlags(flags);
-  show();
+#ifdef Q_OS_WIN
+  windows_setup_frameless((HWND) winId());
+#endif
+  // Kick the window out of any maximized/fullscreen state.
+  showNormal();
   emit resize_done(size());
 }
 
-void Window::set_fullscreen(bool fullscreen)
+void Window::set_fullscreen(bool enable_fullscreen)
 {
-  if (isFullScreen() == fullscreen) return;
-  if (fullscreen)
-  {
-    title_bar->hide();
-    showFullScreen();
-  }
+  if (isFullScreen() == enable_fullscreen) return;
+  if (enable_fullscreen) fullscreen();
   else
   {
-    if (prev_state & Qt::WindowMaximized)
-    {
-      setWindowState(Qt::WindowMaximized);
-      setGeometry(screen()->availableGeometry());
-    }
-    else showNormal();
-    show_title_bar();
+    un_fullscreen();
   }
-  emit resize_done(size());
 }
 
 void Window::changeEvent(QEvent* event)
@@ -781,6 +747,71 @@ void Window::changeEvent(QEvent* event)
   {
     auto ev = static_cast<QWindowStateChangeEvent*>(event);
     prev_state = ev->oldState();
+#ifdef Q_OS_WIN
+    if ((windowState() & Qt::WindowMaximized) && is_frameless())
+    {
+      // 8px bigger on each side when maximized on Windows as a frameless
+      // window
+      setContentsMargins(8, 8, 8, 8);
+    }
+    else
+    {
+      setContentsMargins(0, 0, 0, 0);
+    }
+#endif
   }
   QMainWindow::changeEvent(event);
+}
+
+bool Window::nativeEvent(const QByteArray& e_type, void* msg, long* result)
+{
+#ifdef Q_OS_WIN
+  Q_UNUSED(e_type);
+  if (!is_frameless()) return false;
+  MSG* message = static_cast<MSG*>(msg);
+  switch(message->message)
+  {
+    case WM_NCCALCSIZE:
+      *result = 0;
+      return true;
+  }
+#endif
+  return false;
+}
+
+void Window::maximize()
+{
+  setWindowState(Qt::WindowMaximized);
+  setGeometry(screen()->availableGeometry());
+}
+
+void Window::fullscreen()
+{
+  if (isFullScreen()) return;
+  title_bar->hide();
+#ifdef Q_OS_WIN
+  if (is_frameless())
+  {
+    // Remove margins (otherwise you see a border in fullscreen mode)
+    remove_margin((HWND) winId());
+  }
+#endif
+  showFullScreen();
+  emit resize_done(size());
+}
+
+void Window::un_fullscreen()
+{
+  if (!isFullScreen()) return;
+#ifdef Q_OS_WIN
+  if (is_frameless())
+  {
+    // Set the margins back to get the aero effects
+    add_margin((HWND) winId(), {0, 0, 1, 0});
+  }
+#endif
+  if (prev_state & Qt::WindowMaximized) maximize();
+  else showNormal();
+  show_title_bar();
+  emit resize_done(size());
 }

@@ -19,6 +19,7 @@
 #include <QWindow>
 #include <QtCore/QStringBuilder>
 #include "constants.hpp"
+#include "window.hpp"
 
 constexpr int RATIO = 36; // I think the height of menu bar is 30px on 1080p screen
 
@@ -78,12 +79,10 @@ private:
     Q_UNUSED(event);
     if (cursor() == Qt::ArrowCursor)
     {
-      //setStyleSheet(hov_ss);
       cur_bg = hov_bg;
     }
     else
     {
-      //setStyleSheet(style);
       cur_bg = default_bg;
     }
     update();
@@ -95,7 +94,6 @@ private:
     if (cursor() == Qt::ArrowCursor)
     {
       cur_bg = hov_bg;
-      //setStyleSheet(hov_ss);
     }
     update();
   }
@@ -103,7 +101,6 @@ private:
   void hover_leave(QHoverEvent* event)
   {
     Q_UNUSED(event);
-    //setStyleSheet(style);
     cur_bg = default_bg;
     update();
   }
@@ -113,9 +110,6 @@ private:
     Q_UNUSED(event);
     if (cursor() != Qt::ArrowCursor)
     {
-      // Little hacky but it works.
-      // window() object is actually our custom Window
-      // object that contains a resize_or_move function
       resize_move_handler(event->windowPos());
     }
     else
@@ -169,9 +163,6 @@ protected:
     QPainter painter(this);
     painter.fillRect(rect(), cur_bg);
     QPushButton::paintEvent(event);
-    //const QRect& btn_rect = rect();
-    //const QRect center_small = {btn_rect.x() + 4, btn_rect.y() + 4, btn_rect.width() - 8, btn_rect.height() - 8};
-    //icon().paint(&painter, center_small);
   }
 };
 
@@ -184,7 +175,7 @@ static const QColor mm_light = "#665c74";
 static const QColor mm_dark = "#3d4148";
 static const QColor close_bg = {255, 0, 0}; // completely red
 
-TitleBar::TitleBar(QString text, QMainWindow* window)
+TitleBar::TitleBar(QString text, Window* window)
 : separator(" "),
   maximized(false),
   foreground("#ffffff"),
@@ -374,15 +365,12 @@ void TitleBar::minimize_maximize()
   if (win->isMaximized())
   {
     win->showNormal();
-    update_maxicon();
   }
   else
   {
-    win->setWindowState(Qt::WindowMaximized);
-    // showMaximized will overlap the taskbar sometimes
-    win->setGeometry(win->screen()->availableGeometry());
-    update_maxicon();
+    win->maximize();
   }
+  update_maxicon();
 }
 
 void TitleBar::colors_changed(QColor fg, QColor bg)

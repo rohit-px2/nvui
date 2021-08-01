@@ -150,6 +150,13 @@ private:
    * Un-fullscreen the window, restoring its original state.
    */
   void un_fullscreen();
+  /**
+   * Updates the title bar colors.
+   * If titlebar_colors contains a value, then it uses
+   * titlebar_colors's values.
+   * Otherwise, it uses the default colors.
+   */
+  void update_titlebar_colors();
   QSemaphore semaphore;
   bool resizing;
   bool maximized = false;
@@ -160,6 +167,7 @@ private:
   Nvim* nvim;
   std::unordered_map<std::string, obj_ref_cb> handlers;
   QFlags<Qt::WindowState> prev_state;
+  std::optional<std::pair<QColor, QColor>> titlebar_colors;
 #ifdef Q_OS_WIN
   WinEditorArea editor_area;
 #else

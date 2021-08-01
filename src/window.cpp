@@ -107,7 +107,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   // We'll do this later
   setCentralWidget(&editor_area);
   editor_area.setFocus();
-  QObject::connect(this, &Window::default_colors_changed, title_bar.get(), &TitleBar::colors_changed);
+  QObject::connect(this, &Window::default_colors_changed, [this] { update_titlebar_colors(); });
   QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
   QObject::connect(this, &Window::win_state_changed, title_bar.get(), &TitleBar::win_state_changed);
 #ifdef Q_OS_WIN
@@ -483,11 +483,24 @@ void Window::register_handlers()
     // prev_state gets overriden, so we set it back to what it was before
     prev_state = prev;
   }));
+  listen_for_notification("NVUI_TITLEBAR_COLORS",
+    paramify<QString, QString>([this](QString fg, QString bg) {
+      QColor fgc = fg, bgc = bg;
+      if (!fgc.isValid() || !bgc.isValid()) return;
+      titlebar_colors = {fgc, bgc};
+      update_titlebar_colors();
+  }));
+  listen_for_notification("NVUI_TITLEBAR_UNSET_COLORS", [this](auto) {
+    titlebar_colors.reset();
+    update_titlebar_colors();
+  });
   nvim->exec_viml(R"(
   function! NvuiNotify(name, ...)
     call call("rpcnotify", extend([1, a:name], a:000))
   endfunction
   )");
+  nvim->command("command! -nargs=* NvuiTitlebarColors call NvuiNotify('NVUI_TITLEBAR_COLORS', <f-args>)");
+  nvim->command("command! NvuiTitlebarUnsetColors call NvuiNotify('NVUI_TITLEBAR_UNSET_COLORS')");
   nvim->command("command! -nargs=1 NvuiTitlebarFontFamily call NvuiNotify('NVUI_TITLEBAR_FONT_FAMILY', <f-args>)");
   nvim->command("command! -nargs=1 NvuiTitlebarFontSize call rpcnotify(1, 'NVUI_TITLEBAR_FONT_SIZE', <args>)");
   nvim->command("command! -nargs=1 NvuiCaretExtendTop call rpcnotify(1, 'NVUI_CARET_EXTEND_TOP', <args>)");
@@ -836,4 +849,17 @@ void Window::un_fullscreen()
   else showNormal();
   show_title_bar();
   emit resize_done(size());
+}
+
+void Window::update_titlebar_colors()
+{
+  if (titlebar_colors)
+  {
+    title_bar->set_color(titlebar_colors->first, titlebar_colors->second);
+  }
+  else
+  {
+    const HLAttr& def_clrs = hl_state.default_colors_get();
+    title_bar->colors_changed(def_clrs.fg()->qcolor(), def_clrs.bg()->qcolor());
+  }
 }

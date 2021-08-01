@@ -158,6 +158,18 @@ public:
     bool capture_output = false,
     std::optional<response_cb> cb = std::nullopt
   );
+  /**
+   * Send a mouse input event with the given parameters.
+   * Corresponds directly to Neovim API's nvim_input_mouse function.
+   */
+  void input_mouse(
+    std::string button,
+    std::string action,
+    std::string modifiers,
+    int grid,
+    int row,
+    int col
+  );
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;

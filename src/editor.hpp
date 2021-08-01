@@ -241,6 +241,7 @@ public:
   inline void cmdline_set_center_x(float x) { cmdline.set_center_x(x); reposition_cmdline(); }
   inline void cmdline_set_center_y(float y) { cmdline.set_center_y(y); reposition_cmdline(); }
   inline void cmdline_set_padding(int padding) { cmdline.set_padding(padding); }
+  inline void set_mouse_enabled(bool enabled) { mouse_enabled = enabled; }
 protected:
   // Differentiate between redrawing and clearing (since clearing is
   // a lot easier)
@@ -280,6 +281,7 @@ protected:
   bool neovim_is_resizing = false;
   std::optional<QSize> queued_resize = std::nullopt;
   std::unordered_map<std::uint32_t, std::uint32_t> font_for_unicode;
+  bool mouse_enabled = false;
   /**
    * Sets the current font to new_font.
    */
@@ -369,6 +371,31 @@ protected:
   {
     popup_menu.hide();
   }
+
+  struct GridPos
+  {
+    int grid_num;
+    int row;
+    int col;
+  };
+  /**
+   * Get the grid num, row, and column for the given
+   * (x, y) pixel position.
+   * Returns nullopt if no grid could be found that
+   * matches the requirements.
+   */
+  std::optional<GridPos> grid_pos_for(const QPoint& pos);
+  /**
+   * Calculate the position for the mouse click event
+   * and send the mouse input with the given button,
+   * action, and modifiers.
+   */
+  void send_mouse_input(
+    QPoint pos,
+    std::string button,
+    std::string action,
+    std::string modifiers
+  );
 public slots:
   /**
    * Handle a window resize.
@@ -386,6 +413,9 @@ protected:
   void resizeEvent(QResizeEvent* event) override;
   void paintEvent(QPaintEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
+  void wheelEvent(QWheelEvent* event) override;
+  void mouseMoveEvent(QMouseEvent* event) override;
+  void mouseReleaseEvent(QMouseEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   bool focusNextPrevChild(bool next) override;
   void dropEvent(QDropEvent* event) override;

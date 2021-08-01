@@ -22,11 +22,6 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
-static QColor to_qcolor(const Color& clr)
-{
-  return {clr.r, clr.g, clr.b};
-}
-
 static int get_offset(const QFont& font, const int linespacing)
 {
   QFontMetrics fm {font};
@@ -642,12 +637,28 @@ void EditorArea::grid_scroll(const msgpack::object* obj, std::uint32_t size)
   events.push(PaintEventItem {PaintKind::Draw, grid_num, rect});
 }
 
-void EditorArea::mousePressEvent(QMouseEvent* event)
+static std::string mouse_button_to_string(Qt::MouseButtons btn)
 {
-  if (cursor() != Qt::ArrowCursor)
+  switch(btn)
   {
-    QWidget::mousePressEvent(event);
+    case Qt::LeftButton:
+      return std::string("left");
+    case Qt::RightButton:
+      return std::string("right");
+    case Qt::MiddleButton:
+      return std::string("middle");
+    default:
+      return std::string("");
   }
+}
+
+static std::string mouse_mods_to_string(Qt::KeyboardModifiers mods)
+{
+  std::string mod_str;
+  if (mods & Qt::ControlModifier) mod_str.push_back('c');
+  if (mods & Qt::AltModifier) mod_str.push_back('a');
+  if (mods & Qt::ShiftModifier) mod_str.push_back('s');
+  return mod_str;
 }
 
 void EditorArea::set_resizing(bool is_resizing)
@@ -902,4 +913,110 @@ void EditorArea::resizeEvent(QResizeEvent* event)
   QColor bg = state->default_colors_get().background->to_uint32();
   p.fillRect(pixmap.rect(), bg);
   events.push({PaintKind::Redraw, 0, QRect()});
+}
+
+std::optional<EditorArea::GridPos>
+EditorArea::grid_pos_for(const QPoint& pos)
+{
+  const auto font_dims = font_dimensions();
+  const auto font_width = std::get<0>(font_dims);
+  const auto font_height = std::get<1>(font_dims);
+  for(const auto& grid : grids)
+  {
+    const auto start_y = grid.y * font_height;
+    const auto start_x = grid.x * font_width;
+    const auto height = grid.rows * font_height;
+    const auto width = grid.cols * font_width;
+    if (QRect(start_x, start_y, width, height).contains(pos))
+    {
+      int row = (pos.y() - grid.y) / font_height;
+      int col = (pos.x() - grid.x) / font_width;
+      return GridPos {grid.id, row, col};
+    }
+  }
+  return std::nullopt;
+}
+
+void EditorArea::send_mouse_input(
+  QPoint pos,
+  std::string button,
+  std::string action,
+  std::string modifiers
+)
+{
+  if (!mouse_enabled) return;
+  if (pos.x() < 0) pos.setX(0);
+  if (pos.y() < 0) pos.setY(0);
+  if (pos.x() > width()) pos.setX(width());
+  if (pos.y() > height()) pos.setY(height());
+  auto grid_pos_opt = grid_pos_for(pos);
+  if (!grid_pos_opt)
+  {
+    fmt::print(
+      "No grid found for action '{}' on ({},{})\n", action,
+      pos.x(), pos.y()
+    );
+    return;
+  }
+  auto&& [grid_num, row, col] = *grid_pos_opt;
+  nvim->input_mouse(
+    std::move(button), std::move(action), std::move(modifiers),
+    grid_num, row, col
+  );
+}
+
+void EditorArea::mousePressEvent(QMouseEvent* event)
+{
+  if (cursor() != Qt::ArrowCursor)
+  {
+    QWidget::mousePressEvent(event);
+    return;
+  }
+  if (!mouse_enabled) return;
+  std::string btn_text = mouse_button_to_string(event->button());
+  if (btn_text.empty()) return;
+  std::string action = "press";
+  std::string mods = mouse_mods_to_string(event->modifiers());
+  send_mouse_input(
+    event->pos(), std::move(btn_text), std::move(action), std::move(mods)
+  );
+}
+
+void EditorArea::mouseMoveEvent(QMouseEvent* event)
+{
+  if (!mouse_enabled) return;
+  auto button = mouse_button_to_string(event->buttons());
+  if (button.empty()) return;
+  auto mods = mouse_mods_to_string(event->modifiers());
+  std::string action = "drag";
+  send_mouse_input(
+    event->pos(), std::move(button), std::move(action), std::move(mods)
+  );
+}
+
+void EditorArea::mouseReleaseEvent(QMouseEvent* event)
+{
+  if (!mouse_enabled) return;
+  auto button = mouse_button_to_string(event->button());
+  if (button.empty()) return;
+  auto mods = mouse_mods_to_string(event->modifiers());
+  std::string action = "release";
+  send_mouse_input(
+    event->pos(), std::move(button), std::move(action), std::move(mods)
+  );
+}
+
+void EditorArea::wheelEvent(QWheelEvent* event)
+{
+  if (!mouse_enabled) return;
+  std::string button = "wheel";
+  std::string action = "";
+  auto mods = mouse_mods_to_string(event->modifiers());
+  if (event->angleDelta().y() > 0) /* scroll up */ action = "up";
+  else if (event->angleDelta().y() < 0) /* scroll down */ action = "down";
+  if (action.empty()) return;
+  QPoint wheel_pos = event->position().toPoint();
+  send_mouse_input(
+    wheel_pos, std::move(button), std::move(action), std::move(mods)
+  );
 }

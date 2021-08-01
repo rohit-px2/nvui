@@ -167,7 +167,9 @@ private:
   Nvim* nvim;
   std::unordered_map<std::string, obj_ref_cb> handlers;
   QFlags<Qt::WindowState> prev_state;
-  std::optional<std::pair<QColor, QColor>> titlebar_colors;
+  template<typename T>
+  using opt = std::optional<T>;
+  std::pair<opt<QColor>, opt<QColor>> titlebar_colors;
 #ifdef Q_OS_WIN
   WinEditorArea editor_area;
 #else

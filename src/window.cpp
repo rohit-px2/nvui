@@ -491,14 +491,29 @@ void Window::register_handlers()
       update_titlebar_colors();
   }));
   listen_for_notification("NVUI_TITLEBAR_UNSET_COLORS", [this](auto) {
-    titlebar_colors.reset();
+    titlebar_colors.first.reset();
+    titlebar_colors.second.reset();
     update_titlebar_colors();
   });
+  listen_for_notification("NVUI_TITLEBAR_FG", paramify<QString>([this](QString fgs) {
+    QColor fg = fgs;
+    if (!fg.isValid()) return;
+    titlebar_colors.first = fg;
+    update_titlebar_colors();
+  }));
+  listen_for_notification("NVUI_TITLEBAR_BG", paramify<QString>([this](QString bgs) {
+    QColor bg = bgs;
+    if (!bg.isValid()) return;
+    titlebar_colors.second = bg;
+    update_titlebar_colors();
+  }));
   nvim->exec_viml(R"(
   function! NvuiNotify(name, ...)
     call call("rpcnotify", extend([1, a:name], a:000))
   endfunction
   )");
+  nvim->command("command! -nargs=1 NvuiTitlebarBg call NvuiNotify('NVUI_TITLEBAR_BG', <f-args>)");
+  nvim->command("command! -nargs=1 NvuiTitlebarFg call NvuiNotify('NVUI_TITLEBAR_FG', <f-args>)");
   nvim->command("command! -nargs=* NvuiTitlebarColors call NvuiNotify('NVUI_TITLEBAR_COLORS', <f-args>)");
   nvim->command("command! NvuiTitlebarUnsetColors call NvuiNotify('NVUI_TITLEBAR_UNSET_COLORS')");
   nvim->command("command! -nargs=1 NvuiTitlebarFontFamily call NvuiNotify('NVUI_TITLEBAR_FONT_FAMILY', <f-args>)");
@@ -853,13 +868,8 @@ void Window::un_fullscreen()
 
 void Window::update_titlebar_colors()
 {
-  if (titlebar_colors)
-  {
-    title_bar->set_color(titlebar_colors->first, titlebar_colors->second);
-  }
-  else
-  {
-    const HLAttr& def_clrs = hl_state.default_colors_get();
-    title_bar->colors_changed(def_clrs.fg()->qcolor(), def_clrs.bg()->qcolor());
-  }
+  const HLAttr& def_clrs = hl_state.default_colors_get();
+  auto fg = titlebar_colors.first.value_or(def_clrs.fg()->qcolor());
+  auto bg = titlebar_colors.second.value_or(def_clrs.bg()->qcolor());
+  title_bar->set_color(fg, bg);
 }

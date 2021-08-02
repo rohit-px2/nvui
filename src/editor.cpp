@@ -984,6 +984,8 @@ void EditorArea::mousePressEvent(QMouseEvent* event)
 
 void EditorArea::mouseMoveEvent(QMouseEvent* event)
 {
+  QWidget::mouseMoveEvent(event);
+  if (cursor() != Qt::ArrowCursor) return;
   if (!mouse_enabled) return;
   auto button = mouse_button_to_string(event->buttons());
   if (button.empty()) return;

@@ -104,11 +104,17 @@ void EditorArea::set_text(
   bool is_dbl_width
 )
 {
-  const auto unicode_list = c.toUcs4();
   std::uint32_t ucs;
   if (c.isEmpty()) ucs = 0;
-  else if (unicode_list.size() == 0) return;
-  else ucs = unicode_list.first();
+  else
+  {
+    if (c.at(0).isHighSurrogate())
+    {
+      assert(c.size() >= 2);
+      ucs = QChar::surrogateToUcs4(c.at(0), c.at(1));
+    }
+    else ucs = c.at(0).unicode();
+  }
   //std::cout << "Set " << repeat << " texts at (" << row << ", " << col << ").\n";
   // Neovim should make sure this isn't out-of-bounds
   assert(col + repeat <= grid.cols);

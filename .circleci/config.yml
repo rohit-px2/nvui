@@ -29,6 +29,7 @@ jobs:
           command: ./vcpkg/bootstrap-vcpkg.bat -disableMetrics
       - run:
           name: Install dependencies
+          no_output_timeout: 30m
           command: ./vcpkg/vcpkg install qt5-base qt5-svg msgpack boost-process fmt catch2
       - run:
           name: Make directory and CMake files in release mode

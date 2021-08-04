@@ -99,6 +99,8 @@ public:
    * calling attach_ui (so that you don't miss redraw events).
    * Another NOTE: The handler will be called on a separate thread,
    * so make sure it's thread-safe.
+   * Yet another NOTE: Don't set another notification handler from
+   * the callback, otherwise a deadlock will occur.
    */
   void set_notification_handler(
     const std::string& method,
@@ -107,6 +109,8 @@ public:
   /**
    * Sets a request handler for the given method.
    * Same as set_notification_handler, but for requests.
+   * NOTE: Do not set another request handler from the callback,
+   * otherwise a deadlock will occur.
    */
   void set_request_handler(
     const std::string& method,
@@ -131,6 +135,8 @@ public:
    * NOTE: For callbacks, cb is run on the Neovim thread.
    * Make sure you take precautions before handling the data on another
    * thread.
+   * Another NOTE: Do not add another request callback directly
+   * from the passed callback, otherwise a deadlock will occur.
    */
   template<typename T>
   void send_request_cb(

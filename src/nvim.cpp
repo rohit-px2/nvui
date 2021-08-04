@@ -449,6 +449,21 @@ void Nvim::exec_viml(
   }
 }
 
+void Nvim::input_mouse(
+  std::string button,
+  std::string action,
+  std::string modifiers,
+  int grid,
+  int row,
+  int col
+)
+{
+  send_notification("nvim_input_mouse", std::tuple {
+      std::move(button), std::move(action), std::move(modifiers),
+      grid, row, col
+  });
+}
+
 Nvim::~Nvim()
 {
   // Close I/O Pipes and terminate process

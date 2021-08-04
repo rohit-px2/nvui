@@ -306,6 +306,12 @@ void Window::register_handlers()
   set_handler("cmdline_block_hide", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
     w->editor_area.cmdline_block_hide(obj, size);
   });
+  set_handler("mouse_on", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.set_mouse_enabled(true);
+  });
+  set_handler("mouse_off", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+    w->editor_area.set_mouse_enabled(false);
+  });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);

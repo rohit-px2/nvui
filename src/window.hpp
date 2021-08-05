@@ -22,7 +22,8 @@ class Window;
 
 constexpr int tolerance = 10; //10px tolerance for resizing
 
-using obj_ref_cb = void (*)(Window*, const msgpack::object*, std::uint32_t size);
+using obj_ref_cb = std::function<void (const msgpack::object*, std::uint32_t size)>;
+
 /// The main window class which holds the rest of the GUI components.
 /// Fundamentally, the Neovim area is just 1 big text box.
 /// However, there are additional features that we are trying to

@@ -45,6 +45,11 @@ static void windows_setup_frameless(HWND hwnd)
 }
 #endif
 
+using msgpack::object;
+using msgpack::object_handle;
+using msgpack::object_array;
+using u32 = std::uint32_t;
+
 template<std::size_t idx = 0, typename... Types, typename Func>
 void for_each_in_tuple(std::tuple<Types...>& t, Func&& f)
 {
@@ -61,9 +66,9 @@ void for_each_in_tuple(std::tuple<Types...>& t, Func&& f)
  * or exit if it doesn't match.
  */
 template<typename... T, typename Func>
-static std::function<void (const msgpack::object_array&)> paramify(Func f)
+static std::function<void (const object_array&)> paramify(Func f)
 {
-  return [f](const msgpack::object_array& arg_list) {
+  return [f](const object_array& arg_list) {
     std::tuple<T...> t;
     constexpr std::size_t types_len = sizeof...(T);
     if (arg_list.size < types_len) return;
@@ -115,7 +120,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
 #endif
 }
 
-void Window::handle_redraw(msgpack::object_handle* redraw_args)
+void Window::handle_redraw(object_handle* redraw_args)
 {
   using std::cout;
 #ifndef NDEBUG
@@ -123,14 +128,14 @@ void Window::handle_redraw(msgpack::object_handle* redraw_args)
   const auto start = Clock::now();
 #endif
   const auto oh = safe_copy(redraw_args);
-  const msgpack::object& obj = oh.get();
+  const object& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
   const auto& arr = obj.via.array.ptr[2].via.array;
-  for(std::uint32_t i = 0; i < arr.size; ++i)
+  for(u32 i = 0; i < arr.size; ++i)
   {
     // The params is an array of arrays, we should get
     // an array at index i
-    msgpack::object& o = arr.ptr[i];
+    const object& o = arr.ptr[i];
     assert(o.type == msgpack::type::ARRAY);
     const auto& task = o.via.array;
     assert(task.size >= 1);
@@ -140,7 +145,7 @@ void Window::handle_redraw(msgpack::object_handle* redraw_args)
     const auto func_it = handlers.find(task_name);
     if (func_it != handlers.end())
     {
-      func_it->second(this, task.ptr + 1, task.size - 1);
+      func_it->second(task.ptr + 1, task.size - 1);
       //for(std::uint32_t j = 1; j < task.size; ++j)
       //{
         //func_it->second(this, arr.ptr[j]);
@@ -157,21 +162,21 @@ void Window::handle_redraw(msgpack::object_handle* redraw_args)
 #endif
 }
 
-void Window::handle_bufenter(msgpack::object_handle* bufe_args)
+void Window::handle_bufenter(object_handle* bufe_args)
 {
   const auto oh = safe_copy(bufe_args);
   const auto& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
   const auto& arr = obj.via.array.ptr[2].via.array;
   assert(arr.size == 1);
-  const msgpack::object& file_obj = arr.ptr[0];
+  const object& file_obj = arr.ptr[0];
   assert(file_obj.type == msgpack::type::STR);
   //QString&& file_name = QString::fromStdString(file_obj.as<std::string>());
   QString&& file_name = file_obj.as<QString>();
   title_bar->set_right_text(file_name);
 }
 
-void Window::dirchanged_titlebar(msgpack::object_handle* dir_args)
+void Window::dirchanged_titlebar(object_handle* dir_args)
 {
   const auto oh = safe_copy(dir_args);
   const auto& obj = oh.get();
@@ -192,7 +197,7 @@ void Window::set_handler(std::string method, obj_ref_cb handler)
 
 msgpack_callback Window::sem_block(msgpack_callback func)
 {
-  return [this, func](msgpack::object_handle* obj) {
+  return [this, func](object_handle* obj) {
     semaphore.acquire();
     func(obj);
     semaphore.acquire();
@@ -200,9 +205,9 @@ msgpack_callback Window::sem_block(msgpack_callback func)
   };
 }
 
-msgpack::object_handle Window::safe_copy(msgpack::object_handle* obj)
+object_handle Window::safe_copy(object_handle* obj)
 {
-  msgpack::object_handle oh {obj->get(), std::move(obj->zone())};
+  object_handle oh {obj->get(), std::move(obj->zone())};
   semaphore.release();
   return oh;
 }
@@ -211,126 +216,130 @@ void Window::register_handlers()
 {
   // Set GUI handlers before we set the notification handler (since Nvim runs on a different thread,
   // it can be called any time)
-  set_handler("hl_attr_define", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    for(std::uint32_t i = 0; i < size; ++i)
+  set_handler("hl_attr_define", [this](const object* obj, u32 size) {
+    for(u32 i = 0; i < size; ++i)
     {
-      w->hl_state.define(obj[i]);
+      hl_state.define(obj[i]);
     }
   });
-  set_handler("hl_group_set", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    for(std::uint32_t i = 0; i < size; ++i)
+  set_handler("hl_group_set", [this](const object* obj, u32 size) {
+    for(u32 i = 0; i < size; ++i)
     {
-      w->hl_state.group_set(obj[i]);
+      hl_state.group_set(obj[i]);
     }
   });
-  set_handler("default_colors_set", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    for(std::uint32_t i = 0; i < size; ++i)
+  set_handler("default_colors_set", [this](const object* obj, u32 size) {
+    for(u32 i = 0; i < size; ++i)
     {
-      w->hl_state.default_colors_set(obj[i]);
+      hl_state.default_colors_set(obj[i]);
     }
-    const HLAttr& def_clrs = w->hl_state.default_colors_get();
+    const HLAttr& def_clrs = hl_state.default_colors_get();
     auto fg = def_clrs.fg()->qcolor();
     auto bg = def_clrs.bg()->qcolor();
-    emit w->default_colors_changed(fg, bg);
+    emit default_colors_changed(fg, bg);
   });
-  set_handler("grid_line", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.grid_line(obj, size);
+  set_handler("grid_line", [this](const object* obj, u32 size) {
+    editor_area.grid_line(obj, size);
   });
-  set_handler("option_set", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.option_set(obj, size);
+  set_handler("option_set", [this](const object* obj, u32 size) {
+    editor_area.option_set(obj, size);
   });
-  set_handler("grid_resize", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.grid_resize(obj, size);
+  set_handler("grid_resize", [this](const object* obj, u32 size) {
+    editor_area.grid_resize(obj, size);
   });
-  set_handler("flush", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+  set_handler("flush", [this](const object* obj, u32 size) {
     Q_UNUSED(obj);
     Q_UNUSED(size);
-    w->editor_area.flush();
+    editor_area.flush();
   });
-  set_handler("win_pos", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+  set_handler("win_pos", [this](const object* obj, u32 size) {
     Q_UNUSED(size);
-    w->editor_area.win_pos(obj);
+    for(u32 i = 0; i < size; ++i) editor_area.win_pos(obj);
   });
-  set_handler("grid_clear", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.grid_clear(obj, size);
+  set_handler("grid_clear", [this](const object* obj, u32 size) {
+    editor_area.grid_clear(obj, size);
   });
-  set_handler("grid_cursor_goto", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.grid_cursor_goto(obj, size);
+  set_handler("grid_cursor_goto", [this](const object* obj, u32 size) {
+    editor_area.grid_cursor_goto(obj, size);
   });
-  set_handler("grid_scroll", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.grid_scroll(obj, size);
+  set_handler("grid_scroll", [this](const object* obj, u32 size) {
+    editor_area.grid_scroll(obj, size);
   });
-  set_handler("mode_info_set", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.mode_info_set(obj, size);
+  set_handler("mode_info_set", [this](const object* obj, u32 size) {
+    editor_area.mode_info_set(obj, size);
   });
-  set_handler("mode_change", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.mode_change(obj, size);
+  set_handler("mode_change", [this](const object* obj, u32 size) {
+    editor_area.mode_change(obj, size);
   });
-  set_handler("popupmenu_show", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.popupmenu_show(obj, size);
+  set_handler("popupmenu_show", [this](const object* obj, u32 size) {
+    editor_area.popupmenu_show(obj, size);
   });
-  set_handler("popupmenu_hide", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.popupmenu_hide(obj, size);
+  set_handler("popupmenu_hide", [this](const object* obj, u32 size) {
+    editor_area.popupmenu_hide(obj, size);
   });
-  set_handler("popupmenu_select", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.popupmenu_select(obj, size);
+  set_handler("popupmenu_select", [this](const object* obj, u32 size) {
+    editor_area.popupmenu_select(obj, size);
   });
-  set_handler("busy_start", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+  set_handler("busy_start", [this](const object* obj, u32 size) {
     Q_UNUSED(obj);
     Q_UNUSED(size);
-    w->editor_area.busy_start();
+    editor_area.busy_start();
   });
-  set_handler("busy_stop", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
+  set_handler("busy_stop", [this](const object* obj, u32 size) {
     Q_UNUSED(obj);
     Q_UNUSED(size);
-    w->editor_area.busy_stop();
+    editor_area.busy_stop();
   });
-  set_handler("cmdline_show", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.cmdline_show(obj, size);
+  set_handler("cmdline_show", [this](const object* obj, u32 size) {
+    editor_area.cmdline_show(obj, size);
   });
-  set_handler("cmdline_hide", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.cmdline_hide(obj, size);
+  set_handler("cmdline_hide", [this](const object* obj, u32 size) {
+    editor_area.cmdline_hide(obj, size);
   });
-  set_handler("cmdline_pos", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.cmdline_cursor_pos(obj, size);
+  set_handler("cmdline_pos", [this](const object* obj, u32 size) {
+    editor_area.cmdline_cursor_pos(obj, size);
   });
-  set_handler("cmdline_special_char", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.cmdline_special_char(obj, size);
+  set_handler("cmdline_special_char", [this](const object* obj, u32 size) {
+    editor_area.cmdline_special_char(obj, size);
   });
-  set_handler("cmdline_block_show", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.cmdline_block_show(obj, size);
+  set_handler("cmdline_block_show", [this](const object* obj, u32 size) {
+    editor_area.cmdline_block_show(obj, size);
   });
-  set_handler("cmdline_block_append", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.cmdline_block_append(obj, size);
+  set_handler("cmdline_block_append", [this](const object* obj, u32 size) {
+    editor_area.cmdline_block_append(obj, size);
   });
-  set_handler("cmdline_block_hide", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.cmdline_block_hide(obj, size);
+  set_handler("cmdline_block_hide", [this](const object* obj, u32 size) {
+    editor_area.cmdline_block_hide(obj, size);
   });
-  set_handler("mouse_on", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.set_mouse_enabled(true);
+  set_handler("mouse_on", [this](const object* obj, u32 size) {
+    Q_UNUSED(obj);
+    Q_UNUSED(size);
+    editor_area.set_mouse_enabled(true);
   });
-  set_handler("mouse_off", [](Window* w, const msgpack::object* obj, std::uint32_t size) {
-    w->editor_area.set_mouse_enabled(false);
+  set_handler("mouse_off", [this](const object* obj, u32 size) {
+    Q_UNUSED(obj);
+    Q_UNUSED(size);
+    editor_area.set_mouse_enabled(false);
   });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);
-  nvim->set_notification_handler("redraw", sem_block([this](msgpack::object_handle* obj) {
+  nvim->set_notification_handler("redraw", sem_block([this](object_handle* obj) {
     QMetaObject::invokeMethod(
       this, "handle_redraw", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
-  nvim->set_notification_handler("NVUI_BUFENTER", sem_block([this](msgpack::object_handle* obj) {
+  nvim->set_notification_handler("NVUI_BUFENTER", sem_block([this](object_handle* obj) {
     QMetaObject::invokeMethod(
       this, "handle_bufenter", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
-  nvim->set_notification_handler("NVUI_DIRCHANGED", sem_block([this](msgpack::object_handle* obj) {
+  nvim->set_notification_handler("NVUI_DIRCHANGED", sem_block([this](object_handle* obj) {
     QMetaObject::invokeMethod(
       this, "dirchanged_titlebar", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
-  using notification = const msgpack::object_array&;
+  using notification = const object_array&;
   listen_for_notification("NVUI_WINOPACITY", paramify<float>([this](double opacity) {
     if (opacity <= 0.0 || opacity > 1.0) return;
     setWindowOpacity(opacity);
@@ -729,7 +738,7 @@ void Window::moveEvent(QMoveEvent* event)
 
 void Window::listen_for_notification(
   std::string method,
-  std::function<void (const msgpack::object_array&)> cb
+  std::function<void (const object_array&)> cb
 )
 {
   // Blocking std::function wrapper around an std::function
@@ -737,17 +746,17 @@ void Window::listen_for_notification(
   // that calls the callback std::function.
   nvim->set_notification_handler(
     std::move(method),
-    sem_block([this, cb](msgpack::object_handle* oh) {
+    sem_block([this, cb](object_handle* oh) {
       QMetaObject::invokeMethod(
         this,
         [this, oh, cb]() {
           auto handle = safe_copy(oh);
-          const msgpack::object& obj = handle.get();
+          const object& obj = handle.get();
           if (obj.type != msgpack::type::ARRAY) return;
           const auto& arr = obj.via.array;
           if (arr.size != 3) return;
           // Notification has params as 3rd item
-          const msgpack::object& params_obj = arr.ptr[2];
+          const object& params_obj = arr.ptr[2];
           if (params_obj.type != msgpack::type::ARRAY) return;
           cb(params_obj.via.array);
         },

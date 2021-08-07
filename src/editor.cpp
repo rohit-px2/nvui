@@ -149,7 +149,7 @@ void EditorArea::grid_resize(const msgpack::object *obj, std::uint32_t size)
     }
     else
     {
-      grids.push_back(Grid {0, 0, height, width, grid_num, std::vector<GridChar>(width * height)});
+      grids.push_back(Grid {this, 0, 0, width, height, grid_num});
     }
   }
 }
@@ -217,7 +217,7 @@ void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
         }
       }
       //std::cout << "Code point: " << c << "\n";
-      set_text(g, std::move(text), start_row, col, hl_id, repeat, is_dbl);
+      grid_ptr->set_text(std::move(text), start_row, col, hl_id, repeat, is_dbl);
       col += repeat;
     }
     //ss << '\n';

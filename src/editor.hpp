@@ -19,28 +19,10 @@
 #include "popupmenu.hpp"
 #include "cmdline.hpp"
 #include "font.hpp"
+#include "grid.hpp"
 
 // For easily changing the type of 'char' in a cell
 using grid_char = QString;
-
-struct GridChar
-{
-  std::uint16_t hl_id; // Shouldn't have more than 65k highlight attributes
-  grid_char text;
-  bool double_width = false;
-  std::uint32_t ucs;
-};
-
-struct Grid
-{
-  std::uint16_t x;
-  std::uint16_t y;
-  std::uint16_t rows;
-  std::uint16_t cols;
-  std::uint16_t id;
-  std::vector<GridChar> area; // Size = rows * cols
-  bool hidden = false;
-};
 
 /// Main editor area for Neovim
 class EditorArea : public QWidget

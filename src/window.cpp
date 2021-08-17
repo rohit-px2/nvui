@@ -96,7 +96,6 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   nvim(nv.get()),
   editor_area(nullptr, &hl_state, nvim)
 {
-  setAttribute(Qt::WA_OpaquePaintEvent);
   assert(width > 0 && height > 0);
   setMouseTracking(true);
   QObject::connect(this, &Window::resize_done, &editor_area, &decltype(editor_area)::resized);
@@ -122,6 +121,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
 
 void Window::handle_redraw(object_handle* redraw_args)
 {
+  //std::stringstream ss;
   using std::cout;
 #ifndef NDEBUG
   using Clock = std::chrono::high_resolution_clock;
@@ -143,6 +143,15 @@ void Window::handle_redraw(object_handle* redraw_args)
     std::string task_name = task.ptr[0].as<std::string>();
     // Get corresponding handler
     const auto func_it = handlers.find(task_name);
+    //static const std::set<std::string> interesting {
+      //"win_hide", "win_close", "grid_line", "grid_resize",
+        //"grid_cursor_goto", "grid_destroy", "win_pos",
+        //"win_viewport", "msg_set_pos", "option_set", "win_float_pos"
+    //};
+    //if (interesting.contains(task_name))
+    //{
+      //ss << o << '\n';
+    //}
     if (func_it != handlers.end())
     {
       func_it->second(task.ptr + 1, task.size - 1);
@@ -153,7 +162,7 @@ void Window::handle_redraw(object_handle* redraw_args)
     }
     else
     {
-      //cout << "No handler found for task " << task_name << '\n';
+      //fmt::print("No handler found for task {}\n", std::move(task_name));
     }
   }
 #ifndef NDEBUG
@@ -253,8 +262,7 @@ void Window::register_handlers()
     editor_area.flush();
   });
   set_handler("win_pos", [this](const object* obj, u32 size) {
-    Q_UNUSED(size);
-    for(u32 i = 0; i < size; ++i) editor_area.win_pos(obj);
+    editor_area.win_pos(obj, size);
   });
   set_handler("grid_clear", [this](const object* obj, u32 size) {
     editor_area.grid_clear(obj, size);
@@ -320,6 +328,21 @@ void Window::register_handlers()
     Q_UNUSED(obj);
     Q_UNUSED(size);
     editor_area.set_mouse_enabled(false);
+  });
+  set_handler("win_hide", [this](const object* obj, u32 size) {
+    editor_area.win_hide(obj, size);
+  });
+  set_handler("win_float_pos", [this](const object* obj, u32 size) {
+    editor_area.win_float_pos(obj, size);
+  });
+  set_handler("win_close", [this](const object* obj, u32 size) {
+    editor_area.win_close(obj, size);
+  });
+  set_handler("grid_destroy", [this](const object* obj, u32 size) {
+    editor_area.grid_destroy(obj, size);
+  });
+  set_handler("msg_set_pos", [this](const object* obj, u32 size) {
+    editor_area.msg_set_pos(obj, size);
   });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.

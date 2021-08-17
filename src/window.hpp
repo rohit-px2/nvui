@@ -1,6 +1,13 @@
 #ifndef NVUI_GUI_HPP
 #define NVUI_GUI_HPP
 
+/// Decide which editor area we're using
+#ifdef Q_OS_WIN
+#define USE_DIRECT2D 1
+#else
+#define USE_QPAINTER 1
+#endif
+
 #include <QObject>
 #include <QMainWindow>
 #include <QWidget>
@@ -171,9 +178,9 @@ private:
   template<typename T>
   using opt = std::optional<T>;
   std::pair<opt<QColor>, opt<QColor>> titlebar_colors;
-#ifdef Q_OS_WIN
+#if defined(USE_DIRECT2D)
   WinEditorArea editor_area;
-#else
+#elif defined(USE_QPAINTER)
   EditorArea editor_area;
 #endif
 signals:

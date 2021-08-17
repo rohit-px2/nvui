@@ -22,7 +22,7 @@ endif()
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 project(nvui)
 if(MSVC)
-  add_compile_options(/W4 /WX)
+  add_compile_options(/W4)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   add_compile_options(-Wall -Wextra -pedantic)
 endif()
@@ -62,12 +62,15 @@ file(GLOB SOURCES
   src/font.hpp
   src/grid.cpp
   src/grid.hpp
+  src/decide_renderer.hpp
 )
 if (WIN32)
   message("Windows detected.")
   file(GLOB WINONLYSOURCES
     src/wineditor.hpp
     src/wineditor.cpp
+    src/platform/windows/*.cpp
+    src/platform/windows/*.hpp
   )
   list(APPEND SOURCES ${WINONLYSOURCES})
 endif()
@@ -126,7 +129,17 @@ file(GLOB TEST_SOURCES
   src/font.hpp
   src/grid.cpp
   src/grid.hpp
+  src/decide_renderer.hpp
 )
+if (WIN32)
+  file(GLOB WINONLYTESTSOURCES
+    src/wineditor.hpp
+    src/wineditor.cpp
+    src/platform/windows/*.cpp
+    src/platform/windows/*.hpp
+  )
+  list(APPEND TEST_SOURCES ${WINONLYTESTSOURCES})
+endif()
 add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
 target_link_libraries(nvui_test PRIVATE msgpackc msgpackc-cxx)
 target_link_libraries(nvui_test PRIVATE Catch2::Catch2)

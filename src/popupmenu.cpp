@@ -91,6 +91,7 @@ PopupMenu::PopupMenu(const HLState* state, QWidget* parent)
 {
   // Without this flag, flickering occurs on WinEditorArea.
   setAttribute(Qt::WA_NativeWindow);
+  hide();
 }
 
 void PopupMenu::pum_show(const msgpack::object* obj, std::uint32_t size)

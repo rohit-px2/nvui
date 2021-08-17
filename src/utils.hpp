@@ -10,6 +10,7 @@
 #include <chrono>
 #include <stdexcept>
 #include <optional>
+#include <queue>
 
 // Creates a QIcon from the given svg, with the given foreground
 // and background color.
@@ -86,6 +87,34 @@ inline std::optional<QPixmap> pixmap_from_svg(
 inline QString normalize_path(const QString& path)
 {
   return QCoreApplication::applicationDirPath() + "/" + path;
+}
+
+/// Resizes the 1d vector with size (prev_rows * prev_cols) to the
+/// size (rows * cols) in the same way that a 2d vector would be resized.
+/// This means that if cols < prev_cols, for example, the extra columns
+/// are cut off from the right.
+/// I think this is needed for grid resizing.
+template<typename T, typename Size_Type = typename std::vector<T>::size_type>
+void resize_1d_vector(
+  std::vector<T>& v,
+  Size_Type cols,
+  Size_Type rows,
+  Size_Type prev_cols,
+  Size_Type prev_rows,
+  T default_obj = {}
+)
+{
+  if (v.size() / prev_cols != prev_rows) return;
+  std::vector<T> new_v;
+  new_v.resize(cols * rows, default_obj);
+  for(int i = 0; i < std::min(rows, prev_rows); ++i)
+  {
+    for(int j = 0; j < std::min(cols, prev_cols); ++j)
+    {
+      new_v[i * cols + j] = v[i * prev_cols + j];
+    }
+  }
+  v.swap(new_v);
 }
 
 #endif // NVUI_UTILS_HPP

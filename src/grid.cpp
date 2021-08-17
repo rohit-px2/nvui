@@ -1,59 +1,144 @@
-#include "grid.hpp"
 #include "editor.hpp"
+#include "grid.hpp"
+#include "utils.hpp"
 
-GridBase::GridBase(
-  EditorArea* parent,
-  u16 x,
-  u16 y,
-  u16 w,
-  u16 h,
-  u16 id
-) : QWidget(parent),
-    x(x),
-    y(y),
-    cols(w),
-    rows(h),
-    id(id),
-    area(w * h),
-    editor_area(parent)
+void QPaintGrid::update_pixmap_size()
 {
+  auto&& [font_width, font_height] = editor_area->font_dimensions();
+  pixmap = QPixmap(cols * font_width, rows * font_height);
+  send_redraw();
 }
 
-GridBase::GridBase(const GridBase& other)
-: QWidget(other.parentWidget()),
-  x(other.x), y(other.y), cols(other.cols), rows(other.rows),
-  id(other.id), area(other.area), hidden(other.hidden),
-  editor_area(other.editor_area)
+void QPaintGrid::set_size(u16 w, u16 h)
 {
+  GridBase::set_size(w, h);
+  update_pixmap_size();
 }
 
-void GridBase::set_text(
-  grid_char c,
-  std::uint16_t row,
-  std::uint16_t col,
-  std::uint16_t hl_id,
-  std::uint16_t repeat,
-  bool is_dbl_width
+static void draw_text_and_bg(
+  QPainter& painter,
+  const QString& text,
+  const HLAttr& attr,
+  const HLAttr& def_clrs,
+  const QPointF& start,
+  const QPointF& end,
+  const int offset,
+  QFont font
 )
 {
-  std::uint32_t ucs;
-  if (c.isEmpty()) ucs = 0;
-  else
+  font.setItalic(attr.font_opts & FontOpts::Italic);
+  font.setBold(attr.font_opts & FontOpts::Bold);
+  font.setUnderline(attr.font_opts & FontOpts::Underline);
+  font.setStrikeOut(attr.font_opts & FontOpts::Strikethrough);
+  painter.setFont(font);
+  Color fg = attr.fg().value_or(*def_clrs.fg());
+  Color bg = attr.bg().value_or(*def_clrs.bg());
+  if (attr.reverse) std::swap(fg, bg);
+  const QRectF rect = {start, end};
+  painter.setClipRect(rect);
+  painter.fillRect(rect, QColor(bg.r, bg.g, bg.b));
+  painter.setPen(QColor(fg.r, fg.g, fg.b));
+  const QPointF text_start = {start.x(), start.y() + offset};
+  painter.drawText(text_start, text);
+}
+
+void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
+{
+  const auto& fonts = editor_area->fallback_list();
+  QFont cur_font = editor_area->main_font();
+  auto font_dims = editor_area->font_dimensions();
+  auto font_width = std::get<0>(font_dims);
+  auto font_height = std::get<1>(font_dims);
+  int start_x = r.left();
+  int end_x = r.right();
+  int start_y = r.top();
+  int end_y = r.bottom();
+  QString buffer;
+  buffer.reserve(100);
+  const HLState* s = editor_area->hl_state();
+  const HLAttr& def_clrs = s->default_colors_get();
+  u32 cur_font_idx = 0;
+  const auto draw_buf = [&](const HLAttr& main, QPointF start, QPointF end) {
+    if (buffer.isEmpty()) return;
+    draw_text_and_bg(
+      p, buffer, main, def_clrs, start, end,
+      offset, fonts[cur_font_idx].font()
+    );
+    buffer.clear();
+  };
+  const auto get_pos = [&](int x, int y, int num_chars) {
+    QPointF tl(x * font_width, y * font_height);
+    QPointF br((x + num_chars) * font_width, (y + 1) * font_height);
+    return std::tuple {tl, br};
+  };
+  for(int y = start_y; y <= end_y && y < rows; ++y)
   {
-    if (c.at(0).isHighSurrogate())
+    QPointF start = {(double) x * font_width, (double) (y) * font_height};
+    std::uint16_t prev_hl_id = UINT16_MAX;
+    cur_font_idx = 0;
+    for(int cur_x = 0; cur_x < cols; ++cur_x)
     {
-      assert(c.size() >= 2);
-      ucs = QChar::surrogateToUcs4(c.at(0), c.at(1));
+      const auto& gc = area[y * cols + cur_x];
+      auto font_idx = editor_area->font_for_ucs(gc.ucs);
+      if (font_idx != cur_font_idx
+          && !(gc.text.isEmpty() || gc.text.at(0).isSpace()))
+      {
+        auto [top_left, bot_right] = get_pos(cur_x, y, 1);
+        QPointF buf_end = {top_left.x(), top_left.y() + font_height};
+        draw_buf(s->attr_for_id(prev_hl_id), start, buf_end);
+        start = top_left;
+        cur_font_idx = font_idx;
+      }
+      if (gc.double_width)
+      {
+        auto [top_left, bot_right] = get_pos(cur_x, y, 2);
+        QPointF buf_end = {top_left.x(), top_left.y() + font_height};
+        draw_buf(s->attr_for_id(prev_hl_id), start, buf_end);
+        buffer.append(gc.text);
+        draw_buf(s->attr_for_id(gc.hl_id), top_left, bot_right);
+        start = {bot_right.x(), bot_right.y() - font_height};
+        prev_hl_id = gc.hl_id;
+      }
+      else if (gc.hl_id == prev_hl_id)
+      {
+        buffer.append(gc.text);
+        continue;
+      }
+      else
+      {
+        auto [top_left, bot_right] = get_pos(cur_x, y, 1);
+        draw_buf(s->attr_for_id(prev_hl_id), start, bot_right);
+        start = top_left;
+        buffer.append(gc.text);
+        prev_hl_id = gc.hl_id;
+      }
     }
-    else ucs = c.at(0).unicode();
+    QPointF bot_right(cols * font_width, (y + 1) * font_height);
+    draw_buf(s->attr_for_id(prev_hl_id), start, bot_right);
   }
-  //std::cout << "Set " << repeat << " texts at (" << row << ", " << col << ").\n";
-  // Neovim should make sure this isn't out-of-bounds
-  assert(col + repeat <= cols);
-  for(std::uint16_t i = 0; i < repeat; ++i)
+}
+
+void QPaintGrid::process_events()
+{
+  QPainter p(&pixmap);
+  const QColor bg = editor_area->default_bg();
+  const auto offset = editor_area->font_offset();
+  while(!evt_q.empty())
   {
-    // row * cols - get current row
-    assert(row * cols + col + i < area.size());
-    area[row * cols + col + i] = {hl_id, c, is_dbl_width, ucs};
+    const auto& evt = evt_q.front();
+    switch(evt.type)
+    {
+      case PaintKind::Clear:
+        p.fillRect(pixmap.rect(), bg);
+        break;
+      case PaintKind::Redraw:
+        draw(p, {0, 0, cols, rows}, offset);
+        clear_event_queue();
+        return;
+      case PaintKind::Draw:
+        draw(p, evt.rect, offset);
+        break;
+    }
+    evt_q.pop();
   }
 }

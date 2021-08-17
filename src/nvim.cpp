@@ -247,6 +247,7 @@ void Nvim::read_output_sync()
           {
             // Should never happen
             assert(!"Message was not a valid msgpack-rpc message");
+            fmt::print("Message was not a valid msgpack-rpc message\n");
           }
         }
       }

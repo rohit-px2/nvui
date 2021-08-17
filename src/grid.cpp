@@ -15,6 +15,43 @@ void QPaintGrid::set_size(u16 w, u16 h)
   update_pixmap_size();
 }
 
+void QPaintGrid::set_pos(u16 new_x, u16 new_y)
+{
+  if (!editor_area->animations_enabled())
+  {
+    GridBase::set_pos(new_x, new_y);
+    update_position(new_x, new_y);
+    return;
+  }
+  auto x_diff = new_x - x;
+  auto y_diff = new_y - y;
+  auto old_x = x, old_y = y;
+  auto interval = editor_area->animation_frametime();
+  move_animation_time = editor_area->move_animation_duration();
+  move_update_timer.setInterval(interval);
+  move_update_timer.callOnTimeout([=] {
+    auto ms_interval = move_update_timer.interval();
+    move_animation_time -= float(ms_interval) / 1000.f;
+    if (move_animation_time <= 0)
+    {
+      move_update_timer.stop();
+      GridBase::set_pos(new_x, new_y);
+      update_position(new_x, new_y);
+    }
+    else
+    {
+      auto duration = editor_area->move_animation_duration();
+      auto animation_left = move_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float animated_x = old_x + (float(x_diff) * animation_finished);
+      float animated_y = old_y + (float(y_diff) * animation_finished);
+      update_position(animated_x, animated_y);
+    }
+    editor_area->update();
+  });
+  move_update_timer.start();
+}
+
 static void draw_text_and_bg(
   QPainter& painter,
   const QString& text,
@@ -141,4 +178,10 @@ void QPaintGrid::process_events()
     }
     evt_q.pop();
   }
+}
+
+void QPaintGrid::update_position(double new_x, double new_y)
+{
+  auto&& [font_width, font_height] = editor_area->font_dimensions();
+  top_left = {new_x * font_width, new_y * font_height};
 }

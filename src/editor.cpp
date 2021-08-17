@@ -582,8 +582,7 @@ void EditorArea::paintEvent(QPaintEvent* event)
     grid->process_events();
     if (!grid->hidden)
     {
-      QPoint pos = {grid->x * font_width, grid->y * font_height};
-      p.drawPixmap(pos, grid->buffer());
+      p.drawPixmap(grid->pos(), grid->buffer());
     }
   }
   if (!neovim_cursor.hidden() && cmdline.isHidden())

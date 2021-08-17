@@ -2,6 +2,7 @@
 #define NVUI_GRID_HPP
 
 #include <QString>
+#include <QTimer>
 #include <QWidget>
 #include <queue>
 #include "utils.hpp"
@@ -176,26 +177,34 @@ public:
     : GridBase(args...),
       editor_area(ea),
       pixmap(),
-      pos()
+      top_left()
   {
     update_pixmap_size();
+    update_position(x, y);
   }
   ~QPaintGrid() override = default;
   void set_size(u16 w, u16 h) override;
+  void set_pos(u16 new_x, u16 new_y) override;
   /// Process the draw commands in the event queue
   void process_events();
   /// Returns the grid's paint buffer (QPixmap)
   QPixmap buffer() { return pixmap; }
+  /// The top-left corner of the grid (where to start drawing the buffer).
+  QPointF pos() const { return top_left; }
 private:
   /// Draw the grid range given by the rect.
   void draw(QPainter& p, QRect r, const double font_offset);
   /// Update the pixmap size
   void update_pixmap_size();
+  /// Update the grid's position (new position can be found through pos()).
+  void update_position(double new_x, double new_y);
 private:
   /// Links up with the default Qt rendering
   EditorArea* editor_area;
   QPixmap pixmap;
-  QPoint pos;
+  QTimer move_update_timer {};
+  float move_animation_time = -1.f;
+  QPointF top_left;
 };
 
 #endif // NVUI_GRID_HPP

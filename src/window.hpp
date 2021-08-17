@@ -1,19 +1,13 @@
 #ifndef NVUI_GUI_HPP
 #define NVUI_GUI_HPP
 
-/// Decide which editor area we're using
-#ifdef Q_OS_WIN
-#define USE_DIRECT2D 1
-#else
-#define USE_QPAINTER 1
-#endif
-
 #include <QObject>
 #include <QMainWindow>
 #include <QWidget>
 #include <QFont>
 #include <QToolBar>
 #include <QLayout>
+#include "decide_renderer.hpp"
 #include "wineditor.hpp"
 #include "nvim.hpp"
 #include "titlebar.hpp"
@@ -24,7 +18,6 @@
 #include <QEvent>
 #include <unordered_map>
 #include <QSemaphore>
-
 class Window;
 
 constexpr int tolerance = 10; //10px tolerance for resizing

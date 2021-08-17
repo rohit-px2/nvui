@@ -5,7 +5,6 @@
 #include <QWidget>
 #include <queue>
 #include "utils.hpp"
-#include "decide_renderer.hpp"
 
 using grid_char = QString;
 

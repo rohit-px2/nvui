@@ -26,6 +26,7 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
   auto x_diff = new_x - x;
   auto y_diff = new_y - y;
   auto old_x = x, old_y = y;
+  move_update_timer.disconnect();
   auto interval = editor_area->animation_frametime();
   move_animation_time = editor_area->move_animation_duration();
   move_update_timer.setInterval(interval);
@@ -35,7 +36,6 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
     if (move_animation_time <= 0)
     {
       move_update_timer.stop();
-      GridBase::set_pos(new_x, new_y);
       update_position(new_x, new_y);
     }
     else
@@ -49,6 +49,7 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
     }
     editor_area->update();
   });
+  GridBase::set_pos(new_x, new_y);
   move_update_timer.start();
 }
 

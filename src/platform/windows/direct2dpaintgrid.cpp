@@ -237,6 +237,7 @@ void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
   }
   move_animation_time = editor_area->move_animation_duration();
   auto interval = editor_area->animation_frametime();
+  move_update_timer.disconnect();
   move_update_timer.setInterval(interval);
   move_update_timer.callOnTimeout([=] {
     auto ms_interval = move_update_timer.interval();
@@ -244,7 +245,6 @@ void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
     if (move_animation_time <= 0)
     {
       move_update_timer.stop();
-      GridBase::set_pos(new_x, new_y);
       update_position(new_x, new_y);
     }
     else
@@ -259,6 +259,7 @@ void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
     }
     editor_area->update();
   });
+  GridBase::set_pos(new_x, new_y);
   move_update_timer.start();
 }
 

@@ -323,7 +323,6 @@ void EditorArea::win_pos(NeovimObj obj, u32 size)
       fmt::print("No grid #{} found.\n", grid_num);
       continue;
     }
-    assert(grid);
     grid->hidden = false;
     grid->set_pos(sc, sr);
     grid->set_size(width, height);
@@ -391,7 +390,10 @@ void EditorArea::win_float_pos(NeovimObj obj, u32 size)
       /// Shouldn't happen
       anchor_pos = grid->top_left();
     }
+    bool were_animations_enabled = animations_enabled();
+    set_animations_enabled(false);
     grid->set_pos(anchor_pos);
+    set_animations_enabled(were_animations_enabled);
   }
 }
 

@@ -208,12 +208,11 @@ D2DPaintGrid::d2pt D2DPaintGrid::pos() const
 
 D2DPaintGrid::d2rect D2DPaintGrid::rect() const
 {
-  auto&& [font_width, font_height] = editor_area->font_dimensions();
   auto size = context->GetSize();
-  auto left = x * font_width;
-  auto top = y * font_height;
-  auto right = left + size.width;
-  auto bottom = top + size.height;
+  float left = top_left.x();
+  float top = top_left.y();
+  float right = left + size.width;
+  float bottom = top + size.height;
   return {left, top, right, bottom};
 }
 
@@ -221,6 +220,52 @@ D2DPaintGrid::d2rect D2DPaintGrid::source_rect() const
 {
   auto size = context->GetSize();
   return D2D1::RectF(0, 0, size.width, size.height);
+}
+
+void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
+{
+  // If x_diff is negative, then new_x is to the left of x.
+  auto x_diff = new_x - x;
+  // If y_diff is negative, then new_y is above y.
+  auto y_diff = new_y - y;
+  auto old_x = x, old_y = y;
+  if (!editor_area->animations_enabled())
+  {
+    GridBase::set_pos(new_x, new_y);
+    update_position(new_x, new_y);
+    return;
+  }
+  move_animation_time = editor_area->move_animation_duration();
+  auto interval = editor_area->animation_frametime();
+  move_update_timer.setInterval(interval);
+  move_update_timer.callOnTimeout([=] {
+    auto ms_interval = move_update_timer.interval();
+    move_animation_time -= float(ms_interval) / 1000.f;
+    if (move_animation_time <= 0)
+    {
+      move_update_timer.stop();
+      GridBase::set_pos(new_x, new_y);
+      update_position(new_x, new_y);
+    }
+    else
+    {
+      auto duration = editor_area->move_animation_duration();
+      // What % of the animation is left (between 0 and 1)
+      auto animation_left = move_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float animated_x = old_x + (float(x_diff) * animation_finished);
+      float animated_y = old_y + (float(y_diff) * animation_finished);
+      update_position(animated_x, animated_y);
+    }
+    editor_area->update();
+  });
+  move_update_timer.start();
+}
+
+void D2DPaintGrid::update_position(double x, double y)
+{
+  auto&& [font_width, font_height] = editor_area->font_dimensions();
+  top_left = {x * font_width, y * font_height};
 }
 
 D2DPaintGrid::~D2DPaintGrid()

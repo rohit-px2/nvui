@@ -2,6 +2,7 @@
 #define NVUI_PLATFORM_WINDOWS_DIRECT2DPAINTGRID_HPP
 
 #include <QString>
+#include <QTimer>
 #include <d2d1.h>
 #include <d2d1_1.h>
 #include <d2d1_2.h>
@@ -49,10 +50,19 @@ public:
   /// to the bitmap.
   void process_events();
   void set_size(u16 w, u16 h) override;
+  void set_pos(u16 new_x, u16 new_y) override;
+  /// Update the top_left position of the grid. This is in terms
+  /// of text so to get the pixel position you would need to multiply
+  /// by the dimensions of the font being used. Doubles are used to
+  /// allow for better pixel precision.
+  void update_position(double x, double y);
 private:
   WinEditorArea* editor_area = nullptr;
   ID2D1Bitmap1* bitmap = nullptr;
   ID2D1DeviceContext* context = nullptr;
+  QTimer move_update_timer {};
+  float move_animation_time = -1.f; // Number of seconds till animation ends
+  QPointF top_left = {0, 0};
   /// Update the size of the bitmap to match the
   /// grid size
   void update_bitmap_size();

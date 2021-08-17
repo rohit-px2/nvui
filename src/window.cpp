@@ -545,11 +545,23 @@ void Window::register_handlers()
     titlebar_colors.second = bg;
     update_titlebar_colors();
   }));
+  listen_for_notification("NVUI_ANIMATION_FRAMETIME", paramify<int>([this](int ms) {
+    editor_area.set_animation_frametime(ms);
+  }));
+  listen_for_notification("NVUI_ANIMATIONS_ENABLED", paramify<bool>([this](bool enabled) {
+    editor_area.set_animations_enabled(enabled);
+  }));
+  listen_for_notification("NVUI_MOVE_ANIMATION_DURATION", paramify<float>([this](float s) {
+    editor_area.set_move_animation_duration(s);
+  }));
   nvim->exec_viml(R"(
   function! NvuiNotify(name, ...)
     call call("rpcnotify", extend([1, a:name], a:000))
   endfunction
   )");
+  nvim->command("command! -nargs=1 NvuiAnimationFrametime call rpcnotify(1, 'NVUI_ANIMATION_FRAMETIME', <args>)");
+  nvim->command("command! -nargs=1 NvuiAnimationsEnabled call rpcnotify(1, 'NVUI_ANIMATIONS_ENABLED', <args>)");
+  nvim->command("command! -nargs=1 NvuiMoveAnimationDuration call rpcnotify(1, 'NVUI_MOVE_ANIMATION_DURATION', <args>)");
   nvim->command("command! -nargs=1 NvuiTitlebarBg call NvuiNotify('NVUI_TITLEBAR_BG', <f-args>)");
   nvim->command("command! -nargs=1 NvuiTitlebarFg call NvuiNotify('NVUI_TITLEBAR_FG', <f-args>)");
   nvim->command("command! -nargs=* NvuiTitlebarColors call NvuiNotify('NVUI_TITLEBAR_COLORS', <f-args>)");

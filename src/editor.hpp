@@ -274,6 +274,18 @@ public:
   {
     return state->default_colors_get().fg().value_or(0x00ffffff).qcolor();
   }
+  auto move_animation_duration() const { return move_animation_time; }
+  auto animation_frametime() const { return animation_frame_interval_ms; }
+  bool animations_enabled() const { return animate; }
+  void set_animations_enabled(bool enabled) { animate = enabled; }
+  void set_animation_frametime(int ms)
+  {
+    if (ms >= 1) animation_frame_interval_ms = ms;
+  }
+  void set_move_animation_duration(float s)
+  {
+    if (s > 0.f) move_animation_time = s;
+  }
 protected:
   std::queue<PaintEventItem> events;
   QFontDatabase font_db;
@@ -301,6 +313,9 @@ protected:
   std::unordered_map<std::uint32_t, std::uint32_t> font_for_unicode;
   bool mouse_enabled = false;
   ExtensionCapabilities capabilities;
+  bool animate = true;
+  float move_animation_time = 0.5f;
+  int animation_frame_interval_ms = 10;
   /**
    * Sets the current font to new_font.
    */

@@ -85,6 +85,10 @@ public:
    * Handles a Neovim "win_close" event.
    */
   void win_close(NeovimObj obj, u32 size);
+  /**
+   * Handles a Neovim "win_viewport" event.
+   */
+  void win_viewport(NeovimObj obj, u32 size);
   /// Handles a Neovim "grid_destroy" event.
   void grid_destroy(NeovimObj obj, u32 size);
   /// Handles a Neovim "msg_set_pos" event.
@@ -274,8 +278,13 @@ public:
   {
     return state->default_colors_get().fg().value_or(0x00ffffff).qcolor();
   }
+  auto scroll_animation_duration() const { return scroll_animation_time; }
   auto move_animation_duration() const { return move_animation_time; }
-  auto animation_frametime() const { return animation_frame_interval_ms; }
+  auto scroll_animation_frametime() const
+  {
+    return scroll_animation_frame_interval;
+  }
+  auto move_animation_frametime() const { return animation_frame_interval_ms; }
   bool animations_enabled() const { return animate; }
   void set_animations_enabled(bool enabled) { animate = enabled; }
   void set_animation_frametime(int ms)
@@ -316,6 +325,8 @@ protected:
   bool animate = true;
   float move_animation_time = 0.5f;
   int animation_frame_interval_ms = 10;
+  int scroll_animation_frame_interval = 5;
+  float scroll_animation_time = 0.8f;
   /**
    * Sets the current font to new_font.
    */

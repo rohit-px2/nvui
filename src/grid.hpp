@@ -35,6 +35,14 @@ struct PaintEventItem
   QRect rect;
 };
 
+struct Viewport
+{
+  std::uint32_t topline;
+  std::uint32_t botline;
+  std::uint32_t curline;
+  std::uint32_t curcol;
+};
+
 /// The base grid object, no rendering functionality.
 /// Contains some convenience functions for setting text,
 /// position, size, etc.
@@ -56,12 +64,14 @@ public:
       cols(w),
       rows(h),
       id(id),
-      area(w * h)
+      area(w * h),
+      viewport({0, 0, 0, 0})
   {
   }
   GridBase(const GridBase& other)
   : x(other.x), y(other.y), cols(other.cols), rows(other.rows),
-    id(other.id), area(other.area), hidden(other.hidden)
+    id(other.id), area(other.area), hidden(other.hidden),
+    viewport(other.viewport)
   {
   }
   GridBase& operator=(const GridBase& other)
@@ -73,6 +83,7 @@ public:
     id = other.id;
     area = other.area;
     hidden = other.hidden;
+    viewport = other.viewport;
     return *this;
   }
   virtual ~GridBase() = default;
@@ -154,6 +165,11 @@ public:
   {
     decltype(evt_q)().swap(evt_q);
   }
+  /// Change the viewport to the new viewport.
+  virtual void viewport_changed(Viewport vp)
+  {
+    viewport = vp;
+  }
 public:
   u16 x;
   u16 y;
@@ -163,6 +179,7 @@ public:
   std::vector<GridChar> area; // Size = rows * cols
   bool hidden = false;
   std::queue<PaintEventItem> evt_q;
+  Viewport viewport;
 };
 
 /// A class that implements rendering for a grid using Qt's
@@ -172,6 +189,11 @@ public:
 class QPaintGrid : public GridBase
 {
   using GridBase::u16;
+  struct Snapshot
+  {
+    Viewport vp;
+    QPixmap image;
+  };
 public:
   QPaintGrid(EditorArea* ea, auto... args)
     : GridBase(args...),
@@ -185,12 +207,15 @@ public:
   ~QPaintGrid() override = default;
   void set_size(u16 w, u16 h) override;
   void set_pos(u16 new_x, u16 new_y) override;
+  void viewport_changed(Viewport vp) override;
   /// Process the draw commands in the event queue
   void process_events();
   /// Returns the grid's paint buffer (QPixmap)
   QPixmap buffer() { return pixmap; }
   /// The top-left corner of the grid (where to start drawing the buffer).
   QPointF pos() const { return top_left; }
+  /// Renders to the painter.
+  void render(QPainter& painter);
 private:
   /// Draw the grid range given by the rect.
   void draw(QPainter& p, QRect r, const double font_offset);
@@ -199,12 +224,18 @@ private:
   /// Update the grid's position (new position can be found through pos()).
   void update_position(double new_x, double new_y);
 private:
+  std::vector<Snapshot> snapshots;
   /// Links up with the default Qt rendering
   EditorArea* editor_area;
   QPixmap pixmap;
   QTimer move_update_timer {};
   float move_animation_time = -1.f;
   QPointF top_left;
+  float start_scroll_y = 0.f;
+  float current_scroll_y = 0.f;
+  bool is_scrolling = false;
+  float scroll_animation_time;
+  QTimer scroll_animation_timer {};
 };
 
 #endif // NVUI_GRID_HPP

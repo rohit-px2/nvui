@@ -13,6 +13,7 @@ void QPaintGrid::set_size(u16 w, u16 h)
 {
   GridBase::set_size(w, h);
   update_pixmap_size();
+  snapshots.clear(); // Outdated
 }
 
 void QPaintGrid::set_pos(u16 new_x, u16 new_y)
@@ -27,7 +28,7 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
   auto y_diff = new_y - y;
   auto old_x = x, old_y = y;
   move_update_timer.disconnect();
-  auto interval = editor_area->animation_frametime();
+  auto interval = editor_area->move_animation_frametime();
   move_animation_time = editor_area->move_animation_duration();
   move_update_timer.setInterval(interval);
   move_update_timer.callOnTimeout([=] {
@@ -179,6 +180,74 @@ void QPaintGrid::process_events()
     }
     evt_q.pop();
   }
+}
+
+#include <ranges>
+
+void QPaintGrid::render(QPainter& p)
+{
+  auto&& [font_width, font_height] = editor_area->font_dimensions();
+  QRectF rect(top_left.x(), top_left.y(), pixmap.width(), pixmap.height());
+  if (!editor_area->animations_enabled() || !is_scrolling)
+  {
+    p.drawPixmap(pos(), pixmap);
+    return;
+  }
+  p.setClipRect(rect);
+  p.fillRect(rect, editor_area->default_bg());
+  float cur_scroll_y = current_scroll_y * font_height;
+  float cur_snapshot_top = viewport.topline * font_height;
+  for(auto& snapshot : snapshots | std::views::reverse)
+  {
+    float snapshot_top = snapshot.vp.topline * font_height;
+    float offset = snapshot_top - cur_scroll_y;
+    auto pixmap_top = top_left.y() + offset - font_height;
+    QPointF pt = {top_left.x(), pixmap_top};
+    p.drawPixmap(pt, snapshot.image);
+  }
+  float offset = cur_snapshot_top - cur_scroll_y;
+  QPointF pt = {top_left.x(), top_left.y() + offset};
+  p.drawPixmap(pt, pixmap);
+  p.setClipping(false);
+}
+
+void QPaintGrid::viewport_changed(Viewport vp)
+{
+  if (!editor_area->animations_enabled() || viewport.topline == vp.topline)
+  {
+    GridBase::viewport_changed(vp);
+    return;
+  }
+  auto dest_topline = vp.topline;
+  start_scroll_y = current_scroll_y;
+  auto diff = float(dest_topline) - start_scroll_y;
+  snapshots.push_back({vp, pixmap});
+  if (snapshots.size() > 2) snapshots.erase(snapshots.begin());
+  GridBase::viewport_changed(vp);
+  scroll_animation_timer.disconnect();
+  auto interval = editor_area->scroll_animation_frametime();
+  scroll_animation_time = editor_area->scroll_animation_duration();
+  scroll_animation_timer.setInterval(interval);
+  scroll_animation_timer.callOnTimeout([=] {
+    auto timer_interval = scroll_animation_timer.interval();
+    scroll_animation_time -= float(timer_interval) / 1000.f;
+    if (scroll_animation_time <= 0.f)
+    {
+      scroll_animation_timer.stop();
+      is_scrolling = false;
+    }
+    else
+    {
+      auto duration = editor_area->scroll_animation_duration();
+      auto animation_left = scroll_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float scaled = 1.0f - std::pow(2.0, animation_finished * -10.0f);
+      current_scroll_y = start_scroll_y + (diff * scaled);
+    }
+    editor_area->update();
+  });
+  is_scrolling = true;
+  scroll_animation_timer.start();
 }
 
 void QPaintGrid::update_position(double new_x, double new_y)

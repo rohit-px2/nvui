@@ -344,6 +344,9 @@ void Window::register_handlers()
   set_handler("msg_set_pos", [this](const object* obj, u32 size) {
     editor_area.msg_set_pos(obj, size);
   });
+  set_handler("win_viewport", [this](const object* obj, u32 size) {
+    editor_area.win_viewport(obj, size);
+  });
   // The lambda will get invoked on the Nvim::read_output thread, we use
   // invokeMethod to then handle the data on our Qt thread.
   assert(nvim);

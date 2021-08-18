@@ -404,11 +404,31 @@ void EditorArea::win_close(NeovimObj obj, u32 size)
     const auto& o = obj[i];
     assert(o.type == msgpack::type::ARRAY);
     const auto& arr = o.via.array;
-    assert(arr.size >= 2);
+    assert(arr.size >= 1);
     auto grid_num = arr.ptr[0].as<u16>();
     destroy_grid(grid_num);
   }
   send_redraw();
+}
+
+void EditorArea::win_viewport(NeovimObj obj, u32 size)
+{
+  for(u32 i = 0; i < size; ++i)
+  {
+    const auto& o = obj[i];
+    assert(o.type == msgpack::type::ARRAY);
+    const auto& arr = o.via.array;
+    assert(arr.size >= 6);
+    auto grid_num = arr.ptr[0].as<u16>();
+    auto topline = arr.ptr[2].as<u32>();
+    auto botline = arr.ptr[3].as<u32>();
+    auto curline = arr.ptr[4].as<u32>();
+    auto curcol = arr.ptr[5].as<u32>();
+    Viewport vp = {topline, botline, curline, curcol};
+    auto* grid = find_grid(grid_num);
+    if (!grid) continue;
+    grid->viewport_changed(std::move(vp));
+  }
 }
 
 void EditorArea::grid_destroy(NeovimObj obj, u32 size)
@@ -570,6 +590,7 @@ QSize EditorArea::to_rc(const QSize& pixel_size)
 
 void EditorArea::paintEvent(QPaintEvent* event)
 {
+  Q_UNUSED(event);
 #ifndef NDEBUG
   using Clock = std::chrono::high_resolution_clock;
   const auto start = Clock::now();
@@ -579,10 +600,10 @@ void EditorArea::paintEvent(QPaintEvent* event)
   for(auto& grid_base : grids)
   {
     auto* grid = static_cast<QPaintGrid*>(grid_base.get());
-    grid->process_events();
     if (!grid->hidden)
     {
-      p.drawPixmap(grid->pos(), grid->buffer());
+      grid->process_events();
+      grid->render(p);
     }
   }
   if (!neovim_cursor.hidden() && cmdline.isHidden())

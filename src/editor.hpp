@@ -296,6 +296,32 @@ public:
     if (s > 0.f) move_animation_time = s;
   }
   auto snapshot_limit() { return snapshot_count; }
+  void set_move_scaler(std::string scaler)
+  {
+    if (scalers::scalers().contains(scaler))
+    {
+      GridBase::move_scaler = scalers::scalers().at(scaler);
+    }
+  }
+  void set_scroll_scaler(std::string scaler)
+  {
+    if (scalers::scalers().contains(scaler))
+    {
+      GridBase::scroll_scaler = scalers::scalers().at(scaler);
+    }
+  }
+  void set_scroll_animation_duration(float dur)
+  {
+    if (dur > 0.f) scroll_animation_time = dur;
+  }
+  void set_scroll_frametime(int ms)
+  {
+    if (ms >= 1) scroll_animation_frame_interval = ms;
+  }
+  void set_snapshot_count(u32 count)
+  {
+    if (count > 0) snapshot_count = count;
+  }
 protected:
   std::queue<PaintEventItem> events;
   QFontDatabase font_db;

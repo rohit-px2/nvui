@@ -72,6 +72,19 @@ namespace scalers
   {
     return t * t;
   }
+  /// Update this when a new scaler is added.
+  inline const std::unordered_map<std::string, time_scaler>&
+  scalers()
+  {
+    static const std::unordered_map<std::string, time_scaler> scaler_map {
+      {"expo", oneminusexpo2negative10},
+      {"cube", cube},
+      {"fourth", accel_continuous},
+      {"fast_start", fast_start},
+      {"quad", quadratic}
+    };
+    return scaler_map;
+  }
 }
 
 /// The base grid object, no rendering functionality.

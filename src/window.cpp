@@ -557,59 +557,80 @@ void Window::register_handlers()
   listen_for_notification("NVUI_MOVE_ANIMATION_DURATION", paramify<float>([this](float s) {
     editor_area.set_move_animation_duration(s);
   }));
-  nvim->exec_viml(R"(
+  listen_for_notification("NVUI_SCROLL_ANIMATION_DURATION", paramify<float>([this](float dur) {
+    editor_area.set_scroll_animation_duration(dur);
+  }));
+  listen_for_notification("NVUI_SNAPSHOT_LIMIT", paramify<u32>([this](u32 limit) {
+    editor_area.set_snapshot_count(limit);
+  }));
+  listen_for_notification("NVUI_SCROLL_FRAMETIME", paramify<int>([this](int ms) {
+    editor_area.set_scroll_frametime(ms);
+  }));
+  listen_for_notification("NVUI_SCROLL_SCALER",
+      paramify<std::string>([this](std::string s) {
+        editor_area.set_scroll_scaler(s);
+    }
+  ));
+  listen_for_notification("NVUI_MOVE_SCALER",
+      paramify<std::string>([this](std::string s) {
+        editor_area.set_move_scaler(s);
+  }));
+  nvim->exec_viml(R"viml(
   function! NvuiNotify(name, ...)
     call call("rpcnotify", extend([1, a:name], a:000))
   endfunction
-  )");
-  nvim->command("command! -nargs=1 NvuiAnimationFrametime call rpcnotify(1, 'NVUI_ANIMATION_FRAMETIME', <args>)");
-  nvim->command("command! -nargs=1 NvuiAnimationsEnabled call rpcnotify(1, 'NVUI_ANIMATIONS_ENABLED', <args>)");
-  nvim->command("command! -nargs=1 NvuiMoveAnimationDuration call rpcnotify(1, 'NVUI_MOVE_ANIMATION_DURATION', <args>)");
-  nvim->command("command! -nargs=1 NvuiTitlebarBg call NvuiNotify('NVUI_TITLEBAR_BG', <f-args>)");
-  nvim->command("command! -nargs=1 NvuiTitlebarFg call NvuiNotify('NVUI_TITLEBAR_FG', <f-args>)");
-  nvim->command("command! -nargs=* NvuiTitlebarColors call NvuiNotify('NVUI_TITLEBAR_COLORS', <f-args>)");
-  nvim->command("command! NvuiTitlebarUnsetColors call NvuiNotify('NVUI_TITLEBAR_UNSET_COLORS')");
-  nvim->command("command! -nargs=1 NvuiTitlebarFontFamily call NvuiNotify('NVUI_TITLEBAR_FONT_FAMILY', <f-args>)");
-  nvim->command("command! -nargs=1 NvuiTitlebarFontSize call rpcnotify(1, 'NVUI_TITLEBAR_FONT_SIZE', <args>)");
-  nvim->command("command! -nargs=1 NvuiCaretExtendTop call rpcnotify(1, 'NVUI_CARET_EXTEND_TOP', <args>)");
-  nvim->command("command! -nargs=1 NvuiCaretExtendBottom call rpcnotify(1, 'NVUI_CARET_EXTEND_BOTTOM', <args>)");
-  nvim->command("command! -nargs=1 NvuiTitlebarSeparator call rpcnotify(1, 'NVUI_TB_SEPARATOR', <args>)");
-  nvim->command("command! -nargs=* NvuiPopupMenuIconFgBg call NvuiNotify('NVUI_PUM_ICON_COLORS', <f-args>)");
-  nvim->command("command! -nargs=* NvuiPopupMenuIconBg call NvuiNotify('NVUI_PUM_ICON_BG', <f-args>)");
-  nvim->command("command! -nargs=* NvuiPopupMenuIconFg call NvuiNotify('NVUI_PUM_ICON_FG', <f-args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuIconsRightAlign call rpcnotify(1, 'NVUI_PUM_ICONS_RIGHT', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdPadding call rpcnotify(1, 'NVUI_CMD_PADDING', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdCenterXPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_X', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdCenterYPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_Y', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdLeftPos call rpcnotify(1, 'NVUI_CMD_SET_LEFT', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdTopPos call rpcnotify(1, 'NVUI_CMD_YPOS', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdWidth call rpcnotify(1, 'NVUI_CMD_WIDTH', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdHeight call rpcnotify(1, 'NVUI_CMD_HEIGHT', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdFontSize call rpcnotify(1, 'NVUI_CMD_FONT_SIZE', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdFontFamily call NvuiNotify('NVUI_CMD_FONT_FAMILY', <f-args>)");
-  nvim->command("command! -nargs=1 NvuiCmdFg call NvuiNotify('NVUI_CMD_FG', <f-args>)");
-  nvim->command("command! -nargs=1 NvuiCmdBg call NvuiNotify('NVUI_CMD_BG', <f-args>)");
-  nvim->command("command! -nargs=1 NvuiCmdBorderWidth call rpcnotify(1, 'NVUI_CMD_BORDER_WIDTH', <args>)");
-  nvim->command("command! -nargs=1 NvuiCmdBorderColor call NvuiNotify('NVUI_CMD_BORDER_COLOR', <f-args>)");
-  nvim->command("command! -nargs=1 NvuiCmdBigFontScaleFactor call rpcnotify(1, 'NVUI_CMD_BIG_SCALE', <args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuDefaultIconFg call NvuiNotify('NVUI_PUM_DEFAULT_ICON_FG', <f-args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuDefaultIconBg call NvuiNotify('NVUI_PUM_DEFAULT_ICON_BG', <f-args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuIconSpacing call rpcnotify(1, 'NVUI_PUM_ICON_SPACING', <args>)");
-  nvim->command("command! NvuiPopupMenuIconsToggle call rpcnotify(1, 'NVUI_PUM_ICONS_TOGGLE')");
-  nvim->command("command! -nargs=1 NvuiPopupMenuIconOffset call rpcnotify(1, 'NVUI_PUM_ICON_OFFSET', <args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuBorderColor call NvuiNotify('NVUI_PUM_BORDER_COLOR', <f-args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuBorderWidth call rpcnotify(1, 'NVUI_PUM_BORDER_WIDTH', <args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuMaxChars call rpcnotify(1, 'NVUI_PUM_MAX_CHARS', <args>)");
-  nvim->command("command! -nargs=1 NvuiPopupMenuMaxItems call rpcnotify(1, 'NVUI_PUM_MAX_ITEMS', <args>)");
-  nvim->command("command! NvuiToggleFrameless call rpcnotify(1, 'NVUI_TOGGLE_FRAMELESS')");
-  nvim->command("command! -nargs=1 NvuiOpacity call rpcnotify(1, 'NVUI_WINOPACITY', <args>)");
-  nvim->command("command! -nargs=1 NvuiCharspace call rpcnotify(1, 'NVUI_CHARSPACE', <args>)");
-  nvim->command("command! -nargs=1 NvuiFullscreen call rpcnotify(1, 'NVUI_FULLSCREEN', <args>)");
-  nvim->command("command! NvuiToggleFullscreen call rpcnotify(1, 'NVUI_TOGGLE_FULLSCREEN')");
-  // Display current file in titlebar 
-  nvim->command("autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))");
-  // Display current dir / update file tree on directory change
-  nvim->command("autocmd DirChanged * call rpcnotify(1, 'NVUI_DIRCHANGED', fnamemodify(getcwd(), ':t'), getcwd())");
+  command! -nargs=1 NvuiScrollAnimationDuration call rpcnotify(1, 'NVUI_SCROLL_ANIMATION_DURATION', <args>)
+  command! -nargs=1 NvuiSnapshotLimit call rpcnotify(1, 'NVUI_SNAPSHOT_LIMIT', <args>)
+  command! -nargs=1 NvuiScrollFrametime call rpcnotify(1, 'NVUI_SCROLL_FRAMETIME', <args>)
+  command! -nargs=1 NvuiScrollScaler call NvuiNotify('NVUI_SCROLL_SCALER', <f-args>)
+  command! -nargs=1 NvuiMoveScaler call NvuiNotify('NVUI_MOVE_SCALER', <f-args>)
+  command! -nargs=1 NvuiAnimationFrametime call rpcnotify(1, 'NVUI_ANIMATION_FRAMETIME', <args>)
+  command! -nargs=1 NvuiAnimationsEnabled call rpcnotify(1, 'NVUI_ANIMATIONS_ENABLED', <args>)
+  command! -nargs=1 NvuiMoveAnimationDuration call rpcnotify(1, 'NVUI_MOVE_ANIMATION_DURATION', <args>)
+  command! -nargs=1 NvuiTitlebarBg call NvuiNotify('NVUI_TITLEBAR_BG', <f-args>)
+  command! -nargs=1 NvuiTitlebarFg call NvuiNotify('NVUI_TITLEBAR_FG', <f-args>)
+  command! -nargs=* NvuiTitlebarColors call NvuiNotify('NVUI_TITLEBAR_COLORS', <f-args>)
+  command! NvuiTitlebarUnsetColors call NvuiNotify('NVUI_TITLEBAR_UNSET_COLORS')
+  command! -nargs=1 NvuiTitlebarFontFamily call NvuiNotify('NVUI_TITLEBAR_FONT_FAMILY', <f-args>)
+  command! -nargs=1 NvuiTitlebarFontSize call rpcnotify(1, 'NVUI_TITLEBAR_FONT_SIZE', <args>)
+  command! -nargs=1 NvuiCaretExtendTop call rpcnotify(1, 'NVUI_CARET_EXTEND_TOP', <args>)
+  command! -nargs=1 NvuiCaretExtendBottom call rpcnotify(1, 'NVUI_CARET_EXTEND_BOTTOM', <args>)
+  command! -nargs=1 NvuiTitlebarSeparator call rpcnotify(1, 'NVUI_TB_SEPARATOR', <args>)
+  command! -nargs=* NvuiPopupMenuIconFgBg call NvuiNotify('NVUI_PUM_ICON_COLORS', <f-args>)
+  command! -nargs=* NvuiPopupMenuIconBg call NvuiNotify('NVUI_PUM_ICON_BG', <f-args>)
+  command! -nargs=* NvuiPopupMenuIconFg call NvuiNotify('NVUI_PUM_ICON_FG', <f-args>)
+  command! -nargs=1 NvuiPopupMenuIconsRightAlign call rpcnotify(1, 'NVUI_PUM_ICONS_RIGHT', <args>)
+  command! -nargs=1 NvuiCmdPadding call rpcnotify(1, 'NVUI_CMD_PADDING', <args>)
+  command! -nargs=1 NvuiCmdCenterXPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_X', <args>)
+  command! -nargs=1 NvuiCmdCenterYPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_Y', <args>)
+  command! -nargs=1 NvuiCmdLeftPos call rpcnotify(1, 'NVUI_CMD_SET_LEFT', <args>)
+  command! -nargs=1 NvuiCmdTopPos call rpcnotify(1, 'NVUI_CMD_YPOS', <args>)
+  command! -nargs=1 NvuiCmdWidth call rpcnotify(1, 'NVUI_CMD_WIDTH', <args>)
+  command! -nargs=1 NvuiCmdHeight call rpcnotify(1, 'NVUI_CMD_HEIGHT', <args>)
+  command! -nargs=1 NvuiCmdFontSize call rpcnotify(1, 'NVUI_CMD_FONT_SIZE', <args>)
+  command! -nargs=1 NvuiCmdFontFamily call NvuiNotify('NVUI_CMD_FONT_FAMILY', <f-args>)
+  command! -nargs=1 NvuiCmdFg call NvuiNotify('NVUI_CMD_FG', <f-args>)
+  command! -nargs=1 NvuiCmdBg call NvuiNotify('NVUI_CMD_BG', <f-args>)
+  command! -nargs=1 NvuiCmdBorderWidth call rpcnotify(1, 'NVUI_CMD_BORDER_WIDTH', <args>)
+  command! -nargs=1 NvuiCmdBorderColor call NvuiNotify('NVUI_CMD_BORDER_COLOR', <f-args>)
+  command! -nargs=1 NvuiCmdBigFontScaleFactor call rpcnotify(1, 'NVUI_CMD_BIG_SCALE', <args>)
+  command! -nargs=1 NvuiPopupMenuDefaultIconFg call NvuiNotify('NVUI_PUM_DEFAULT_ICON_FG', <f-args>)
+  command! -nargs=1 NvuiPopupMenuDefaultIconBg call NvuiNotify('NVUI_PUM_DEFAULT_ICON_BG', <f-args>)
+  command! -nargs=1 NvuiPopupMenuIconSpacing call rpcnotify(1, 'NVUI_PUM_ICON_SPACING', <args>)
+  command! NvuiPopupMenuIconsToggle call rpcnotify(1, 'NVUI_PUM_ICONS_TOGGLE')
+  command! -nargs=1 NvuiPopupMenuIconOffset call rpcnotify(1, 'NVUI_PUM_ICON_OFFSET', <args>)
+  command! -nargs=1 NvuiPopupMenuBorderColor call NvuiNotify('NVUI_PUM_BORDER_COLOR', <f-args>)
+  command! -nargs=1 NvuiPopupMenuBorderWidth call rpcnotify(1, 'NVUI_PUM_BORDER_WIDTH', <args>)
+  command! -nargs=1 NvuiPopupMenuMaxChars call rpcnotify(1, 'NVUI_PUM_MAX_CHARS', <args>)
+  command! -nargs=1 NvuiPopupMenuMaxItems call rpcnotify(1, 'NVUI_PUM_MAX_ITEMS', <args>)
+  command! NvuiToggleFrameless call rpcnotify(1, 'NVUI_TOGGLE_FRAMELESS')
+  command! -nargs=1 NvuiOpacity call rpcnotify(1, 'NVUI_WINOPACITY', <args>)
+  command! -nargs=1 NvuiCharspace call rpcnotify(1, 'NVUI_CHARSPACE', <args>)
+  command! -nargs=1 NvuiFullscreen call rpcnotify(1, 'NVUI_FULLSCREEN', <args>)
+  command! NvuiToggleFullscreen call rpcnotify(1, 'NVUI_TOGGLE_FULLSCREEN')
+  autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))
+  autocmd DirChanged * call rpcnotify(1, 'NVUI_DIRCHANGED', fnamemodify(getcwd(), ':t'), getcwd())
+  )viml");
 }
 
 enum ResizeType

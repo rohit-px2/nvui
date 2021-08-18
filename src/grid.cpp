@@ -1,6 +1,7 @@
 #include "editor.hpp"
 #include "grid.hpp"
 #include "utils.hpp"
+#include <ranges>
 
 void QPaintGrid::update_pixmap_size()
 {
@@ -182,12 +183,12 @@ void QPaintGrid::process_events()
   }
 }
 
-#include <ranges>
 
 void QPaintGrid::render(QPainter& p)
 {
   auto&& [font_width, font_height] = editor_area->font_dimensions();
   QRectF rect(top_left.x(), top_left.y(), pixmap.width(), pixmap.height());
+  auto snapshot_height = pixmap.height();
   if (!editor_area->animations_enabled() || !is_scrolling)
   {
     p.drawPixmap(pos(), pixmap);
@@ -197,13 +198,36 @@ void QPaintGrid::render(QPainter& p)
   p.fillRect(rect, editor_area->default_bg());
   float cur_scroll_y = current_scroll_y * font_height;
   float cur_snapshot_top = viewport.topline * font_height;
+  u32 min_topline = viewport.topline;
+  u32 max_botline = viewport.botline;
   for(auto& snapshot : snapshots | std::views::reverse)
   {
+    QRectF r;
     float snapshot_top = snapshot.vp.topline * font_height;
     float offset = snapshot_top - cur_scroll_y;
-    auto pixmap_top = top_left.y() + offset - font_height;
-    QPointF pt = {top_left.x(), pixmap_top};
-    p.drawPixmap(pt, snapshot.image);
+    auto pixmap_top = top_left.y() + offset;
+    QPointF pt;
+    if (snapshot.vp.topline < min_topline)
+    {
+      auto height = (min_topline - snapshot.vp.topline) * font_height;
+      height = std::min(height, float(snapshot_height));
+      min_topline = snapshot.vp.topline;
+      r = QRect(0, 0, pixmap.width(), height);
+      pt = {top_left.x(), pixmap_top};
+    }
+    else if (snapshot.vp.botline > max_botline)
+    {
+      auto height = (snapshot.vp.botline - max_botline) * font_height;
+      height = std::min(height, float(snapshot_height));
+      max_botline = snapshot.vp.botline;
+      r = QRect(0, snapshot_height - height, pixmap.width(), height);
+      pt = {top_left.x(), pixmap_top + pixmap.height() - height};
+    }
+    QRectF draw_rect = {top_left, r.size()};
+    if (!r.isNull() && rect.contains(draw_rect))
+    {
+      p.drawPixmap(pt, snapshot.image, r);
+    }
   }
   float offset = cur_snapshot_top - cur_scroll_y;
   QPointF pt = {top_left.x(), top_left.y() + offset};

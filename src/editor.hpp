@@ -327,8 +327,8 @@ protected:
   u32 snapshot_count = 4;
   float move_animation_time = 0.5f;
   int animation_frame_interval_ms = 10;
-  int scroll_animation_frame_interval = 5;
-  float scroll_animation_time = 0.8f;
+  int scroll_animation_frame_interval = 10;
+  float scroll_animation_time = 0.3f;
   /**
    * Sets the current font to new_font.
    */

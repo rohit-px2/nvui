@@ -43,6 +43,37 @@ struct Viewport
   std::uint32_t curcol;
 };
 
+namespace scalers
+{
+  // Follows the same idea
+  // as Neovide's "ease" functions. time is between 0 - 1,
+  // we can use some exponents to change the delta time so that
+  // transition speed is not the same throughout.
+  using time_scaler = float (*)(float);
+  inline float oneminusexpo2negative10(float t)
+  {
+    // Taken from Neovide's "animation_utils.rs",
+    // (specifically the "ease_out_expo" function).
+    return 1.0f - std::pow(2.0, -10.0f * t);
+  }
+  inline float cube(float t)
+  {
+    return t * t * t;
+  }
+  inline float accel_continuous(float t)
+  {
+    return t * t * t * t;
+  }
+  inline float fast_start(float t)
+  {
+    return std::pow(t, 1.0/9.0);
+  }
+  inline float quadratic(float t)
+  {
+    return t * t;
+  }
+}
+
 /// The base grid object, no rendering functionality.
 /// Contains some convenience functions for setting text,
 /// position, size, etc.
@@ -180,6 +211,11 @@ public:
   bool hidden = false;
   std::queue<PaintEventItem> evt_q;
   Viewport viewport;
+  /// Not used in GridBase (may not even be used at all
+  /// if animations are not supported/enabled by the rendering
+  /// grid).
+  static scalers::time_scaler scroll_scaler;
+  static scalers::time_scaler move_scaler;
 };
 
 /// A class that implements rendering for a grid using Qt's

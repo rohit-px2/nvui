@@ -262,8 +262,9 @@ void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
       // What % of the animation is left (between 0 and 1)
       auto animation_left = move_animation_time / duration;
       float animation_finished = 1.0f - animation_left;
-      float animated_x = old_x + (float(x_diff) * animation_finished);
-      float animated_y = old_y + (float(y_diff) * animation_finished);
+      float scale = move_scaler(animation_finished);
+      float animated_x = old_x + (float(x_diff) * scale);
+      float animated_y = old_y + (float(y_diff) * scale);
       update_position(animated_x, animated_y);
     }
     editor_area->update();
@@ -317,7 +318,7 @@ void D2DPaintGrid::viewport_changed(Viewport vp)
       auto duration = editor_area->scroll_animation_duration();
       auto animation_left = scroll_animation_time / duration;
       float animation_finished = 1.0f - animation_left;
-      float scaled = 1.0f - std::pow(2.0, animation_finished * -10.0f);
+      float scaled = scroll_scaler(animation_finished);
       current_scroll_y = start_scroll_y + (diff * scaled);
     }
     editor_area->update();

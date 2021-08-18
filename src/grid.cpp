@@ -3,6 +3,9 @@
 #include "utils.hpp"
 #include <ranges>
 
+scalers::time_scaler GridBase::scroll_scaler = scalers::oneminusexpo2negative10;
+scalers::time_scaler GridBase::move_scaler = scalers::oneminusexpo2negative10;
+
 void QPaintGrid::update_pixmap_size()
 {
   auto&& [font_width, font_height] = editor_area->font_dimensions();
@@ -45,8 +48,9 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
       auto duration = editor_area->move_animation_duration();
       auto animation_left = move_animation_time / duration;
       float animation_finished = 1.0f - animation_left;
-      float animated_x = old_x + (float(x_diff) * animation_finished);
-      float animated_y = old_y + (float(y_diff) * animation_finished);
+      float scale = move_scaler(animation_finished);
+      float animated_x = old_x + (float(x_diff) * scale);
+      float animated_y = old_y + (float(y_diff) * scale);
       update_position(animated_x, animated_y);
     }
     editor_area->update();
@@ -242,6 +246,9 @@ void QPaintGrid::viewport_changed(Viewport vp)
     GridBase::viewport_changed(vp);
     return;
   }
+  /// Logic taken from Keith Simmons' explanation of Neovide's smooth
+  /// scrolling, see
+  /// here: http://02credits.com/blog/day96-neovide-smooth-scrolling/
   auto dest_topline = vp.topline;
   start_scroll_y = current_scroll_y;
   auto diff = float(dest_topline) - start_scroll_y;
@@ -269,8 +276,8 @@ void QPaintGrid::viewport_changed(Viewport vp)
       auto duration = editor_area->scroll_animation_duration();
       auto animation_left = scroll_animation_time / duration;
       float animation_finished = 1.0f - animation_left;
-      float scaled = 1.0f - std::pow(2.0, animation_finished * -10.0f);
-      current_scroll_y = start_scroll_y + (diff * scaled);
+      float scale = scroll_scaler(animation_finished);
+      current_scroll_y = start_scroll_y + (diff * scale);
     }
     editor_area->update();
   });

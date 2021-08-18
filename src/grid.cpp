@@ -222,7 +222,10 @@ void QPaintGrid::viewport_changed(Viewport vp)
   start_scroll_y = current_scroll_y;
   auto diff = float(dest_topline) - start_scroll_y;
   snapshots.push_back({vp, pixmap});
-  if (snapshots.size() > 2) snapshots.erase(snapshots.begin());
+  if (snapshots.size() > editor_area->snapshot_limit())
+  {
+    snapshots.erase(snapshots.begin());
+  }
   GridBase::viewport_changed(vp);
   scroll_animation_timer.disconnect();
   auto interval = editor_area->scroll_animation_frametime();
@@ -235,6 +238,7 @@ void QPaintGrid::viewport_changed(Viewport vp)
     {
       scroll_animation_timer.stop();
       is_scrolling = false;
+      snapshots.clear();
     }
     else
     {

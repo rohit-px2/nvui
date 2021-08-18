@@ -295,6 +295,7 @@ public:
   {
     if (s > 0.f) move_animation_time = s;
   }
+  auto snapshot_limit() { return snapshot_count; }
 protected:
   std::queue<PaintEventItem> events;
   QFontDatabase font_db;
@@ -323,6 +324,7 @@ protected:
   bool mouse_enabled = false;
   ExtensionCapabilities capabilities;
   bool animate = true;
+  u32 snapshot_count = 4;
   float move_animation_time = 0.5f;
   int animation_frame_interval_ms = 10;
   int scroll_animation_frame_interval = 5;

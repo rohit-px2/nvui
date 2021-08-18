@@ -7,6 +7,11 @@ void D2DPaintGrid::set_size(u16 w, u16 h)
 {
   GridBase::set_size(w, h);
   update_bitmap_size();
+  for(auto& snapshot : snapshots)
+  {
+    SafeRelease(&snapshot.image);
+  }
+  snapshots.clear();
 }
 
 void D2DPaintGrid::update_bitmap_size()
@@ -287,7 +292,7 @@ void D2DPaintGrid::viewport_changed(Viewport vp)
   start_scroll_y = current_scroll_y;
   auto diff = float(dest_topline) - start_scroll_y;
   snapshots.push_back({vp, copy_bitmap(bitmap)});
-  if (snapshots.size() > 2)
+  if (snapshots.size() > editor_area->snapshot_limit())
   {
     SafeRelease(&snapshots[0].image);
     snapshots.erase(snapshots.begin());
@@ -304,6 +309,8 @@ void D2DPaintGrid::viewport_changed(Viewport vp)
     {
       scroll_animation_timer.stop();
       is_scrolling = false;
+      for(auto& snapshot : snapshots) SafeRelease(&snapshot.image);
+      snapshots.clear();
     }
     else
     {

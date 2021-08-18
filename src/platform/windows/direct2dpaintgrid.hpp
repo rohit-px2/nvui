@@ -22,6 +22,11 @@ class WinEditorArea;
 /// to the screen (HWND).
 class D2DPaintGrid : public GridBase
 {
+  struct Snapshot
+  {
+    Viewport vp;
+    ID2D1Bitmap1* image;
+  };
 public:
   using GridBase::u16;
   using GridBase::u32;
@@ -51,18 +56,27 @@ public:
   void process_events();
   void set_size(u16 w, u16 h) override;
   void set_pos(u16 new_x, u16 new_y) override;
+  void viewport_changed(Viewport vp) override;
   /// Update the top_left position of the grid. This is in terms
   /// of text so to get the pixel position you would need to multiply
   /// by the dimensions of the font being used. Doubles are used to
   /// allow for better pixel precision.
   void update_position(double x, double y);
+  /// Render this grid to a render target
+  void render(ID2D1RenderTarget* render_target);
 private:
+  std::vector<Snapshot> snapshots;
   WinEditorArea* editor_area = nullptr;
   ID2D1Bitmap1* bitmap = nullptr;
   ID2D1DeviceContext* context = nullptr;
   QTimer move_update_timer {};
   float move_animation_time = -1.f; // Number of seconds till animation ends
   QPointF top_left = {0, 0};
+  float start_scroll_y = 0.f;
+  float current_scroll_y = 0.f;
+  bool is_scrolling = false;
+  float scroll_animation_time;
+  QTimer scroll_animation_timer {};
   /// Update the size of the bitmap to match the
   /// grid size
   void update_bitmap_size();
@@ -91,6 +105,9 @@ private:
     ID2D1SolidColorBrush* fg_brush,
     ID2D1SolidColorBrush* bg_brush
   );
+  /// Returns a copy of src.
+  /// NOTE: Must be released.
+  ID2D1Bitmap1* copy_bitmap(ID2D1Bitmap1* src);
 };
 
 #endif // NVUI_PLATFORM_WINDOWS_DIRECT2DPAINTGRID_HPP

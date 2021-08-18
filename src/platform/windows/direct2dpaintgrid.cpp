@@ -1,5 +1,7 @@
 #include "wineditor.hpp"
 #include "direct2dpaintgrid.hpp"
+#include <d2d1.h>
+#include <ranges>
 
 void D2DPaintGrid::set_size(u16 w, u16 h)
 {
@@ -13,12 +15,14 @@ void D2DPaintGrid::update_bitmap_size()
   u32 width = std::ceil(cols * font_width);
   u32 height = std::ceil(rows * font_height);
   editor_area->resize_bitmap(context, &bitmap, width, height);
+  context->SetTarget(bitmap);
   context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
 }
 
 void D2DPaintGrid::initialize_context()
 {
   editor_area->create_context(&context, &bitmap, 0, 0);
+  context->SetTarget(bitmap);
 }
 
 void D2DPaintGrid::process_events()
@@ -236,7 +240,7 @@ void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
     return;
   }
   move_animation_time = editor_area->move_animation_duration();
-  auto interval = editor_area->animation_frametime();
+  auto interval = editor_area->move_animation_frametime();
   move_update_timer.disconnect();
   move_update_timer.setInterval(interval);
   move_update_timer.callOnTimeout([=] {
@@ -269,8 +273,116 @@ void D2DPaintGrid::update_position(double x, double y)
   top_left = {x * font_width, y * font_height};
 }
 
+void D2DPaintGrid::viewport_changed(Viewport vp)
+{
+  // Thanks to Keith Simmons, the Neovide developer for explaining
+  // his implementation of Neovide's smooth scrolling in his blog post
+  // at http://02credits.com/blog/day96-neovide-smooth-scrolling.
+  if (!editor_area->animations_enabled() || viewport.topline == vp.topline)
+  {
+    GridBase::viewport_changed(vp);
+    return;
+  }
+  auto dest_topline = vp.topline;
+  start_scroll_y = current_scroll_y;
+  auto diff = float(dest_topline) - start_scroll_y;
+  snapshots.push_back({vp, copy_bitmap(bitmap)});
+  if (snapshots.size() > 2)
+  {
+    SafeRelease(&snapshots[0].image);
+    snapshots.erase(snapshots.begin());
+  }
+  GridBase::viewport_changed(vp);
+  scroll_animation_timer.disconnect();
+  auto interval = editor_area->scroll_animation_frametime();
+  scroll_animation_time = editor_area->scroll_animation_duration();
+  scroll_animation_timer.setInterval(interval);
+  scroll_animation_timer.callOnTimeout([=] {
+    auto timer_interval = scroll_animation_timer.interval();
+    scroll_animation_time -= float(timer_interval) / 1000.f;
+    if (scroll_animation_time <= 0.f)
+    {
+      scroll_animation_timer.stop();
+      is_scrolling = false;
+    }
+    else
+    {
+      auto duration = editor_area->scroll_animation_duration();
+      auto animation_left = scroll_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float scaled = 1.0f - std::pow(2.0, animation_finished * -10.0f);
+      current_scroll_y = start_scroll_y + (diff * scaled);
+    }
+    editor_area->update();
+  });
+  is_scrolling = true;
+  scroll_animation_timer.start();
+}
+
+ID2D1Bitmap1* D2DPaintGrid::copy_bitmap(ID2D1Bitmap1* src)
+{
+  assert(src);
+  ID2D1Bitmap1* dst = nullptr;
+  auto sz = src->GetPixelSize();
+  editor_area->resize_bitmap(context, &dst, sz.width, sz.height);
+  auto tl = D2D1::Point2U(0, 0);
+  auto src_rect = D2D1::RectU(0, 0, sz.width, sz.height);
+  dst->CopyFromBitmap(&tl, src, &src_rect);
+  return dst;
+}
+
+void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
+{
+  auto&& [font_width, font_height] = editor_area->font_dimensions();
+  auto sz = bitmap->GetPixelSize();
+  d2rect r = rect();
+  if (!editor_area->animations_enabled() || !is_scrolling)
+  {
+    render_target->DrawBitmap(
+      bitmap,
+      &r,
+      1.0f,
+      D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+    );
+    return;
+  }
+  render_target->PushAxisAlignedClip(r, D2D1_ANTIALIAS_MODE_ALIASED);
+  auto bg = editor_area->default_bg().rgb();
+  ID2D1SolidColorBrush* bg_brush = nullptr;
+  render_target->CreateSolidColorBrush(D2D1::ColorF(bg), &bg_brush);
+  render_target->FillRectangle(r, bg_brush);
+  SafeRelease(&bg_brush);
+  float cur_scroll_y = current_scroll_y * font_height;
+  float cur_snapshot_top = viewport.topline * font_height;
+  for(auto& snapshot : snapshots | std::views::reverse)
+  {
+    float snapshot_top = snapshot.vp.topline * font_height;
+    float offset = snapshot_top - cur_scroll_y;
+    auto pixmap_top = top_left.y() + offset - font_height;
+    d2pt pt = D2D1::Point2F(top_left.x(), pixmap_top);
+    r = D2D1::RectF(pt.x, pt.y, pt.x + sz.width, pt.y + sz.height);
+    render_target->DrawBitmap(
+      snapshot.image,
+      &r,
+      1.0f,
+      D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+    );
+  }
+  float offset = cur_snapshot_top - cur_scroll_y;
+  d2pt pt = D2D1::Point2F(top_left.x(), top_left.y() + offset);
+  r = D2D1::RectF(pt.x, pt.y, pt.x + sz.width, pt.y + sz.height);
+  render_target->DrawBitmap(
+    bitmap,
+    &r,
+    1.0f,
+    D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+  );
+  render_target->PopAxisAlignedClip();
+}
+
 D2DPaintGrid::~D2DPaintGrid()
 {
+  for(auto& snapshot : snapshots) SafeRelease(&snapshot.image);
   SafeRelease(&bitmap);
   SafeRelease(&context);
 }

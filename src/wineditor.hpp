@@ -150,7 +150,6 @@ public:
   {
     SafeRelease(bitmap);
     create_default_bitmap(context, bitmap, {width, height});
-    context->SetTarget(*bitmap);
   }
   /// Returns the internal DWriteFactory object.
   DWriteFactory* dwrite_factory() { return factory; }
@@ -484,7 +483,9 @@ protected:
     ID2D1SolidColorBrush* bg_brush = nullptr;
     device_context->CreateSolidColorBrush(D2D1::ColorF(bg), &bg_brush);
     auto r = D2D1::RectF(0, 0, width(), height());
+    auto grid_clip_rect = D2D1::RectF(0, 0, cols * font_width_f, rows * font_height_f);
     device_context->FillRectangle(r, bg_brush);
+    device_context->PushAxisAlignedClip(grid_clip_rect, D2D1_ANTIALIAS_MODE_ALIASED);
     SafeRelease(&bg_brush);
     for(auto& grid_base : grids)
     {
@@ -492,12 +493,10 @@ protected:
       if (!grid->hidden)
       {
         grid->process_events();
-        auto rect = grid->rect();
-        device_context->DrawBitmap(grid->buffer(), &rect,
-          1.0f, D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
-        );
+        grid->render(device_context);
       }
     }
+    device_context->PopAxisAlignedClip();
     /// ------------ Old Drawing Code ---------------------------
     //device_context->EndDraw();
     //Q_UNUSED(event);

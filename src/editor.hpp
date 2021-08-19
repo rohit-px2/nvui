@@ -322,6 +322,10 @@ public:
   {
     if (count > 0) snapshot_count = count;
   }
+  std::vector<std::string> popupmenu_icon_list()
+  {
+    return popup_menu.icon_list();
+  }
 protected:
   std::queue<PaintEventItem> events;
   QFontDatabase font_db;

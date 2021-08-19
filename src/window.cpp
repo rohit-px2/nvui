@@ -575,15 +575,38 @@ void Window::register_handlers()
       paramify<std::string>([this](std::string s) {
         editor_area.set_move_scaler(s);
   }));
+  /// Add request handlers
+  using arr = msgpack::object_array;
+  handle_request<std::vector<std::string>, std::string>(
+    "NVUI_POPUPMENU_ICON_NAMES", [&](const arr& arr) {
+      Q_UNUSED(arr);
+      return std::tuple {editor_area.popupmenu_icon_list(), std::nullopt}; 
+    }
+  );
+  handle_request<std::vector<std::string>, std::string>(
+    "NVUI_SCALER_NAMES", [&](const arr& arr) {
+      Q_UNUSED(arr);
+      std::vector<std::string> scaler_names;
+      scaler_names.reserve(scalers::scalers().size());
+      for(auto& sc : scalers::scalers()) scaler_names.push_back(sc.first);
+      return std::tuple {scaler_names, std::nullopt};
+    }
+  );
   nvim->exec_viml(R"viml(
   function! NvuiNotify(name, ...)
     call call("rpcnotify", extend([1, a:name], a:000))
   endfunction
+  function! NvuiCompletePopupIcons(arg, line, pos)
+    return rpcrequest(1, 'NVUI_POPUPMENU_ICON_NAMES')
+  endfunction
+  function! NvuiCompleteScalerNames(arg, line, pos)
+    return rpcrequest(1, 'NVUI_SCALER_NAMES')
+  endfunction
   command! -nargs=1 NvuiScrollAnimationDuration call rpcnotify(1, 'NVUI_SCROLL_ANIMATION_DURATION', <args>)
   command! -nargs=1 NvuiSnapshotLimit call rpcnotify(1, 'NVUI_SNAPSHOT_LIMIT', <args>)
   command! -nargs=1 NvuiScrollFrametime call rpcnotify(1, 'NVUI_SCROLL_FRAMETIME', <args>)
-  command! -nargs=1 NvuiScrollScaler call NvuiNotify('NVUI_SCROLL_SCALER', <f-args>)
-  command! -nargs=1 NvuiMoveScaler call NvuiNotify('NVUI_MOVE_SCALER', <f-args>)
+  command! -nargs=1 -complete=customlist,NvuiCompleteScalerNames NvuiScrollScaler call NvuiNotify('NVUI_SCROLL_SCALER', <f-args>)
+  command! -nargs=1 -complete=customlist,NvuiCompleteScalerNames NvuiMoveScaler call NvuiNotify('NVUI_MOVE_SCALER', <f-args>)
   command! -nargs=1 NvuiAnimationFrametime call rpcnotify(1, 'NVUI_ANIMATION_FRAMETIME', <args>)
   command! -nargs=1 NvuiAnimationsEnabled call rpcnotify(1, 'NVUI_ANIMATIONS_ENABLED', <args>)
   command! -nargs=1 NvuiMoveAnimationDuration call rpcnotify(1, 'NVUI_MOVE_ANIMATION_DURATION', <args>)
@@ -596,9 +619,9 @@ void Window::register_handlers()
   command! -nargs=1 NvuiCaretExtendTop call rpcnotify(1, 'NVUI_CARET_EXTEND_TOP', <args>)
   command! -nargs=1 NvuiCaretExtendBottom call rpcnotify(1, 'NVUI_CARET_EXTEND_BOTTOM', <args>)
   command! -nargs=1 NvuiTitlebarSeparator call rpcnotify(1, 'NVUI_TB_SEPARATOR', <args>)
-  command! -nargs=* NvuiPopupMenuIconFgBg call NvuiNotify('NVUI_PUM_ICON_COLORS', <f-args>)
-  command! -nargs=* NvuiPopupMenuIconBg call NvuiNotify('NVUI_PUM_ICON_BG', <f-args>)
-  command! -nargs=* NvuiPopupMenuIconFg call NvuiNotify('NVUI_PUM_ICON_FG', <f-args>)
+  command! -nargs=* -complete=customlist,NvuiCompletePopupIcons NvuiPopupMenuIconFgBg call NvuiNotify('NVUI_PUM_ICON_COLORS', <f-args>)
+  command! -nargs=* -complete=customlist,NvuiCompletePopupIcons NvuiPopupMenuIconBg call NvuiNotify('NVUI_PUM_ICON_BG', <f-args>)
+  command! -nargs=* -complete=customlist,NvuiCompletePopupIcons NvuiPopupMenuIconFg call NvuiNotify('NVUI_PUM_ICON_FG', <f-args>)
   command! -nargs=1 NvuiPopupMenuIconsRightAlign call rpcnotify(1, 'NVUI_PUM_ICONS_RIGHT', <args>)
   command! -nargs=1 NvuiCmdPadding call rpcnotify(1, 'NVUI_CMD_PADDING', <args>)
   command! -nargs=1 NvuiCmdCenterXPos call rpcnotify(1, 'NVUI_CMD_SET_CENTER_X', <args>)
@@ -818,6 +841,41 @@ void Window::listen_for_notification(
           const object& params_obj = arr.ptr[2];
           if (params_obj.type != msgpack::type::ARRAY) return;
           cb(params_obj.via.array);
+        },
+        Qt::QueuedConnection
+      );
+    })
+  );
+}
+
+template<typename Res, typename Err>
+void Window::handle_request(
+  std::string req_name,
+  handler_func<Res, Err> handler
+)
+{
+  nvim->set_request_handler(
+    std::move(req_name),
+    sem_block([this, cb = std::move(handler)](object_handle* oh) {
+      QMetaObject::invokeMethod(
+        this,
+        [this, oh, f = std::move(cb)] {
+          auto handle = safe_copy(oh);
+          const object& obj = handle.get();
+          if (obj.type != msgpack::type::ARRAY) return;
+          const auto& arr = obj.via.array;
+          if (arr.size != 4) return;
+          const auto msgid = arr.ptr[1].as<std::uint64_t>();
+          const object& params_obj = arr.ptr[3];
+          if (params_obj.type != msgpack::type::ARRAY) return;
+          std::optional<Res> res;
+          std::optional<Err> err;
+          std::tie(res, err) = f(params_obj.via.array);
+          msgpack::object result = msgpack::object();
+          msgpack::object error = msgpack::object();
+          if (res) result = pack(*res);
+          if (err) error = pack(*err);
+          nvim->send_response(msgid, result, error);
         },
         Qt::QueuedConnection
       );

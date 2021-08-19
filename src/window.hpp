@@ -31,6 +31,11 @@ using obj_ref_cb = std::function<void (const msgpack::object*, std::uint32_t siz
 class Window : public QMainWindow
 {
   Q_OBJECT
+  template<typename R, typename E>
+  using handler_func =
+    std::function<
+      std::tuple<std::optional<R>, std::optional<E>>
+      (const msgpack::object_array&)>;
 public:
   Window(QWidget* parent = nullptr, std::shared_ptr<Nvim> nv = nullptr, int width = 0, int height = 0);
   /**
@@ -103,7 +108,21 @@ private:
    * msgpack::object_handle moving is already done, so the lambdas
    * passed just have to deal with their logic.
    */
-  void listen_for_notification(std::string method, std::function<void (const msgpack::object_array&)> cb);
+  void listen_for_notification(
+    std::string method,
+    std::function<void (const msgpack::object_array&)> cb
+  );
+  /**
+   * Listens for a request with the given name,
+   * and then sends a response with the data returned
+   * by the callback function.
+   * Things like matching message id are handled by this function.
+   */
+  template<typename Res, typename Err>
+  void handle_request(
+    std::string req_name,
+    handler_func<Res, Err> handler
+  );
   /**
    * Disable the frameless window.
    * The window should be in frameless mode,

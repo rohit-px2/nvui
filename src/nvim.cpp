@@ -465,6 +465,28 @@ void Nvim::input_mouse(
   });
 }
 
+
+void Nvim::send_response(
+  std::uint64_t msgid,
+  msgpack::object res,
+  msgpack::object err
+)
+{
+  Lock lock {input_mutex};
+  const std::uint64_t type = Type::Response;
+  auto&& msg = std::tuple {type, msgid, err, res};
+  msgpack::sbuffer sbuf;
+  msgpack::pack(sbuf, msg);
+  try
+  {
+    stdin_pipe.write(sbuf.data(), sbuf.size());
+  }
+  catch(...)
+  {
+    fmt::print("Could not send response. Msgid: {}\n");
+  }
+}
+
 Nvim::~Nvim()
 {
   // Close I/O Pipes and terminate process

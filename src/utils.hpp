@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <optional>
 #include <queue>
+#include <msgpack.hpp>
 
 // Creates a QIcon from the given svg, with the given foreground
 // and background color.
@@ -115,6 +116,13 @@ void resize_1d_vector(
     }
   }
   v.swap(new_v);
+}
+
+template<typename T>
+msgpack::object pack(const T& obj)
+{
+  msgpack::zone z;
+  return msgpack::object(obj, z);
 }
 
 #endif // NVUI_UTILS_HPP

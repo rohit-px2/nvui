@@ -76,6 +76,16 @@ public:
     else icons[name] = load_icon(name, sq_width);
   }
 
+  std::vector<std::string> icon_list() const
+  {
+    std::vector<std::string> vs;
+    for(const auto& pair : icons)
+    {
+      vs.push_back(pair.first.toStdString());
+    }
+    return vs;
+  }
+
 private:
   QPixmap load_icon(const QString& iname, int width);
   void load_icons(int width);
@@ -310,6 +320,11 @@ public:
   {
     icons_on_right = right_icons;
     paint();
+  }
+
+  inline auto icon_list() const
+  {
+    return icon_manager.icon_list();
   }
 
 private:

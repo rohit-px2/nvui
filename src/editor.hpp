@@ -326,6 +326,10 @@ public:
   {
     return popup_menu.icon_list();
   }
+  void popupmenu_info_set_columns(int columns)
+  {
+    popup_menu.info_display().set_cols(columns);
+  }
 protected:
   std::queue<PaintEventItem> events;
   QFontDatabase font_db;

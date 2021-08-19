@@ -575,6 +575,10 @@ void Window::register_handlers()
       paramify<std::string>([this](std::string s) {
         editor_area.set_move_scaler(s);
   }));
+  listen_for_notification("NVUI_PUM_INFO_COLS",
+    paramify<int>([this](int cols) {
+      editor_area.popupmenu_info_set_columns(cols);
+  }));
   /// Add request handlers
   using arr = msgpack::object_array;
   handle_request<std::vector<std::string>, std::string>(
@@ -602,6 +606,7 @@ void Window::register_handlers()
   function! NvuiCompleteScalerNames(arg, line, pos)
     return rpcrequest(1, 'NVUI_SCALER_NAMES')
   endfunction
+  command! -nargs=1 NvuiPopupMenuInfoColumns call rpcnotify(1, 'NVUI_PUM_INFO_COLS', <args>)
   command! -nargs=1 NvuiScrollAnimationDuration call rpcnotify(1, 'NVUI_SCROLL_ANIMATION_DURATION', <args>)
   command! -nargs=1 NvuiSnapshotLimit call rpcnotify(1, 'NVUI_SNAPSHOT_LIMIT', <args>)
   command! -nargs=1 NvuiScrollFrametime call rpcnotify(1, 'NVUI_SCROLL_FRAMETIME', <args>)

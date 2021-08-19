@@ -79,9 +79,10 @@ public:
   std::vector<std::string> icon_list() const
   {
     std::vector<std::string> vs;
-    for(const auto& pair : icons)
+    const auto keys = icons.keys();
+    for(const auto& icon_name : keys)
     {
-      vs.push_back(pair.first.toStdString());
+      vs.push_back(icon_name.toStdString());
     }
     return vs;
   }
@@ -94,7 +95,7 @@ private:
   // Map string (iname) to (foreground, background) tuple
   // Any color with no value will default to the default_foreground and default_background
   // colors.
-  std::unordered_map<QString, fg_bg> colors {
+  QHash<QString, fg_bg> colors {
     {"array", {}},
     {"boolean", {}},
     {"class", {}},
@@ -125,7 +126,7 @@ private:
     {"structure", {}},
     {"variable", {}}
   };
-  std::unordered_map<QString, QPixmap> icons {
+  QHash<QString, QPixmap> icons {
     {"array", {}},
     {"boolean", {}},
     {"class", {}},

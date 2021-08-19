@@ -8,8 +8,8 @@
 #include <QToolBar>
 #include <QLayout>
 #include "decide_renderer.hpp"
-#include "wineditor.hpp"
 #include "nvim.hpp"
+#include "editor.hpp"
 #include "titlebar.hpp"
 #include "hlstate.hpp"
 #include <iostream>
@@ -19,6 +19,10 @@
 #include <unordered_map>
 #include <QSemaphore>
 class Window;
+
+#if defined(Q_OS_WIN)
+#include "wineditor.hpp"
+#endif
 
 constexpr int tolerance = 10; //10px tolerance for resizing
 

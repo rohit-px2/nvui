@@ -52,7 +52,7 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
     nvim_path = bp::search_path("nvim");
     if (nvim_path.empty())
     {
-      throw std::exception("Neovim not found in PATH");
+      throw std::runtime_error("Neovim not found in PATH");
     }
   }
   nvim = bp::child(
@@ -303,7 +303,7 @@ msgpack::object_handle Nvim::send_request_sync(const std::string& method, const 
   std::cout << "Didnt get the result\n";
   // This shouldn't ever activate since we'll just block forever
   // if we don't receive
-  throw std::exception("Message not received");
+  throw std::runtime_error("Message not received");
 }
 
 msgpack::object_handle Nvim::eval(const std::string& expr)

@@ -32,7 +32,7 @@ QString PopupMenuIconManager::iname_to_kind(const QString& iname)
 
 using fg_bg = PopupMenuIconManager::fg_bg;
 static std::pair<QColor, QColor> find_or_default(
-  const std::unordered_map<QString, fg_bg>& map,
+  const QHash<QString, fg_bg>& map,
   const QString& key,
   const QColor& default_fg,
   const QColor& default_bg
@@ -40,7 +40,7 @@ static std::pair<QColor, QColor> find_or_default(
 {
   const auto it = map.find(key);
   if (it != map.end()) {
-    return {it->second.first.value_or(default_fg), it->second.second.value_or(default_bg)};
+    return {it->first.value_or(default_fg), it->second.value_or(default_bg)};
   }
   else return {default_fg, default_bg};
 }
@@ -54,9 +54,10 @@ QPixmap PopupMenuIconManager::load_icon(const QString& iname, int width)
 
 void PopupMenuIconManager::load_icons(int width)
 {
-  for(auto& e : icons)
+  auto keys = icons.keys();
+  for(auto& key : keys)
   {
-    e.second = load_icon(e.first, width);
+    icons[key] = load_icon(key, width);
   }
 }
 
@@ -79,7 +80,7 @@ const QPixmap* PopupMenuIconManager::icon_for_kind(const QString& kind)
       return &icons[iname];
     }
   }
-  else return &it->second;
+  else return &(*it);
 }
 
 PopupMenuInfo::PopupMenuInfo(PopupMenu* parent)

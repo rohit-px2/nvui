@@ -360,7 +360,9 @@ private:
     const auto pos = pos_opt.value();
     GridBase* grid = find_grid(pos.grid_num);
     if (!grid) return;
-    const auto& gc = grid->area[pos.row * grid->cols + pos.col];
+    std::size_t idx = pos.row * grid->cols + pos.col;
+    if (idx >= grid->area.size()) return;
+    const auto& gc = grid->area[idx];
     float scale_factor = 1.0f;
     if (gc.double_width) scale_factor = 2.0f;
     const CursorRect rect = neovim_cursor.rect(font_width_f, font_height_f, scale_factor).value();

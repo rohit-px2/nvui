@@ -220,6 +220,7 @@ public:
   u16 cols;
   u16 rows;
   u16 id;
+  u32 z_index = 0;
   std::vector<GridChar> area; // Size = rows * cols
   bool hidden = false;
   std::queue<PaintEventItem> evt_q;
@@ -260,7 +261,7 @@ public:
   /// Process the draw commands in the event queue
   void process_events();
   /// Returns the grid's paint buffer (QPixmap)
-  QPixmap buffer() { return pixmap; }
+  const QPixmap& buffer() const { return pixmap; }
   /// The top-left corner of the grid (where to start drawing the buffer).
   QPointF pos() const { return top_left; }
   /// Renders to the painter.

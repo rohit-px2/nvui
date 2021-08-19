@@ -152,6 +152,8 @@ void EditorArea::grid_resize(const msgpack::object *obj, u32 size)
     {
       create_grid(0, 0, width, height, grid_num);
       grid = find_grid(grid_num);
+      // Created grid appears above all others
+      grid->z_index = grids.size() - 1;
     }
     if (grid)
     {
@@ -300,6 +302,7 @@ void EditorArea::flush()
       //grid->id, grid->x, grid->y, grid->cols, grid->rows
     //);
   //}
+  sort_grids_by_z_index();
   update();
 }
 
@@ -323,9 +326,11 @@ void EditorArea::win_pos(NeovimObj obj, u32 size)
       fmt::print("No grid #{} found.\n", grid_num);
       continue;
     }
+    shift_z(grid->z_index);
     grid->hidden = false;
     grid->set_pos(sc, sr);
     grid->set_size(width, height);
+    grid->z_index = grids.size() - 1;
     QRect r(0, 0, grid->cols, grid->rows);
   }
   send_redraw();
@@ -390,9 +395,11 @@ void EditorArea::win_float_pos(NeovimObj obj, u32 size)
       /// Shouldn't happen
       anchor_pos = grid->top_left();
     }
+    shift_z(grid->z_index);
     bool were_animations_enabled = animations_enabled();
     set_animations_enabled(false);
     grid->set_pos(anchor_pos);
+    grid->z_index = grids.size() - 1;
     set_animations_enabled(were_animations_enabled);
   }
 }
@@ -459,7 +466,9 @@ void EditorArea::msg_set_pos(NeovimObj obj, u32 size)
     //auto sep_char = arr.ptr[3].as<QString>();
     if (GridBase* grid = find_grid(grid_num); grid)
     {
+      shift_z(grid->z_index);
       grid->set_pos(grid->x, row);
+      grid->z_index = grids.size() - 1;
     }
   }
   send_redraw();
@@ -597,15 +606,21 @@ void EditorArea::paintEvent(QPaintEvent* event)
 #endif
   QPainter p(this);
   p.fillRect(rect(), default_bg());
+  QRectF grid_clip_rect(0, 0, cols * font_width, rows * font_height);
+  p.setClipRect(grid_clip_rect);
   for(auto& grid_base : grids)
   {
     auto* grid = static_cast<QPaintGrid*>(grid_base.get());
     if (!grid->hidden)
     {
+      QSize size = grid->buffer().size();
+      auto r = QRectF(grid->pos(), size).intersected(grid_clip_rect);
+      p.setClipRect(r);
       grid->process_events();
       grid->render(p);
     }
   }
+  p.setClipRect(rect());
   if (!neovim_cursor.hidden() && cmdline.isHidden())
   {
     draw_cursor(p);
@@ -944,7 +959,9 @@ void EditorArea::draw_cursor(QPainter& painter)
   auto p = pos_opt.value();
   GridBase* grid = find_grid(p.grid_num);
   if (!grid) return;
-  const auto& gc = grid->area[p.row * grid->cols + p.col];
+  std::size_t idx = p.row * grid->cols + p.col;
+  if (idx >= grid->area.size()) return;
+  const auto& gc = grid->area[idx];
   float scale_factor = 1.0f;
   if (gc.double_width) scale_factor = 2.0f;
   auto rect = neovim_cursor.rect(font_width, font_height, scale_factor).value();

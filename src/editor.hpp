@@ -506,6 +506,23 @@ protected:
   void send_clear(std::uint16_t grid_num, QRect r = {});
   /// Draw a portion of the grid
   void send_draw(std::uint16_t grid_num, QRect r);
+  /// Shift down all grids with a z index greater than idx
+  /// by 1.
+  void shift_z(u32 idx)
+  {
+    for(auto& g : grids)
+    {
+      if (g->z_index > idx) --g->z_index;
+    }
+  }
+  /// Sorts grids in order of their z index, from
+  /// lowest to highest.
+  void sort_grids_by_z_index()
+  {
+    std::sort(grids.begin(), grids.end(), [](const auto& g1, const auto& g2) {
+      return g1->z_index < g2->z_index;
+    });
+  }
 public slots:
   /**
    * Handle a window resize.

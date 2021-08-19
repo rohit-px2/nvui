@@ -198,7 +198,6 @@ void QPaintGrid::render(QPainter& p)
     p.drawPixmap(pos(), pixmap);
     return;
   }
-  p.setClipRect(rect);
   p.fillRect(rect, editor_area->default_bg());
   float cur_scroll_y = current_scroll_y * font_height;
   float cur_snapshot_top = viewport.topline * font_height;
@@ -236,7 +235,6 @@ void QPaintGrid::render(QPainter& p)
   float offset = cur_snapshot_top - cur_scroll_y;
   QPointF pt = {top_left.x(), top_left.y() + offset};
   p.drawPixmap(pt, pixmap);
-  p.setClipping(false);
 }
 
 void QPaintGrid::viewport_changed(Viewport vp)

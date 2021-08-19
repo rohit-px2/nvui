@@ -999,6 +999,8 @@ void EditorArea::draw_popup_menu()
   }
   popup_menu.move({start_x, start_y});
   popup_menu.setVisible(true);
+  QPoint info_pos = {start_x + popup_menu.width(), start_y};
+  popup_menu.info_display().move(info_pos);
 }
 
 static bool is_image(const QString& file)

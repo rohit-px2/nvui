@@ -170,8 +170,26 @@ struct PMenuItem
   QString info;
 };
 
+class PopupMenu;
+class PopupMenuInfo : public QWidget
+{
+  Q_OBJECT
+public:
+  PopupMenuInfo(PopupMenu* parent);
+  void draw(QPainter& p, const HLAttr& attr, const QString& info);
+  void set_cols(int c) { if (c > 0) cols = c; }
+private:
+  int cols = 50;
+  PopupMenu* parent_menu = nullptr;
+  HLAttr current_attr;
+  QString current_text;
+protected:
+  void paintEvent(QPaintEvent* event) override;
+};
+
 class PopupMenu : public QWidget
 {
+  friend class PopupMenuInfo;
 public:
   PopupMenu(const HLState* state, QWidget* parent = nullptr);
   /**
@@ -327,6 +345,7 @@ public:
     return icon_manager.icon_list();
   }
 
+  auto& info_display() { return info_widget; }
 private:
   void update_dimensions();
   /**
@@ -342,6 +361,10 @@ private:
    * and with the given attribute.
    */
   void draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem& item, int y);
+  /**
+   * Draw the info as its own box.
+   */
+  void draw_info(QPainter& p, const HLAttr& attr, const QString& info);
   std::optional<int> attached_width;
   const HLState* hl_state;
   const HLAttr* pmenu = nullptr;
@@ -362,6 +385,7 @@ private:
   int row = 0;
   int col = 0;
   int linespace = 0;
+  PopupMenuInfo info_widget;
   PopupMenuIconManager icon_manager;
   bool has_scrollbar = false;
   bool is_hidden = true;

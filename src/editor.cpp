@@ -371,30 +371,26 @@ void EditorArea::win_float_pos(NeovimObj obj, u32 size)
     GridBase* anchor_grid = find_grid(anchor_grid_num);
     if (!grid || !anchor_grid) return;
     // Anchor dir is "NW", "SW", "SE", "NE"
-    QPoint anchor_pos;
-    //fmt::print("Float pos anchor dir: {}\n", anchor_dir);
-    if (anchor_dir == "NW")
+    // Right now it assumes the anchor is top left (NW)
+    // If it's SW, we need to move it up
+    // If SE, we need to move it left and up
+    // If NE, we need to move it left
+    QPoint anchor_pos = anchor_grid->top_left() + anchor_rel;
+    if (anchor_dir == "SW")
     {
-      anchor_pos = anchor_grid->top_left() + anchor_rel;
+      anchor_pos -= QPoint(0, grid->rows);
     }
     else if (anchor_dir == "SE")
     {
-      anchor_pos = anchor_grid->bot_right() - anchor_rel;
-    }
-    else if (anchor_dir == "SW")
-    {
-      anchor_pos = anchor_grid->bot_left();
-      anchor_pos += {anchor_rel.x(), -anchor_rel.y()};
+      anchor_pos -= QPoint(grid->cols, grid->rows);
     }
     else if (anchor_dir == "NE")
     {
-      anchor_pos = anchor_grid->top_right();
-      anchor_pos -= {anchor_rel.x(), -anchor_rel.y()};
+      anchor_pos -= QPoint(grid->cols, 0);
     }
     else
     {
-      /// Shouldn't happen
-      anchor_pos = grid->top_left();
+      // NW, no need to do anything
     }
     shift_z(grid->z_index);
     bool were_animations_enabled = animations_enabled();

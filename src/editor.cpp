@@ -79,6 +79,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   popup_menu(hl_state, this),
   cmdline(hl_state, &neovim_cursor, this)
 {
+  setAttribute(Qt::WA_InputMethodEnabled);
   setAttribute(Qt::WA_OpaquePaintEvent);
   setAutoFillBackground(false);
   setAcceptDrops(true);
@@ -867,6 +868,46 @@ std::string event_to_string(QKeyEvent* event, bool* special)
       return "LT";
     case Qt::Key_Space:
       return "Space";
+    case Qt::Key_F1:
+      return "F1";
+    case Qt::Key_F2:
+      return "F2";
+    case Qt::Key_F3:
+      return "F3";
+    case Qt::Key_F4:
+      return "F4";
+    case Qt::Key_F5:
+      return "F5";
+    case Qt::Key_F6:
+      return "F6";
+    case Qt::Key_F7:
+      return "F7";
+    case Qt::Key_F8:
+      return "F8";
+    case Qt::Key_F9:
+      return "F9";
+    case Qt::Key_F10:
+      return "F10";
+    case Qt::Key_F11:
+      return "F11";
+    case Qt::Key_F12:
+      return "F12";
+    case Qt::Key_F13:
+      return "F13";
+    case Qt::Key_F14:
+      return "F14";
+    case Qt::Key_F15:
+      return "F15";
+    case Qt::Key_F16:
+      return "F16";
+    case Qt::Key_F17:
+      return "F17";
+    case Qt::Key_F18:
+      return "F18";
+    case Qt::Key_F19:
+      return "F19";
+    case Qt::Key_F20:
+      return "F20";
     default:
       *special = false;
       return event->text().toStdString();
@@ -1223,4 +1264,33 @@ void EditorArea::send_draw(std::uint16_t grid_num, QRect r)
 {
   if (GridBase* grid = find_grid(grid_num); grid) grid->send_draw(r);
   //events.push({PaintKind::Draw, grid_num, std::move(r)}); 
-} 
+}
+
+void EditorArea::inputMethodEvent(QInputMethodEvent* event)
+{
+  event->accept();
+  if (!event->commitString().isEmpty())
+  {
+    nvim->send_input(event->commitString().toStdString());
+  }
+}
+
+QVariant EditorArea::inputMethodQuery(Qt::InputMethodQuery query) const
+{
+  switch(query)
+  {
+    case Qt::ImFont:
+      return font;
+    case Qt::ImCursorRectangle:
+    {
+      auto&& [font_width, font_height] = font_dimensions();
+      auto rect_opt = neovim_cursor.rect(font_width, font_height);
+      if (!rect_opt) return QVariant();
+      auto cr = *rect_opt;
+      return cr.rect;
+    }
+    default:
+      break;
+  }
+  return QVariant();
+}

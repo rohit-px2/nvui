@@ -330,6 +330,8 @@ public:
   {
     popup_menu.info_display().set_cols(columns);
   }
+  /// For input methods
+  virtual QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
 protected:
   std::queue<PaintEventItem> events;
   QFontDatabase font_db;
@@ -547,6 +549,7 @@ protected:
   bool focusNextPrevChild(bool next) override;
   void dropEvent(QDropEvent* event) override;
   void dragEnterEvent(QDragEnterEvent* event) override;
+  void inputMethodEvent(QInputMethodEvent* event) override;
 };
 
 #endif // NVUI_EDITOR_HPP

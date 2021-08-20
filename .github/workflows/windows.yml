@@ -3,6 +3,7 @@ on: push
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 50
     env:
       buildDir: '${{ github.workspace }}/build'
     steps:

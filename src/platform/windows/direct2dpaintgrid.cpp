@@ -139,6 +139,7 @@ void D2DPaintGrid::draw(
   ID2D1SolidColorBrush* bg_brush
 )
 {
+  auto target_size = context->GetPixelSize();
   const auto& fonts = editor_area->fallback_list();
   const int start_x = r.left(), end_x = r.right();
   const int start_y = r.top(), end_y = r.bottom();
@@ -204,7 +205,7 @@ void D2DPaintGrid::draw(
         buffer.append(gc.text);
       }
     }
-    d2pt br = {cols * font_width, (y + 1) * font_height};
+    d2pt br = D2D1::Point2F(target_size.width, (y + 1) * font_height);
     draw_buf(s->attr_for_id(prev_hl_id), start, br);
   }
 }

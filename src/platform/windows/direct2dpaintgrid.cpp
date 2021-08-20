@@ -234,10 +234,10 @@ D2DPaintGrid::d2rect D2DPaintGrid::source_rect() const
 void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
 {
   // If x_diff is negative, then new_x is to the left of x.
-  auto x_diff = new_x - x;
+  auto x_diff = new_x - cur_left;
   // If y_diff is negative, then new_y is above y.
-  auto y_diff = new_y - y;
-  auto old_x = x, old_y = y;
+  auto y_diff = new_y - cur_top;
+  auto old_x = cur_left, old_y = cur_top;
   if (!editor_area->animations_enabled())
   {
     GridBase::set_pos(new_x, new_y);
@@ -263,9 +263,9 @@ void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
       auto animation_left = move_animation_time / duration;
       float animation_finished = 1.0f - animation_left;
       float scale = move_scaler(animation_finished);
-      float animated_x = old_x + (float(x_diff) * scale);
-      float animated_y = old_y + (float(y_diff) * scale);
-      update_position(animated_x, animated_y);
+      cur_left = old_x + (float(x_diff) * scale);
+      cur_top = old_y + (float(y_diff) * scale);
+      update_position(cur_left, cur_top);
     }
     editor_area->update();
   });

@@ -75,6 +75,8 @@ private:
   float start_scroll_y = 0.f;
   float current_scroll_y = 0.f;
   bool is_scrolling = false;
+  float cur_left = 0.f;
+  float cur_top = 0.f;
   float scroll_animation_time;
   QTimer scroll_animation_timer {};
   /// Update the size of the bitmap to match the

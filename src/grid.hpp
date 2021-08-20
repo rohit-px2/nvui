@@ -72,6 +72,10 @@ namespace scalers
   {
     return t * t;
   }
+  inline float identity(float t)
+  {
+    return t;
+  }
   /// Update this when a new scaler is added.
   inline const std::unordered_map<std::string, time_scaler>&
   scalers()
@@ -81,7 +85,8 @@ namespace scalers
       {"cube", cube},
       {"fourth", accel_continuous},
       {"fast_start", fast_start},
-      {"quad", quadratic}
+      {"quad", quadratic},
+      {"identity", identity}
     };
     return scaler_map;
   }
@@ -283,6 +288,8 @@ private:
   QPointF top_left;
   float start_scroll_y = 0.f;
   float current_scroll_y = 0.f;
+  float cur_left = 0.f;
+  float cur_top = 0.f;
   bool is_scrolling = false;
   float scroll_animation_time;
   QTimer scroll_animation_timer {};

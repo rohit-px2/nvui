@@ -19,27 +19,20 @@
 #include "popupmenu.hpp"
 #include "cmdline.hpp"
 #include "font.hpp"
+#include "grid.hpp"
 
 // For easily changing the type of 'char' in a cell
 using grid_char = QString;
 
-struct GridChar
+/// UI Capabilities (Extensions)
+struct ExtensionCapabilities
 {
-  std::uint16_t hl_id; // Shouldn't have more than 65k highlight attributes
-  grid_char text;
-  bool double_width = false;
-  std::uint32_t ucs;
-};
-
-struct Grid
-{
-  std::uint16_t x;
-  std::uint16_t y;
-  std::uint16_t rows;
-  std::uint16_t cols;
-  std::uint16_t id;
-  std::vector<GridChar> area; // Size = rows * cols
-  bool hidden = false;
+  bool linegrid = false;
+  bool popupmenu = false;
+  bool wildmenu = false;
+  bool messages = false;
+  bool cmdline = false;
+  bool multigrid = false;
 };
 
 /// Main editor area for Neovim
@@ -48,7 +41,8 @@ class EditorArea : public QWidget
   Q_OBJECT
 public:
   using NeovimObj = const msgpack::object*;
-  using msg_size = std::uint32_t;
+  using u32 = std::uint32_t;
+  using u16 = std::uint16_t;
   EditorArea(
     QWidget* parent = nullptr,
     HLState* state = nullptr,
@@ -57,19 +51,19 @@ public:
   /**
    * Handles a Neovim "grid_resize" event.
    */
-  void grid_resize(NeovimObj obj, msg_size size);
+  void grid_resize(NeovimObj obj, u32 size);
   /**
    * Handles a Neovim "grid_line" event.
    */
-  void grid_line(NeovimObj obj, msg_size size);
+  void grid_line(NeovimObj obj, u32 size);
   /**
    * Paints the grid cursor at the given grid, row, and column.
    */
-  void grid_cursor_goto(NeovimObj obj, msg_size size);
+  void grid_cursor_goto(NeovimObj obj, u32 size);
   /**
    * Handles a Neovim "option_set" event.
    */
-  void option_set(NeovimObj obj, msg_size size);
+  void option_set(NeovimObj obj, u32 size);
   /**
    * Handles a Neovim "flush" event.
    * This paints the internal buffer onto the window.
@@ -78,7 +72,27 @@ public:
   /**
    * Handles a Neovim "win_pos" event.
    */
-  void win_pos(NeovimObj obj);
+  void win_pos(NeovimObj obj, u32 size);
+  /**
+   * Handles a Neovim "win_hide" event.
+   */
+  void win_hide(NeovimObj obj, u32 size);
+  /**
+   * Handles a Neovim "win_float_pos" event.
+   */
+  void win_float_pos(NeovimObj obj, u32 size);
+  /**
+   * Handles a Neovim "win_close" event.
+   */
+  void win_close(NeovimObj obj, u32 size);
+  /**
+   * Handles a Neovim "win_viewport" event.
+   */
+  void win_viewport(NeovimObj obj, u32 size);
+  /// Handles a Neovim "grid_destroy" event.
+  void grid_destroy(NeovimObj obj, u32 size);
+  /// Handles a Neovim "msg_set_pos" event.
+  void msg_set_pos(NeovimObj obj, u32 size);
   /**
    * Returns the font width and font height.
    */
@@ -91,11 +105,11 @@ public:
   /**
    * Handles a Neovim "grid_clear" event
    */
-  void grid_clear(NeovimObj obj, msg_size size);
+  void grid_clear(NeovimObj obj, u32 size);
   /**
    * Handles a Neovim "grid_scroll" event
    */
-  void grid_scroll(NeovimObj obj, msg_size size);
+  void grid_scroll(NeovimObj obj, u32 size);
   /**
    * Notify the editor area when resizing is enabled/disabled.
    */
@@ -104,12 +118,13 @@ public:
    * Handles a "mode_info_set" Neovim redraw event.
    * Internally sends the data to neovim_cursor.
    */
-  void mode_info_set(NeovimObj obj, msg_size size);
+  void mode_info_set(NeovimObj obj, u32 size);
   /**
    * Handles a "mode_change" Neovim event.
    * Internally sends the data to neovim_cursor.
    */
-  void mode_change(NeovimObj obj, msg_size size);
+  void mode_change(NeovimObj obj, u32 size);
+  using u16 = std::uint16_t;
   /**
    * Handles a "busy_start" event, passing it to the Neovim cursor
    */
@@ -142,17 +157,17 @@ public:
   inline void set_caret_top(float top) { neovim_cursor.set_caret_extend_top(top); }
   inline void set_caret_bottom(float bot) { neovim_cursor.set_caret_extend_bottom(bot); }
 
-  inline void popupmenu_show(NeovimObj obj, msg_size size)
+  inline void popupmenu_show(NeovimObj obj, u32 size)
   {
     popup_menu.pum_show(obj, size);
   }
 
-  inline void popupmenu_hide(NeovimObj obj, msg_size size)
+  inline void popupmenu_hide(NeovimObj obj, u32 size)
   {
     popup_menu.pum_hide(obj, size);
   }
 
-  inline void popupmenu_select(NeovimObj obj, msg_size size)
+  inline void popupmenu_select(NeovimObj obj, u32 size)
   {
     popup_menu.pum_sel(obj, size);
   }
@@ -207,21 +222,21 @@ public:
 
   inline void popupmenu_set_icons_right(bool right) { popup_menu.set_icons_on_right(right); }
 
-  inline void cmdline_show(NeovimObj obj, msg_size size)
+  inline void cmdline_show(NeovimObj obj, u32 size)
   {
     cmdline.cmdline_show(obj, size);
     popup_menu.attach_cmdline(cmdline.width());
   }
-  inline void cmdline_hide(NeovimObj obj, msg_size size)
+  inline void cmdline_hide(NeovimObj obj, u32 size)
   {
     cmdline.cmdline_hide(obj, size);
     popup_menu.detach_cmdline();
   }
-  inline void cmdline_cursor_pos(NeovimObj obj, msg_size size) { cmdline.cmdline_cursor_pos(obj, size); }
-  inline void cmdline_special_char(NeovimObj obj, msg_size size) { cmdline.cmdline_special_char(obj, size); }
-  inline void cmdline_block_show(NeovimObj obj, msg_size size) { cmdline.cmdline_block_show(obj, size); }
-  inline void cmdline_block_append(NeovimObj obj, msg_size size) { cmdline.cmdline_block_append(obj, size); }
-  inline void cmdline_block_hide(NeovimObj obj, msg_size size) { cmdline.cmdline_block_hide(obj, size); }
+  inline void cmdline_cursor_pos(NeovimObj obj, u32 size) { cmdline.cmdline_cursor_pos(obj, size); }
+  inline void cmdline_special_char(NeovimObj obj, u32 size) { cmdline.cmdline_special_char(obj, size); }
+  inline void cmdline_block_show(NeovimObj obj, u32 size) { cmdline.cmdline_block_show(obj, size); }
+  inline void cmdline_block_append(NeovimObj obj, u32 size) { cmdline.cmdline_block_append(obj, size); }
+  inline void cmdline_block_hide(NeovimObj obj, u32 size) { cmdline.cmdline_block_hide(obj, size); }
   inline void reposition_cmdline()
   {
     QPointF rel_pos = cmdline.relative_pos();
@@ -242,28 +257,89 @@ public:
   inline void cmdline_set_center_y(float y) { cmdline.set_center_y(y); reposition_cmdline(); }
   inline void cmdline_set_padding(int padding) { cmdline.set_padding(padding); }
   inline void set_mouse_enabled(bool enabled) { mouse_enabled = enabled; }
+  /// Returns the highlight state of Neovim
+  inline const HLState* hl_state() const { return state; }
+  /// Returns the main font (first font in the fallback list).
+  inline const QFont& main_font() const { return font; }
+  /// Returns the font fallback list.
+  inline const std::vector<Font>& fallback_list() const { return fonts; }
+  /// Returns the offset needed to render the text properly using Qt's QPainter
+  /// based on the current main font.
+  double font_offset() const;
+  /// Get Neovim's current default background color.
+  /// If it has not been set, the color is black.
+  QColor default_bg() const
+  {
+    return state->default_colors_get().bg().value_or(0).qcolor();
+  }
+  /// Get Neovim's default foreground color.
+  /// If it has not been set, the color is white.
+  QColor default_fg() const
+  {
+    return state->default_colors_get().fg().value_or(0x00ffffff).qcolor();
+  }
+  auto scroll_animation_duration() const { return scroll_animation_time; }
+  auto move_animation_duration() const { return move_animation_time; }
+  auto scroll_animation_frametime() const
+  {
+    return scroll_animation_frame_interval;
+  }
+  auto move_animation_frametime() const { return animation_frame_interval_ms; }
+  bool animations_enabled() const { return animate; }
+  void set_animations_enabled(bool enabled) { animate = enabled; }
+  void set_animation_frametime(int ms)
+  {
+    if (ms >= 1) animation_frame_interval_ms = ms;
+  }
+  void set_move_animation_duration(float s)
+  {
+    if (s > 0.f) move_animation_time = s;
+  }
+  auto snapshot_limit() { return snapshot_count; }
+  void set_move_scaler(std::string scaler)
+  {
+    if (scalers::scalers().contains(scaler))
+    {
+      GridBase::move_scaler = scalers::scalers().at(scaler);
+    }
+  }
+  void set_scroll_scaler(std::string scaler)
+  {
+    if (scalers::scalers().contains(scaler))
+    {
+      GridBase::scroll_scaler = scalers::scalers().at(scaler);
+    }
+  }
+  void set_scroll_animation_duration(float dur)
+  {
+    if (dur > 0.f) scroll_animation_time = dur;
+  }
+  void set_scroll_frametime(int ms)
+  {
+    if (ms >= 1) scroll_animation_frame_interval = ms;
+  }
+  void set_snapshot_count(u32 count)
+  {
+    if (count > 0) snapshot_count = count;
+  }
+  std::vector<std::string> popupmenu_icon_list()
+  {
+    return popup_menu.icon_list();
+  }
+  void popupmenu_info_set_columns(int columns)
+  {
+    popup_menu.info_display().set_cols(columns);
+  }
+  /// For input methods
+  virtual QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
 protected:
-  // Differentiate between redrawing and clearing (since clearing is
-  // a lot easier)
-  enum PaintKind : std::uint8_t
-  {
-    Clear,
-    Draw,
-    Redraw
-  };
-  struct PaintEventItem
-  {
-    PaintKind type;
-    std::uint16_t grid_num;
-    QRect rect;
-  };
   std::queue<PaintEventItem> events;
   QFontDatabase font_db;
   std::uint16_t charspace = 0;
   std::int16_t linespace = 0;
   HLState* state;
   bool should_ignore_pevent = false;
-  std::vector<Grid> grids;
+  std::vector<std::unique_ptr<GridBase>> grids;
   bool bold = false;
   // For font fallback, not used if a single font is set.
   std::vector<Font> fonts;
@@ -282,6 +358,13 @@ protected:
   std::optional<QSize> queued_resize = std::nullopt;
   std::unordered_map<std::uint32_t, std::uint32_t> font_for_unicode;
   bool mouse_enabled = false;
+  ExtensionCapabilities capabilities;
+  bool animate = true;
+  u32 snapshot_count = 4;
+  float move_animation_time = 0.5f;
+  int animation_frame_interval_ms = 10;
+  int scroll_animation_frame_interval = 10;
+  float scroll_animation_time = 0.3f;
   /**
    * Sets the current font to new_font.
    */
@@ -291,7 +374,7 @@ protected:
    * overwriting the previous text a the position.
    */
   void set_text(
-    Grid& g,
+    GridBase& g,
     grid_char c,
     std::uint16_t row,
     std::uint16_t col,
@@ -302,7 +385,7 @@ protected:
   /**
    * Returns a grid with the matching grid_num
    */
-  Grid* find_grid(const std::uint16_t grid_num);
+  GridBase* find_grid(const std::uint16_t grid_num);
   /**
    * Converts a rectangle in terms of rows and cols
    * to a pixel-value rectangle relative to the top-left
@@ -323,15 +406,27 @@ protected:
    * Updates the font metrics, such as font_width and font_height.
    */
   virtual void update_font_metrics(bool update_fonts = false);
+  /// Creates a new grid with the given properties.
+  /// NOTE: Override this if you want to create a grid with a different
+  /// type (inheriting from GridBase). This is useful if you want to
+  /// use different rendering technologies for grids. For example,
+  /// WinEditorArea overrides this method and creates a
+  /// D2DPaintGrid which uses Direct2D for drawing. If this method
+  /// is not overriden, a QPaintGrid is created. You can also create
+  /// a GridBase object if you have no need for the grids to do their
+  /// own rendering.
+  virtual void create_grid(u16 x, u16 y, u16 w, u16 h, u16 id)
+  {
+    grids.push_back(std::make_unique<QPaintGrid>(this, x, y, w, h, id));
+  }
   /**
    * Draws a portion of the grid on the screen
    * (the area to draw is given by rect).
    */
   void draw_grid(
     QPainter& painter,
-    const Grid& grid,
-    const QRect& rect,
-    std::unordered_set<int>& drawn_rows
+    const GridBase& grid,
+    const QRect& rect
   );
   /**
    * Clears a portion of the grid by drawing Neovim's current default background
@@ -339,7 +434,7 @@ protected:
    * This should be faster than draw_grid if all you want to do is clear,
    * since it doesn't draw text/look for text to draw.
    */
-  void clear_grid(QPainter& painter, const Grid& grid, const QRect& rect);
+  void clear_grid(QPainter& painter, const GridBase& grid, const QRect& rect);
   /**
    * Draws the text with the background and foreground according to the
    * given attributes attr and the default colors, between start and end.
@@ -396,6 +491,40 @@ protected:
     std::string action,
     std::string modifiers
   );
+  /**
+   * Destroy the grid with the given grid_num.
+   * If no grid exists with the given grid_num,
+   * nothing happens.
+   */
+  void destroy_grid(std::uint16_t grid_num);
+  /// Clear event queue
+  inline void clear_events()
+  {
+    decltype(events)().swap(events);
+  }
+  /// Redraw all grids
+  void send_redraw();
+  /// Clear a grid
+  void send_clear(std::uint16_t grid_num, QRect r = {});
+  /// Draw a portion of the grid
+  void send_draw(std::uint16_t grid_num, QRect r);
+  /// Shift down all grids with a z index greater than idx
+  /// by 1.
+  void shift_z(u32 idx)
+  {
+    for(auto& g : grids)
+    {
+      if (g->z_index > idx) --g->z_index;
+    }
+  }
+  /// Sorts grids in order of their z index, from
+  /// lowest to highest.
+  void sort_grids_by_z_index()
+  {
+    std::sort(grids.begin(), grids.end(), [](const auto& g1, const auto& g2) {
+      return g1->z_index < g2->z_index;
+    });
+  }
 public slots:
   /**
    * Handle a window resize.
@@ -420,6 +549,7 @@ protected:
   bool focusNextPrevChild(bool next) override;
   void dropEvent(QDropEvent* event) override;
   void dragEnterEvent(QDragEnterEvent* event) override;
+  void inputMethodEvent(QInputMethodEvent* event) override;
 };
 
 #endif // NVUI_EDITOR_HPP

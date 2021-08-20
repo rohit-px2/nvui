@@ -76,6 +76,17 @@ public:
     else icons[name] = load_icon(name, sq_width);
   }
 
+  std::vector<std::string> icon_list() const
+  {
+    std::vector<std::string> vs;
+    const auto keys = icons.keys();
+    for(const auto& icon_name : keys)
+    {
+      vs.push_back(icon_name.toStdString());
+    }
+    return vs;
+  }
+
 private:
   QPixmap load_icon(const QString& iname, int width);
   void load_icons(int width);
@@ -84,7 +95,7 @@ private:
   // Map string (iname) to (foreground, background) tuple
   // Any color with no value will default to the default_foreground and default_background
   // colors.
-  std::unordered_map<QString, fg_bg> colors {
+  QHash<QString, fg_bg> colors {
     {"array", {}},
     {"boolean", {}},
     {"class", {}},
@@ -115,7 +126,7 @@ private:
     {"structure", {}},
     {"variable", {}}
   };
-  std::unordered_map<QString, QPixmap> icons {
+  QHash<QString, QPixmap> icons {
     {"array", {}},
     {"boolean", {}},
     {"class", {}},
@@ -160,8 +171,26 @@ struct PMenuItem
   QString info;
 };
 
+class PopupMenu;
+class PopupMenuInfo : public QWidget
+{
+  Q_OBJECT
+public:
+  PopupMenuInfo(PopupMenu* parent);
+  void draw(QPainter& p, const HLAttr& attr, const QString& info);
+  void set_cols(int c) { if (c > 0) cols = c; }
+private:
+  int cols = 50;
+  PopupMenu* parent_menu = nullptr;
+  HLAttr current_attr;
+  QString current_text;
+protected:
+  void paintEvent(QPaintEvent* event) override;
+};
+
 class PopupMenu : public QWidget
 {
+  friend class PopupMenuInfo;
 public:
   PopupMenu(const HLState* state, QWidget* parent = nullptr);
   /**
@@ -312,6 +341,12 @@ public:
     paint();
   }
 
+  inline auto icon_list() const
+  {
+    return icon_manager.icon_list();
+  }
+
+  auto& info_display() { return info_widget; }
 private:
   void update_dimensions();
   /**
@@ -327,6 +362,10 @@ private:
    * and with the given attribute.
    */
   void draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem& item, int y);
+  /**
+   * Draw the info as its own box.
+   */
+  void draw_info(QPainter& p, const HLAttr& attr, const QString& info);
   std::optional<int> attached_width;
   const HLState* hl_state;
   const HLAttr* pmenu = nullptr;
@@ -347,6 +386,7 @@ private:
   int row = 0;
   int col = 0;
   int linespace = 0;
+  PopupMenuInfo info_widget;
   PopupMenuIconManager icon_manager;
   bool has_scrollbar = false;
   bool is_hidden = true;

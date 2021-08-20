@@ -176,6 +176,15 @@ public:
     int row,
     int col
   );
+  /**
+   * Send the response to Neovim for the given msgid,
+   * with the given error and result objects.
+   */
+  void send_response(
+    std::uint64_t msgid,
+    msgpack::object res,
+    msgpack::object err
+  );
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;

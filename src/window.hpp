@@ -7,8 +7,9 @@
 #include <QFont>
 #include <QToolBar>
 #include <QLayout>
-#include "wineditor.hpp"
+#include "decide_renderer.hpp"
 #include "nvim.hpp"
+#include "editor.hpp"
 #include "titlebar.hpp"
 #include "hlstate.hpp"
 #include <iostream>
@@ -17,12 +18,16 @@
 #include <QEvent>
 #include <unordered_map>
 #include <QSemaphore>
-
 class Window;
+
+#if defined(Q_OS_WIN)
+#include "wineditor.hpp"
+#endif
 
 constexpr int tolerance = 10; //10px tolerance for resizing
 
-using obj_ref_cb = void (*)(Window*, const msgpack::object*, std::uint32_t size);
+using obj_ref_cb = std::function<void (const msgpack::object*, std::uint32_t size)>;
+
 /// The main window class which holds the rest of the GUI components.
 /// Fundamentally, the Neovim area is just 1 big text box.
 /// However, there are additional features that we are trying to
@@ -30,6 +35,11 @@ using obj_ref_cb = void (*)(Window*, const msgpack::object*, std::uint32_t size)
 class Window : public QMainWindow
 {
   Q_OBJECT
+  template<typename R, typename E>
+  using handler_func =
+    std::function<
+      std::tuple<std::optional<R>, std::optional<E>>
+      (const msgpack::object_array&)>;
 public:
   Window(QWidget* parent = nullptr, std::shared_ptr<Nvim> nv = nullptr, int width = 0, int height = 0);
   /**
@@ -102,7 +112,21 @@ private:
    * msgpack::object_handle moving is already done, so the lambdas
    * passed just have to deal with their logic.
    */
-  void listen_for_notification(std::string method, std::function<void (const msgpack::object_array&)> cb);
+  void listen_for_notification(
+    std::string method,
+    std::function<void (const msgpack::object_array&)> cb
+  );
+  /**
+   * Listens for a request with the given name,
+   * and then sends a response with the data returned
+   * by the callback function.
+   * Things like matching message id are handled by this function.
+   */
+  template<typename Res, typename Err>
+  void handle_request(
+    std::string req_name,
+    handler_func<Res, Err> handler
+  );
   /**
    * Disable the frameless window.
    * The window should be in frameless mode,
@@ -170,9 +194,9 @@ private:
   template<typename T>
   using opt = std::optional<T>;
   std::pair<opt<QColor>, opt<QColor>> titlebar_colors;
-#ifdef Q_OS_WIN
+#if defined(USE_DIRECT2D)
   WinEditorArea editor_area;
-#else
+#elif defined(USE_QPAINTER)
   EditorArea editor_area;
 #endif
 signals:

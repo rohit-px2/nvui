@@ -88,6 +88,11 @@ public:
   std::optional<Color> fg() const { return foreground; }
   std::optional<Color> bg() const { return background; }
   std::optional<Color> sp() const { return special; }
+  bool italic() const { return font_opts & FontOpts::Italic; }
+  bool bold() const { return font_opts & FontOpts::Bold; }
+  bool strikethrough() const { return font_opts & FontOpts::Strikethrough; }
+  bool underline() const { return font_opts & FontOpts::Underline; }
+  bool undercurl() const { return font_opts & FontOpts::Undercurl; }
 };
 
 /// Keeps the highlight state of Neovim

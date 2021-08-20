@@ -41,6 +41,13 @@ namespace constants
 		static const QString closeicon = normalize_path("../assets/close-windows.svg");
 		return closeicon;
 	}
+	
+	/// Directory for all the Vim files (plugin, doc)
+	inline const QString& script_dir()
+	{
+		static const QString dir = normalize_path("../vim");
+		return dir;
+	}
 
 } // namespace constants
 #endif

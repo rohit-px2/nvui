@@ -22,6 +22,9 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+using u16 = std::uint16_t;
+using u32 = std::uint32_t;
+
 static int get_offset(const QFont& font, const int linespacing)
 {
   QFontMetrics fm {font};
@@ -41,7 +44,7 @@ static void set_relative_font_size(
   const QFont& target,
   QFont& modified,
   const double tolerance,
-  const std::uint32_t max_iterations
+  const u32 max_iterations
 )
 { 
   constexpr auto width = [](const QFontMetricsF& m) {
@@ -52,7 +55,7 @@ static void set_relative_font_size(
   double low = 0.;
   double high = target.pointSizeF() * 2.;
   modified.setPointSizeF(high);
-  for(std::uint32_t rep = 0;
+  for(u32 rep = 0;
       (rep < max_iterations || max_iterations == 0) && low <= high;
       ++rep)
   {
@@ -76,6 +79,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   popup_menu(hl_state, this),
   cmdline(hl_state, &neovim_cursor, this)
 {
+  setAttribute(Qt::WA_InputMethodEnabled);
   setAttribute(Qt::WA_OpaquePaintEvent);
   setAutoFillBackground(false);
   setAcceptDrops(true);
@@ -95,7 +99,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 }
 
 void EditorArea::set_text(
-  Grid& grid,
+  GridBase& grid,
   grid_char c,
   std::uint16_t row,
   std::uint16_t col,
@@ -104,7 +108,7 @@ void EditorArea::set_text(
   bool is_dbl_width
 )
 {
-  std::uint32_t ucs;
+  u32 ucs;
   if (c.isEmpty()) ucs = 0;
   else
   {
@@ -126,10 +130,10 @@ void EditorArea::set_text(
   }
 }
 
-void EditorArea::grid_resize(const msgpack::object *obj, std::uint32_t size)
+void EditorArea::grid_resize(const msgpack::object *obj, u32 size)
 {
   // Should only run once
-  for(std::uint32_t i = 0; i < size; ++i)
+  for(u32 i = 0; i < size; ++i)
   {
     const msgpack::object& o = obj[i];
     assert(o.type == msgpack::type::ARRAY);
@@ -140,27 +144,31 @@ void EditorArea::grid_resize(const msgpack::object *obj, std::uint32_t size)
     assert(grid_num != 0);
     std::uint16_t width = arr.ptr[1].as<std::uint16_t>();
     std::uint16_t height = arr.ptr[2].as<std::uint16_t>();
-    Grid* grid = find_grid(grid_num);
+    GridBase* grid = find_grid(grid_num);
     if (grid)
     {
-      grid->rows = height;
-      grid->cols = width;
-      grid->area.resize(grid->rows * grid->cols);
+      grid->set_size(width, height);
     }
     else
     {
-      grids.push_back(Grid {0, 0, height, width, grid_num, std::vector<GridChar>(width * height)});
+      create_grid(0, 0, width, height, grid_num);
+      grid = find_grid(grid_num);
+      // Created grid appears above all others
+      grid->z_index = grids.size() - 1;
+    }
+    if (grid)
+    {
+      send_draw(grid_num, {0, 0, grid->cols, grid->rows});
     }
   }
 }
 
-void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
+void EditorArea::grid_line(NeovimObj obj, u32 size)
 {
   QFontMetrics fm {font};
-  //std::stringstream ss;
   std::uint16_t hl_id = 0;
   //std::cout << "Received grid line.\nNum params: " << size << '\n';
-  for(std::uint32_t i = 0; i < size; ++i)
+  for(u32 i = 0; i < size; ++i)
   {
     const msgpack::object& grid_cmd = obj[i];
     assert(grid_cmd.type == msgpack::type::ARRAY);
@@ -169,16 +177,16 @@ void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
     const std::uint16_t grid_num = grid.ptr[0].as<std::uint16_t>();
     //std::cout << "Grid line on grid " << grid_num << '\n';
     // Get associated grid
-    Grid* grid_ptr = find_grid(grid_num);
+    GridBase* grid_ptr = find_grid(grid_num);
     assert(grid_ptr);
-    Grid& g = *grid_ptr;
+    GridBase& g = *grid_ptr;
     const std::uint16_t start_row = grid.ptr[1].as<std::uint16_t>();
     const std::uint16_t start_col = grid.ptr[2].as<std::uint16_t>();
     int col = start_col;
     const msgpack::object& cells_obj = grid.ptr[3];
     assert(cells_obj.type == msgpack::type::ARRAY);
     const auto& cells = cells_obj.via.array;
-    for(std::uint32_t j = 0; j < cells.size; ++j)
+    for(u32 j = 0; j < cells.size; ++j)
     {
       // [text, (hl_id, repeat)]
       const msgpack::object& o = cells.ptr[j];
@@ -212,25 +220,24 @@ void EditorArea::grid_line(const msgpack::object* obj, std::uint32_t size)
         case 3:
         {
           hl_id = seq.ptr[1].as<std::uint16_t>();
-          repeat = seq.ptr[2].as<std::uint32_t>();
+          repeat = seq.ptr[2].as<u32>();
           break;
         }
       }
       //std::cout << "Code point: " << c << "\n";
-      set_text(g, std::move(text), start_row, col, hl_id, repeat, is_dbl);
+      g.set_text(std::move(text), start_row, col, hl_id, repeat, is_dbl);
       col += repeat;
     }
     //ss << '\n';
     // Update the area that we modified
     // Translating rows and cols to a pixel area
     //QRect rect = to_pixels(grid_num, start_row, start_col, start_row + 1, col);
-    events.push(PaintEventItem {PaintKind::Draw, grid_num, {start_col, start_row, (col - start_col), 1}});
+    send_draw(grid_num, {start_col, start_row, (col - start_col), 1});
   }
-  //std::cout << ss.str() << '\n';
   //update();
 }
 
-void EditorArea::grid_cursor_goto(const msgpack::object* obj, std::uint32_t size)
+void EditorArea::grid_cursor_goto(const msgpack::object* obj, u32 size)
 {
   assert(obj->type == msgpack::type::ARRAY);
   const auto& arr = obj->via.array;
@@ -238,7 +245,7 @@ void EditorArea::grid_cursor_goto(const msgpack::object* obj, std::uint32_t size
   std::uint16_t grid_num = arr.ptr[0].as<std::uint16_t>();
   int row = arr.ptr[1].as<int>();
   int col = arr.ptr[2].as<int>();
-  Grid* grid = find_grid(grid_num);
+  GridBase* grid = find_grid(grid_num);
   if (!grid) return;
   neovim_cursor.go_to({grid_num, grid->x, grid->y, row, col});
   // In our paintEvent we will always redraw the current cursor.
@@ -246,13 +253,22 @@ void EditorArea::grid_cursor_goto(const msgpack::object* obj, std::uint32_t size
   auto old_pos = neovim_cursor.old_pos();
   if (!old_pos.has_value()) return;
   QRect rect {old_pos->col, old_pos->row, 1, 0};
-  events.push({PaintKind::Draw, old_pos->grid_num, rect});
+  send_draw(old_pos->grid_num, rect);
   //update();
 }
 
-void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)
+void EditorArea::option_set(const msgpack::object* obj, u32 size)
 {
-  for(std::uint32_t i = 0; i < size; ++i)
+  static const auto extension_for = [&](const std::string& s) -> bool* {
+    if (s == "ext_linegrid") return &capabilities.linegrid;
+    else if (s == "ext_popupmenu") return &capabilities.popupmenu;
+    else if (s == "ext_cmdline") return &capabilities.cmdline;
+    else if (s == "ext_multigrid") return &capabilities.multigrid;
+    else if (s == "ext_wildmenu") return &capabilities.wildmenu;
+    else if (s == "ext_messages") return &capabilities.messages;
+    else return nullptr;
+  };
+  for(u32 i = 0; i < size; ++i)
   {
     const msgpack::object& o = obj[i];
     assert(o.type == msgpack::type::ARRAY);
@@ -260,7 +276,11 @@ void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)
     assert(options.size == 2);
     assert(options.ptr[0].type == msgpack::type::STR);
     std::string opt = options.ptr[0].as<std::string>();
-    if (opt == "guifont")
+    if (bool* capability = extension_for(opt); capability)
+    {
+      *capability = options.ptr[1].as<bool>();
+    }
+    else if (opt == "guifont")
     {
       set_guifont(options.ptr[1].as<QString>());
       font.setHintingPreference(QFont::PreferFullHinting);
@@ -276,28 +296,179 @@ void EditorArea::option_set(const msgpack::object* obj, std::uint32_t size)
 
 void EditorArea::flush()
 {
+  //for(auto& grid : grids)
+  //{
+    //fmt::print(
+      //"ID: {}, X: {}, Y: {}, Width: {}, Height: {}\n",
+      //grid->id, grid->x, grid->y, grid->cols, grid->rows
+    //);
+  //}
+  sort_grids_by_z_index();
   update();
 }
 
-void EditorArea::win_pos(const msgpack::object* obj)
+void EditorArea::win_pos(NeovimObj obj, u32 size)
 {
   using u16 = std::uint16_t;
-  assert(obj->type == msgpack::type::ARRAY);
-  const msgpack::object_array& arr = obj->via.array;
-  assert(arr.size == 6);
-  const u16 grid_num = arr.ptr[0].as<u16>();
-  const u16 sr = arr.ptr[2].as<u16>();
-  const u16 sc = arr.ptr[3].as<u16>();
-  const u16 width = arr.ptr[4].as<u16>();
-  const u16 height = arr.ptr[5].as<u16>();
-  Grid* grid = find_grid(grid_num);
-  assert(grid);
-  grid->hidden = false;
-  grid->cols = width;
-  grid->rows = height;
-  grid->y = sr;
-  grid->x = sc;
-  grid->area.resize(width * height);
+  for(u32 i = 0; i < size; ++i)
+  {
+    const auto& o = obj[i];
+    assert(o.type == msgpack::type::ARRAY);
+    const msgpack::object_array& arr = o.via.array;
+    assert(arr.size == 6);
+    const u16 grid_num = arr.ptr[0].as<u16>();
+    const u16 sr = arr.ptr[2].as<u16>();
+    const u16 sc = arr.ptr[3].as<u16>();
+    const u16 width = arr.ptr[4].as<u16>();
+    const u16 height = arr.ptr[5].as<u16>();
+    GridBase* grid = find_grid(grid_num);
+    if (!grid)
+    {
+      fmt::print("No grid #{} found.\n", grid_num);
+      continue;
+    }
+    shift_z(grid->z_index);
+    grid->hidden = false;
+    grid->set_pos(sc, sr);
+    grid->set_size(width, height);
+    grid->z_index = grids.size() - 1;
+    QRect r(0, 0, grid->cols, grid->rows);
+  }
+  send_redraw();
+}
+
+void EditorArea::win_hide(NeovimObj obj, u32 size)
+{
+  for(u32 i = 0; i < size; ++i)
+  {
+    const auto& o = obj[i];
+    assert(o.type == msgpack::type::ARRAY);
+    const auto& arr = o.via.array;
+    assert(arr.size >= 2);
+    auto grid_num = arr.ptr[0].as<u16>();
+    if (GridBase* grid = find_grid(grid_num); grid) grid->hidden = true;
+  }
+}
+
+void EditorArea::win_float_pos(NeovimObj obj, u32 size)
+{
+  for(u32 i = 0; i < size; ++i)
+  {
+    const auto& o = obj[i];
+    assert(o.type == msgpack::type::ARRAY);
+    const auto& arr = o.via.array;
+    assert(arr.size >= 7);
+    auto grid_num = arr.ptr[0].as<u16>();
+    auto anchor_dir = arr.ptr[2].as<std::string>();
+    auto anchor_grid_num = arr.ptr[3].as<u16>();
+    // NOTE: I have absolutely no idea why these are
+    // float types, but they are.
+    int anchor_row = arr.ptr[4].as<double>();
+    int anchor_col = arr.ptr[5].as<double>();
+    QPoint anchor_rel = {anchor_col, anchor_row};
+    //bool focusable = arr.ptr[6].as<bool>();
+    GridBase* grid = find_grid(grid_num);
+    GridBase* anchor_grid = find_grid(anchor_grid_num);
+    if (!grid || !anchor_grid) return;
+    // Anchor dir is "NW", "SW", "SE", "NE"
+    // Right now it assumes the anchor is top left (NW)
+    // If it's SW, we need to move it up
+    // If SE, we need to move it left and up
+    // If NE, we need to move it left
+    QPoint anchor_pos = anchor_grid->top_left() + anchor_rel;
+    if (anchor_dir == "SW")
+    {
+      anchor_pos -= QPoint(0, grid->rows);
+    }
+    else if (anchor_dir == "SE")
+    {
+      anchor_pos -= QPoint(grid->cols, grid->rows);
+    }
+    else if (anchor_dir == "NE")
+    {
+      anchor_pos -= QPoint(grid->cols, 0);
+    }
+    else
+    {
+      // NW, no need to do anything
+    }
+    shift_z(grid->z_index);
+    bool were_animations_enabled = animations_enabled();
+    set_animations_enabled(false);
+    grid->set_pos(anchor_pos);
+    grid->z_index = grids.size() - 1;
+    set_animations_enabled(were_animations_enabled);
+  }
+}
+
+void EditorArea::win_close(NeovimObj obj, u32 size)
+{
+  for(u32 i = 0; i < size; ++i)
+  {
+    const auto& o = obj[i];
+    assert(o.type == msgpack::type::ARRAY);
+    const auto& arr = o.via.array;
+    assert(arr.size >= 1);
+    auto grid_num = arr.ptr[0].as<u16>();
+    destroy_grid(grid_num);
+  }
+  send_redraw();
+}
+
+void EditorArea::win_viewport(NeovimObj obj, u32 size)
+{
+  for(u32 i = 0; i < size; ++i)
+  {
+    const auto& o = obj[i];
+    assert(o.type == msgpack::type::ARRAY);
+    const auto& arr = o.via.array;
+    assert(arr.size >= 6);
+    auto grid_num = arr.ptr[0].as<u16>();
+    auto topline = arr.ptr[2].as<u32>();
+    auto botline = arr.ptr[3].as<u32>();
+    auto curline = arr.ptr[4].as<u32>();
+    auto curcol = arr.ptr[5].as<u32>();
+    Viewport vp = {topline, botline, curline, curcol};
+    auto* grid = find_grid(grid_num);
+    if (!grid) continue;
+    grid->viewport_changed(std::move(vp));
+  }
+}
+
+void EditorArea::grid_destroy(NeovimObj obj, u32 size)
+{
+  for(u32 i = 0; i < size; ++i)
+  {
+    const auto& o = obj[i];
+    assert(o.type == msgpack::type::ARRAY);
+    const auto& arr = o.via.array;
+    assert(arr.size >= 1);
+    auto grid_num = arr.ptr[0].as<u16>();
+    destroy_grid(grid_num);
+  }
+  send_redraw();
+}
+
+void EditorArea::msg_set_pos(NeovimObj obj, u32 size)
+{
+  for(u32 i = 0; i < size; ++i)
+  {
+    const auto& o = obj[i];
+    assert(o.type == msgpack::type::ARRAY);
+    const auto& arr = o.via.array;
+    assert(arr.size >= 4);
+    auto grid_num = arr.ptr[0].as<u16>();
+    auto row = arr.ptr[1].as<u16>();
+    //auto scrolled = arr.ptr[2].as<bool>();
+    //auto sep_char = arr.ptr[3].as<QString>();
+    if (GridBase* grid = find_grid(grid_num); grid)
+    {
+      shift_z(grid->z_index);
+      grid->set_pos(grid->x, row);
+      grid->z_index = grids.size() - 1;
+    }
+  }
+  send_redraw();
 }
 
 static std::tuple<QString, double, std::uint8_t> parse_guifont(const QString& str)
@@ -379,15 +550,16 @@ void EditorArea::set_guifont(const QString& new_font)
   }
   update_font_metrics(true);
   resized(size());
+  send_redraw();
 }
 
 
-Grid* EditorArea::find_grid(const std::uint16_t grid_num)
+GridBase* EditorArea::find_grid(const std::uint16_t grid_num)
 {
-  const auto grid_it = std::find_if(grids.begin(), grids.end(), [grid_num](const Grid& g) {
-    return g.id == grid_num;
+  const auto grid_it = std::find_if(grids.begin(), grids.end(), [grid_num](const auto& g) {
+    return g->id == grid_num;
   });
-  return grid_it == grids.end() ? nullptr : &(*grid_it);
+  return grid_it == grids.end() ? nullptr : grid_it->get();
 }
 
 QRect EditorArea::to_pixels(
@@ -424,41 +596,28 @@ QSize EditorArea::to_rc(const QSize& pixel_size)
 
 void EditorArea::paintEvent(QPaintEvent* event)
 {
-  std::unordered_set<int> drawn;
-  QFontMetrics fm {font};
-  event->accept();
-  QPainter painter(&pixmap);
-  painter.setClipping(false);
-  painter.setFont(font);
+  Q_UNUSED(event);
 #ifndef NDEBUG
   using Clock = std::chrono::high_resolution_clock;
   const auto start = Clock::now();
 #endif
-  while(!events.empty())
-  {
-    const PaintEventItem& event = events.front();
-    const Grid* grid = find_grid(event.grid_num);
-    assert(grid);
-    if (event.type == PaintKind::Clear)
-    {
-      //qDebug() << "Clear grid " << grid << "\n";
-      clear_grid(painter, *grid, event.rect);
-    }
-    else if (event.type == PaintKind::Redraw)
-    {
-      for(const auto& grid : grids)
-      {
-        draw_grid(painter, grid, QRect(0, 0, grid.cols, grid.rows), drawn);
-      }
-    }
-    else
-    {
-      draw_grid(painter, *grid, event.rect, drawn);
-    }
-    events.pop();
-  }
   QPainter p(this);
-  p.drawPixmap(rect(), pixmap, rect());
+  p.fillRect(rect(), default_bg());
+  QRectF grid_clip_rect(0, 0, cols * font_width, rows * font_height);
+  p.setClipRect(grid_clip_rect);
+  for(auto& grid_base : grids)
+  {
+    auto* grid = static_cast<QPaintGrid*>(grid_base.get());
+    if (!grid->hidden)
+    {
+      QSize size = grid->buffer().size();
+      auto r = QRectF(grid->pos(), size).intersected(grid_clip_rect);
+      p.setClipRect(r);
+      grid->process_events();
+      grid->render(p);
+    }
+  }
+  p.setClipRect(rect());
   if (!neovim_cursor.hidden() && cmdline.isHidden())
   {
     draw_cursor(p);
@@ -495,7 +654,7 @@ void EditorArea::resized(QSize sz)
   nvim->resize(new_rc.width(), new_rc.height());
 }
 
-void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rect, std::unordered_set<int>& drawn_rows)
+void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect& rect)
 {
   QString buffer;
   buffer.reserve(100);
@@ -515,7 +674,7 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
   };
   QFont cur_font = font;
   const auto draw_buf = [&](QString& text, const HLAttr& attr, const HLAttr& def_clrs,
-      const QPointF& start, const QPointF& end, std::uint32_t font_idx) {
+      const QPointF& start, const QPointF& end, u32 font_idx) {
     if (!text.isEmpty())
     {
       cur_font = fonts[font_idx].font();
@@ -526,10 +685,8 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
   for(int y = start_y; y <= end_y && y < grid.rows; ++y)
   {
     QPointF start = {(double) grid.x * font_width, (double) (grid.y + y) * font_height};
-    if (drawn_rows.contains(grid.y + y)) continue;
-    else drawn_rows.insert(grid.y + y);
     std::uint16_t prev_hl_id = UINT16_MAX;
-    std::uint32_t cur_font_idx = 0;
+    u32 cur_font_idx = 0;
     for(int x = 0; x < grid.cols; ++x)
     {
       const auto& gc = grid.area[y * grid.cols + x];
@@ -571,7 +728,7 @@ void EditorArea::draw_grid(QPainter& painter, const Grid& grid, const QRect& rec
   }
 }
 
-void EditorArea::clear_grid(QPainter& painter, const Grid& grid, const QRect& rect)
+void EditorArea::clear_grid(QPainter& painter, const GridBase& grid, const QRect& rect)
 {
   const HLAttr& def_clrs = state->default_colors_get();
   QColor bg = def_clrs.background->to_uint32();
@@ -586,24 +743,22 @@ void EditorArea::ignore_next_paint_event()
   should_ignore_pevent = true;
 }
 
-void EditorArea::grid_clear(const msgpack::object *obj, std::uint32_t size)
+void EditorArea::grid_clear(const msgpack::object *obj, u32 size)
 {
   assert(obj->type == msgpack::type::ARRAY);
   const auto& arr = obj->via.array;
   assert(arr.size == 1);
   const auto grid_num = arr.ptr[0].as<std::uint16_t>();
-  Grid* grid = find_grid(grid_num);
+  GridBase* grid = find_grid(grid_num);
   for(auto& gc : grid->area)
   {
-    gc.text = ' ';
-    gc.hl_id = 0;
-    gc.double_width = false;
+    gc = {0, " ", false, QChar(' ').unicode()};
   }
   QRect&& r = {grid->x, grid->y, grid->cols, grid->rows};
-  events.push(PaintEventItem {PaintKind::Clear, grid_num, r});
+  send_clear(grid_num, r);
 }
 
-void EditorArea::grid_scroll(const msgpack::object* obj, std::uint32_t size)
+void EditorArea::grid_scroll(const msgpack::object* obj, u32 size)
 {
   using u16 = std::uint16_t;
   assert(obj->type == msgpack::type::ARRAY);
@@ -616,7 +771,7 @@ void EditorArea::grid_scroll(const msgpack::object* obj, std::uint32_t size)
   const u16 right = arr.ptr[4].as<u16>();
   const int rows = arr.ptr[5].as<int>();
   const int cols = arr.ptr[6].as<int>();
-  Grid* grid = find_grid(grid_num);
+  GridBase* grid = find_grid(grid_num);
   if (!grid) return;
   assert(grid);
   if (rows > 0)
@@ -640,7 +795,7 @@ void EditorArea::grid_scroll(const msgpack::object* obj, std::uint32_t size)
     }
   }
   auto rect = QRect(left, top, (right - left), (bot - top));
-  events.push(PaintEventItem {PaintKind::Draw, grid_num, rect});
+  send_draw(grid_num, rect);
 }
 
 static std::string mouse_button_to_string(Qt::MouseButtons btn)
@@ -709,6 +864,46 @@ std::string event_to_string(QKeyEvent* event, bool* special)
       return "LT";
     case Qt::Key_Space:
       return "Space";
+    case Qt::Key_F1:
+      return "F1";
+    case Qt::Key_F2:
+      return "F2";
+    case Qt::Key_F3:
+      return "F3";
+    case Qt::Key_F4:
+      return "F4";
+    case Qt::Key_F5:
+      return "F5";
+    case Qt::Key_F6:
+      return "F6";
+    case Qt::Key_F7:
+      return "F7";
+    case Qt::Key_F8:
+      return "F8";
+    case Qt::Key_F9:
+      return "F9";
+    case Qt::Key_F10:
+      return "F10";
+    case Qt::Key_F11:
+      return "F11";
+    case Qt::Key_F12:
+      return "F12";
+    case Qt::Key_F13:
+      return "F13";
+    case Qt::Key_F14:
+      return "F14";
+    case Qt::Key_F15:
+      return "F15";
+    case Qt::Key_F16:
+      return "F16";
+    case Qt::Key_F17:
+      return "F17";
+    case Qt::Key_F18:
+      return "F18";
+    case Qt::Key_F19:
+      return "F19";
+    case Qt::Key_F20:
+      return "F20";
     default:
       *special = false;
       return event->text().toStdString();
@@ -754,17 +949,15 @@ void EditorArea::default_colors_changed(QColor fg, QColor bg)
   // drawn yet is completely black)
   // This has to be virtual because we aren't always drawing to a QPixmap
   // (WinEditorArea draws to a ID2D1Bitmap)
-  QPainter p(&pixmap);
-  p.fillRect(pixmap.rect(), bg);
-  events.push({PaintKind::Redraw, 0, QRect()});
+  send_redraw();
 }
 
-void EditorArea::mode_info_set(const msgpack::object* obj, std::uint32_t size)
+void EditorArea::mode_info_set(const msgpack::object* obj, u32 size)
 {
   neovim_cursor.mode_info_set(obj, size);
 }
 
-void EditorArea::mode_change(const msgpack::object* obj, std::uint32_t size)
+void EditorArea::mode_change(const msgpack::object* obj, u32 size)
 {
   neovim_cursor.mode_change(obj, size);
 }
@@ -801,9 +994,11 @@ void EditorArea::draw_cursor(QPainter& painter)
   auto pos_opt = neovim_cursor.pos();
   if (!pos_opt) return;
   auto p = pos_opt.value();
-  Grid* grid = find_grid(p.grid_num);
+  GridBase* grid = find_grid(p.grid_num);
   if (!grid) return;
-  const auto& gc = grid->area[p.row * grid->cols + p.col];
+  std::size_t idx = p.row * grid->cols + p.col;
+  if (idx >= grid->area.size()) return;
+  const auto& gc = grid->area[idx];
   float scale_factor = 1.0f;
   if (gc.double_width) scale_factor = 2.0f;
   auto rect = neovim_cursor.rect(font_width, font_height, scale_factor).value();
@@ -845,7 +1040,7 @@ void EditorArea::draw_popup_menu()
   }
   else
   {
-    Grid* grid = find_grid(grid_num);
+    GridBase* grid = find_grid(grid_num);
     assert(grid);
     start_x = (grid->x + col) * font_width;
     start_y = (grid->y + row + 1) * font_height;
@@ -858,6 +1053,8 @@ void EditorArea::draw_popup_menu()
   }
   popup_menu.move({start_x, start_y});
   popup_menu.setVisible(true);
+  QPoint info_pos = {start_x + popup_menu.width(), start_y};
+  popup_menu.info_display().move(info_pos);
 }
 
 static bool is_image(const QString& file)
@@ -889,9 +1086,9 @@ void EditorArea::dragEnterEvent(QDragEnterEvent* event)
   if (event->mimeData()->hasUrls()) event->acceptProposedAction();
 }
 
-void EditorArea::set_fallback_for_ucs(std::uint32_t ucs)
+void EditorArea::set_fallback_for_ucs(u32 ucs)
 {
-  for(std::uint32_t i = 0; i < fonts.size(); ++i)
+  for(u32 i = 0; i < fonts.size(); ++i)
   {
     if (fonts[i].raw().supportsCharacter(ucs))
     {
@@ -902,7 +1099,7 @@ void EditorArea::set_fallback_for_ucs(std::uint32_t ucs)
   font_for_unicode[ucs] = 0;
 }
 
-std::uint32_t EditorArea::font_for_ucs(std::uint32_t ucs)
+u32 EditorArea::font_for_ucs(u32 ucs)
 {
   if (fonts.size() <= 1) return 0;
   auto it = font_for_unicode.find(ucs);
@@ -913,12 +1110,8 @@ std::uint32_t EditorArea::font_for_ucs(std::uint32_t ucs)
 
 void EditorArea::resizeEvent(QResizeEvent* event)
 {
-  QSize new_size = event->size();
-  pixmap = QPixmap(new_size);
-  QPainter p(&pixmap);
-  QColor bg = state->default_colors_get().background->to_uint32();
-  p.fillRect(pixmap.rect(), bg);
-  events.push({PaintKind::Redraw, 0, QRect()});
+  Q_UNUSED(event);
+  repaint();
 }
 
 std::optional<EditorArea::GridPos>
@@ -929,15 +1122,15 @@ EditorArea::grid_pos_for(const QPoint& pos)
   const auto font_height = std::get<1>(font_dims);
   for(const auto& grid : grids)
   {
-    const auto start_y = grid.y * font_height;
-    const auto start_x = grid.x * font_width;
-    const auto height = grid.rows * font_height;
-    const auto width = grid.cols * font_width;
+    const auto start_y = grid->y * font_height;
+    const auto start_x = grid->x * font_width;
+    const auto height = grid->rows * font_height;
+    const auto width = grid->cols * font_width;
     if (QRect(start_x, start_y, width, height).contains(pos))
     {
-      int row = (pos.y() - grid.y) / font_height;
-      int col = (pos.x() - grid.x) / font_width;
-      return GridPos {grid.id, row, col};
+      int row = (pos.y() - grid->y) / font_height;
+      int col = (pos.x() - grid->x) / font_width;
+      return GridPos {grid->id, row, col};
     }
   }
   return std::nullopt;
@@ -965,6 +1158,7 @@ void EditorArea::send_mouse_input(
     return;
   }
   auto&& [grid_num, row, col] = *grid_pos_opt;
+  if (capabilities.multigrid) grid_num = 0;
   nvim->input_mouse(
     std::move(button), std::move(action), std::move(modifiers),
     grid_num, row, col
@@ -1027,4 +1221,72 @@ void EditorArea::wheelEvent(QWheelEvent* event)
   send_mouse_input(
     wheel_pos, std::move(button), std::move(action), std::move(mods)
   );
+}
+
+void EditorArea::destroy_grid(u16 grid_num)
+{
+  auto it = std::find_if(grids.begin(), grids.end(), [=](const auto& g) {
+    return g->id == grid_num;
+  });
+  if (it == grids.end()) return;
+  grids.erase(it);
+}
+
+double EditorArea::font_offset() const
+{
+  return get_offset(font, linespace);
+}
+
+void EditorArea::send_redraw()
+{
+  //clear_events();
+  //events.push({PaintKind::Redraw, 0, QRect()});
+  for(auto& grid : grids) grid->send_redraw();
+}
+
+void EditorArea::send_clear(std::uint16_t grid_num, QRect r)
+{
+  Q_UNUSED(r);
+  if (GridBase* grid = find_grid(grid_num); grid) grid->send_clear();
+  //if (r.isNull())
+  //{
+    //GridBase* grid = find_grid(grid_num);
+    //r = {grid->x, grid->y, grid->cols, grid->rows};
+  //}
+  //events.push({PaintKind::Clear, grid_num, r});
+}
+
+void EditorArea::send_draw(std::uint16_t grid_num, QRect r)
+{
+  if (GridBase* grid = find_grid(grid_num); grid) grid->send_draw(r);
+  //events.push({PaintKind::Draw, grid_num, std::move(r)}); 
+}
+
+void EditorArea::inputMethodEvent(QInputMethodEvent* event)
+{
+  event->accept();
+  if (!event->commitString().isEmpty())
+  {
+    nvim->send_input(event->commitString().toStdString());
+  }
+}
+
+QVariant EditorArea::inputMethodQuery(Qt::InputMethodQuery query) const
+{
+  switch(query)
+  {
+    case Qt::ImFont:
+      return font;
+    case Qt::ImCursorRectangle:
+    {
+      auto&& [font_width, font_height] = font_dimensions();
+      auto rect_opt = neovim_cursor.rect(font_width, font_height);
+      if (!rect_opt) return QVariant();
+      auto cr = *rect_opt;
+      return cr.rect;
+    }
+    default:
+      break;
+  }
+  return QVariant();
 }

@@ -3,6 +3,7 @@
 #include <QPainter>
 #include <QStringBuilder>
 #include <QStringLiteral>
+#include "hlstate.hpp"
 #include "msgpack_overrides.hpp"
 #include "utils.hpp"
 
@@ -31,7 +32,7 @@ QString PopupMenuIconManager::iname_to_kind(const QString& iname)
 
 using fg_bg = PopupMenuIconManager::fg_bg;
 static std::pair<QColor, QColor> find_or_default(
-  const std::unordered_map<QString, fg_bg>& map,
+  const QHash<QString, fg_bg>& map,
   const QString& key,
   const QColor& default_fg,
   const QColor& default_bg
@@ -39,7 +40,7 @@ static std::pair<QColor, QColor> find_or_default(
 {
   const auto it = map.find(key);
   if (it != map.end()) {
-    return {it->second.first.value_or(default_fg), it->second.second.value_or(default_bg)};
+    return {it->first.value_or(default_fg), it->second.value_or(default_bg)};
   }
   else return {default_fg, default_bg};
 }
@@ -53,9 +54,10 @@ QPixmap PopupMenuIconManager::load_icon(const QString& iname, int width)
 
 void PopupMenuIconManager::load_icons(int width)
 {
-  for(auto& e : icons)
+  auto keys = icons.keys();
+  for(auto& key : keys)
   {
-    e.second = load_icon(e.first, width);
+    icons[key] = load_icon(key, width);
   }
 }
 
@@ -78,7 +80,49 @@ const QPixmap* PopupMenuIconManager::icon_for_kind(const QString& kind)
       return &icons[iname];
     }
   }
-  else return &it->second;
+  else return &(*it);
+}
+
+PopupMenuInfo::PopupMenuInfo(PopupMenu* parent)
+  : QWidget(parent->parentWidget()),
+    parent_menu(parent)
+{
+  hide();
+}
+
+void PopupMenuInfo::draw(QPainter& p, const HLAttr& attr, const QString& info)
+{
+  setFont(parent_menu->pmenu_font);
+  current_attr = attr;
+  current_text = info;
+  update();
+}
+
+void PopupMenuInfo::paintEvent(QPaintEvent* event)
+{
+  Q_UNUSED(event);
+  if (current_text.isNull()) hide();
+  auto cell_width = parent_menu->cell_width;
+  auto b_width = parent_menu->border_width;
+  auto full_width = cell_width * cols + parent_menu->border_width * 2;
+  resize(full_width, parent_menu->height());
+  auto offset = std::ceil(parent_menu->border_width / 2.f);
+  QPainter p(this);
+  QFont p_font = font();
+  p_font.setBold(current_attr.font_opts & FontOpts::Bold);
+  p_font.setItalic(current_attr.font_opts & FontOpts::Italic);
+  p_font.setUnderline(current_attr.font_opts & FontOpts::Underline);
+  p_font.setStrikeOut(current_attr.font_opts & FontOpts::Strikethrough);
+  p.setFont(p_font);
+  p.fillRect(rect(), current_attr.bg().value_or(QColor(Qt::white).rgb()).qcolor());
+  p.setPen({parent_menu->border_color, parent_menu->border_width});
+  QRect r = rect();
+  r.adjust(offset, offset, -offset, -offset);
+  p.drawRect(r);
+  QRect inner_rect = rect().adjusted(b_width, b_width, -b_width, -b_width);
+  auto fg = current_attr.fg().value_or(0).qcolor();
+  p.setPen(fg);
+  p.drawText(inner_rect, Qt::TextWordWrap, current_text);
 }
 
 PopupMenu::PopupMenu(const HLState* state, QWidget* parent)
@@ -86,11 +130,13 @@ PopupMenu::PopupMenu(const HLState* state, QWidget* parent)
     hl_state(state),
     pixmap(),
     completion_items(max_items),
+    info_widget(this),
     icon_manager(10),
     pmenu_font()
 {
   // Without this flag, flickering occurs on WinEditorArea.
   setAttribute(Qt::WA_NativeWindow);
+  hide();
 }
 
 void PopupMenu::pum_show(const msgpack::object* obj, std::uint32_t size)
@@ -139,6 +185,7 @@ void PopupMenu::pum_hide(const msgpack::object* obj, std::uint32_t size)
   Q_UNUSED(size);
   is_hidden = true;
   setVisible(false);
+  info_widget.hide();
 }
 
 void PopupMenu::add_items(const msgpack::object_array& items)
@@ -185,7 +232,16 @@ void PopupMenu::paint()
     std::size_t index = (cur_selected + i) % completion_items.size();
     if (completion_items[index].selected)
     {
-      draw_with_attr(p, *pmenu_sel, completion_items[index], cur_y);
+      const auto& item = completion_items[index];
+      draw_with_attr(p, *pmenu_sel, item, cur_y);
+      if (!item.info.trimmed().isEmpty())
+      {
+        draw_info(p, *pmenu, item.info);
+      }
+      else
+      {
+        draw_info(p, *pmenu, QString());
+      }
     }
     else
     {
@@ -269,6 +325,8 @@ void PopupMenu::paintEvent(QPaintEvent* event)
   int offset = std::ceil(float(border_width) / 2.f);
   draw_rect.adjust(0, 0, -offset, -offset);
   p.drawRect(draw_rect);
+  if (cur_selected == -1) info_widget.hide();
+  else info_widget.show();
 }
 
 void PopupMenu::set_max_items(std::size_t new_max)
@@ -291,4 +349,9 @@ void PopupMenu::update_dimensions()
   );
   pixmap.fill(border_color);
   resize(available_rect().size());
+}
+
+void PopupMenu::draw_info(QPainter& p, const HLAttr& attr, const QString& info)
+{
+  info_widget.draw(p, attr, info);
 }

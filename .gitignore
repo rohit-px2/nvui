@@ -2,7 +2,6 @@
 .txt 
 build/
 target/
-vcpkg/ 
 .cache/
 .vscode/
 .vs/
@@ -12,3 +11,4 @@ CMakeLists.txt.user
 *.cmd
 .ccls-cache/
 CMakeSettings.json
+.rgignore

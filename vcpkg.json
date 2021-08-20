@@ -1,0 +1,12 @@
+{
+  "name": "nvui",
+  "version-string": "0.0.1",
+  "dependencies": [
+    "fmt",
+    "msgpack",
+    "qt5-base",
+    "qt5-svg",
+    "boost-process",
+    "catch2"
+  ]
+}

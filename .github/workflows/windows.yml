@@ -1,0 +1,37 @@
+name: windows-build
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      buildDir: '${{ github.workspace }}/build'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - name: Install Clang
+        run: choco install -y llvm
+      - uses: lukka/run-vcpkg@v7
+        with:
+          setupOnly: false
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          appendedCacheKey: ${{ hashFiles('**/vcpkg.json')}}
+          additionalCachedPaths: ${{ env.buildDir }}/vcpkg_installed
+      - name: Build in Debug mode
+        uses: lukka/run-cmake@v3
+        with:
+          cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+          cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
+          useVcpkgToolchainFile: true
+          cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Debug'
+          buildDirectory: ${{ env.buildDir }}
+      - name: Build in Release mode
+        uses: lukka/run-cmake@v3
+        with:
+          cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+          cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
+          useVcpkgToolchainFile: true
+          cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Release'
+          buildDirectory: ${{ env.buildDir }}
+
+

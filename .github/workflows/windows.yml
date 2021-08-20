@@ -14,7 +14,7 @@ jobs:
         run: choco install -y llvm
       - uses: lukka/run-vcpkg@v7
         with:
-          setupOnly: false
+          setupOnly: true
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           appendedCacheKey: ${{ hashFiles('**/vcpkg.json')}}
           additionalCachedPaths: ${{ env.buildDir }}/vcpkg_installed

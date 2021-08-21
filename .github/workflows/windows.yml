@@ -1,7 +1,7 @@
 name: windows-build
 on: push
 jobs:
-  build:
+  build-debug:
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -31,3 +31,53 @@ jobs:
           useVcpkgToolchainFile: true
           cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Debug'
           buildDirectory: ${{ env.buildDir }}
+  build-release:
+    # Only on main branch
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    timeout-minutes: 500
+    env:
+      buildDir: '${{ github.workspace }}/build'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          sdk: 10.0.19041.0
+      - name: Install Clang
+        run: choco install -y llvm
+      - uses: lukka/run-vcpkg@v7
+        with:
+          setupOnly: true
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          appendedCacheKey: ${{ hashFiles('**/vcpkg.json')}}
+          additionalCachedPaths: ${{ env.buildDir }}/vcpkg_installed
+      - name: Build in Release mode
+        uses: lukka/run-cmake@v3
+        with:
+          cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+          cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
+          useVcpkgToolchainFile: true
+          cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Release'
+          buildDirectory: ${{ env.buildDir }}
+      - name: Create final output folder to zip up
+        run: |
+          mkdir nvui
+          cd nvui
+          mkdir bin
+          cd ..
+          (gci -Path ./* -Include *.dll, *.exe, *.conf).fullname | foreach {Copy-Item -Path $_ -Destination nvui}
+          cd nvui
+          Copy-Item -Recurse -Path plugins -Destination nvui/bin
+          Copy-Item -Recurse -Path ../assets -Destination nvui
+          Copy-Item -Recurse -Path ../vim -Destination nvui
+          Compress-Archive -Path nvui -DestinationPath nvui-win64.zip
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Windows-x64
+          if-no-files-found: ignore
+          path: nvui-win64.zip

@@ -1,7 +1,6 @@
 #include "editor.hpp"
 #include "grid.hpp"
 #include "utils.hpp"
-#include <ranges>
 
 scalers::time_scaler GridBase::scroll_scaler = scalers::oneminusexpo2negative10;
 scalers::time_scaler GridBase::move_scaler = scalers::oneminusexpo2negative10;
@@ -49,9 +48,9 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
       auto animation_left = move_animation_time / duration;
       float animation_finished = 1.0f - animation_left;
       float scale = move_scaler(animation_finished);
-      float animated_x = old_x + (float(x_diff) * scale);
-      float animated_y = old_y + (float(y_diff) * scale);
-      update_position(animated_x, animated_y);
+      cur_left = old_x + (float(x_diff) * scale);
+      cur_top = old_y + (float(y_diff) * scale);
+      update_position(cur_left, cur_top);
     }
     editor_area->update();
   });
@@ -203,8 +202,9 @@ void QPaintGrid::render(QPainter& p)
   float cur_snapshot_top = viewport.topline * font_height;
   u32 min_topline = viewport.topline;
   u32 max_botline = viewport.botline;
-  for(auto& snapshot : snapshots | std::views::reverse)
+  for(auto it = snapshots.rbegin(); it != snapshots.rend(); ++it)
   {
+    const auto& snapshot = *it;
     QRectF r;
     float snapshot_top = snapshot.vp.topline * font_height;
     float offset = snapshot_top - cur_scroll_y;

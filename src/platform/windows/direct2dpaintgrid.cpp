@@ -1,7 +1,6 @@
 #include "wineditor.hpp"
 #include "direct2dpaintgrid.hpp"
 #include <d2d1.h>
-#include <ranges>
 
 void D2DPaintGrid::set_size(u16 w, u16 h)
 {
@@ -363,8 +362,9 @@ void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
   SafeRelease(&bg_brush);
   float cur_scroll_y = current_scroll_y * font_height;
   float cur_snapshot_top = viewport.topline * font_height;
-  for(auto& snapshot : snapshots | std::views::reverse)
+  for(auto it = snapshots.rbegin(); it != snapshots.rend(); ++it)
   {
+    const auto& snapshot = *it;
     float snapshot_top = snapshot.vp.topline * font_height;
     float offset = snapshot_top - cur_scroll_y;
     auto pixmap_top = top_left.y() + offset - font_height;

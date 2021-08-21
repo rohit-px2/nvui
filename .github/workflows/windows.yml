@@ -17,6 +17,8 @@ jobs:
           sdk: 10.0.19041.0
       - name: Install Clang
         run: choco install -y llvm
+      - name: Setup MinGW
+        uses: egor-tensin/setup-mingw@v2
       - uses: lukka/run-vcpkg@v7
         with:
           setupOnly: true
@@ -49,6 +51,8 @@ jobs:
           sdk: 10.0.19041.0
       - name: Install Clang
         run: choco install -y llvm
+      - name: Setup MinGW
+        uses: egor-tensin/setup-mingw@v2
       - uses: lukka/run-vcpkg@v7
         with:
           setupOnly: true
@@ -70,7 +74,6 @@ jobs:
           mkdir bin
           cd ..
           (gci -Path ./* -Include *.dll, *.exe, *.conf).fullname | foreach {Copy-Item -Path $_ -Destination nvui}
-          cd nvui
           Copy-Item -Recurse -Path plugins -Destination nvui/bin
           Copy-Item -Recurse -Path ../assets -Destination nvui
           Copy-Item -Recurse -Path ../vim -Destination nvui

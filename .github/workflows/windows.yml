@@ -17,8 +17,7 @@ jobs:
         run: choco install -y llvm
       - uses: lukka/run-vcpkg@v7
         with:
-          setupOnly: false
-          vcpkgArguments: 'qt5-base qt5-svg fmt msgpack boost-process catch2'
+          setupOnly: true
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           appendedCacheKey: ${{ hashFiles('**/vcpkg.json')}}
           additionalCachedPaths: ${{ env.buildDir }}/vcpkg_installed

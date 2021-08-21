@@ -371,10 +371,8 @@ void EditorArea::win_float_pos(NeovimObj obj, u32 size)
     GridBase* anchor_grid = find_grid(anchor_grid_num);
     if (!grid || !anchor_grid) return;
     // Anchor dir is "NW", "SW", "SE", "NE"
-    // Right now it assumes the anchor is top left (NW)
-    // If it's SW, we need to move it up
-    // If SE, we need to move it left and up
-    // If NE, we need to move it left
+    // The anchor direction indicates which corner of the grid
+    // should be at the position given.
     QPoint anchor_pos = anchor_grid->top_left() + anchor_rel;
     if (anchor_dir == "SW")
     {

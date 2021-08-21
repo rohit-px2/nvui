@@ -10,11 +10,15 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          sdk: 10.0.19041.0
       - name: Install Clang
         run: choco install -y llvm
       - uses: lukka/run-vcpkg@v7
         with:
-          setupOnly: true
+          setupOnly: false
+          vcpkgArguments: 'qt5-base qt5-svg fmt msgpack boost-process catch2'
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           appendedCacheKey: ${{ hashFiles('**/vcpkg.json')}}
           additionalCachedPaths: ${{ env.buildDir }}/vcpkg_installed

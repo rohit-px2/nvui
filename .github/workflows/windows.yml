@@ -19,20 +19,27 @@ jobs:
           sdk: 10.0.19041.0
       - name: Install Clang
         run: choco install -y llvm
+      - name: Install Neovim Nightly (needed for tests)
+        run: choco install -y neovim --pre
       - uses: lukka/run-vcpkg@v7
         with:
           setupOnly: true
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           appendedCacheKey: ${{ hashFiles('**/vcpkg.json')}}
           additionalCachedPaths: ${{ env.buildDir }}/vcpkg_installed
-      - name: Build in Debug mode
-        uses: lukka/run-cmake@v3
-        with:
-          cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-          cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
-          useVcpkgToolchainFile: true
-          cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang.exe -DCMAKE_CXX_COMPILER=clang++.exe'
-          buildDirectory: ${{ env.buildDir }}
+      - name: Generate CMake files (Debug mode)
+        run: |
+          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -G Ninja -DCMAKE_C_COMPILER=clang.exe -DCMAKE_CXX_COMPILER=clang++.exe
+        shell: cmd
+      - name: Build nvui and nvui-test
+        run: |
+          cmake --build build
+        shell: cmd
+      - name: Run tests
+        run: |
+          cd build
+          .\nvui_test
+        shell: cmd
   build-release:
     # Only on main branch
     if: github.ref == 'refs/heads/main'
@@ -59,14 +66,13 @@ jobs:
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           appendedCacheKey: ${{ hashFiles('**/vcpkg.json')}}
           additionalCachedPaths: ${{ env.buildDir }}/vcpkg_installed
-      - name: Build in Release mode
-        uses: lukka/run-cmake@v3
-        with:
-          cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-          cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
-          useVcpkgToolchainFile: true
-          cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang.exe -DCMAKE_CXX_COMPILER=clang++.exe'
-          buildDirectory: ${{ env.buildDir }}
+      - name: Generate CMake files (Release mode)
+        run: |
+          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -G Ninja -DCMAKE_C_COMPILER=clang.exe -DCMAKE_CXX_COMPILER=clang++.exe
+        shell: cmd
+      - name: Build in Release mode (nvui only)
+        run: cmake --build build --target nvui
+        shell: cmd
       - name: Create final output folder to zip up
         run: |
           cd build
@@ -84,4 +90,4 @@ jobs:
         with:
           name: Windows-x64
           if-no-files-found: ignore
-          path: nvui-win64.zip
+          path: build/nvui-win64.zip

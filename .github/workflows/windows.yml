@@ -21,6 +21,8 @@ jobs:
         run: choco install -y llvm
       - name: Install Neovim Nightly (needed for tests)
         run: choco install -y neovim --pre
+      - name: Add Neovim to PATH
+        run: echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - uses: lukka/run-vcpkg@v7
         with:
           setupOnly: true

@@ -82,14 +82,13 @@ jobs:
           cd nvui
           mkdir bin
           cd ..
-          (gci -Path ./* -Include *.dll, *.exe, *.conf).fullname | foreach {Copy-Item -Path $_ -Destination nvui}
+          (gci -Path ./* -Include *.dll, *.exe, *.conf).fullname | foreach {Copy-Item -Path $_ -Destination nvui/bin}
           Copy-Item -Recurse -Path plugins -Destination nvui/bin
           Copy-Item -Recurse -Path ../assets -Destination nvui
           Copy-Item -Recurse -Path ../vim -Destination nvui
-          Compress-Archive -Path nvui -DestinationPath nvui-win64.zip
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: Windows-x64
+          name: nvui-win64
           if-no-files-found: ignore
-          path: build/nvui-win64.zip
+          path: build/nvui

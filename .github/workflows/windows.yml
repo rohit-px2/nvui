@@ -31,7 +31,7 @@ jobs:
           cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           useVcpkgToolchainFile: true
-          cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Debug'
+          cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang.exe -DCMAKE_CXX_COMPILER=clang++.exe'
           buildDirectory: ${{ env.buildDir }}
   build-release:
     # Only on main branch
@@ -65,7 +65,7 @@ jobs:
           cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           useVcpkgToolchainFile: true
-          cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Release'
+          cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang.exe -DCMAKE_CXX_COMPILER=clang++.exe'
           buildDirectory: ${{ env.buildDir }}
       - name: Create final output folder to zip up
         run: |

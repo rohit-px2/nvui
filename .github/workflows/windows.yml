@@ -17,8 +17,8 @@ jobs:
           sdk: 10.0.19041.0
       - name: Install Clang
         run: choco install -y llvm
-      - name: Setup MinGW
-        uses: egor-tensin/setup-mingw@v2
+      - name: Install Cygwin
+        run: choco install -y cygwin
       - uses: lukka/run-vcpkg@v7
         with:
           setupOnly: true
@@ -51,8 +51,8 @@ jobs:
           sdk: 10.0.19041.0
       - name: Install Clang
         run: choco install -y llvm
-      - name: Setup MinGW
-        uses: egor-tensin/setup-mingw@v2
+      - name: Install Cygwin
+        run: choco install -y cygwin
       - uses: lukka/run-vcpkg@v7
         with:
           setupOnly: true

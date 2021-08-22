@@ -69,6 +69,7 @@ jobs:
           buildDirectory: ${{ env.buildDir }}
       - name: Create final output folder to zip up
         run: |
+          cd build
           mkdir nvui
           cd nvui
           mkdir bin

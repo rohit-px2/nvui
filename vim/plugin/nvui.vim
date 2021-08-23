@@ -13,7 +13,7 @@ command! -nargs=1 NvuiSnapshotLimit call rpcnotify(1, 'NVUI_SNAPSHOT_LIMIT', <ar
 command! -nargs=1 NvuiScrollFrametime call rpcnotify(1, 'NVUI_SCROLL_FRAMETIME', <args>)
 command! -nargs=1 -complete=customlist,s:complete_scaler NvuiScrollScaler call NvuiNotify('NVUI_SCROLL_SCALER', <f-args>)
 command! -nargs=1 -complete=customlist,s:complete_scaler NvuiMoveScaler call NvuiNotify('NVUI_MOVE_SCALER', <f-args>)
-command! -nargs=1 NvuiAnimationFrametime call rpcnotify(1, 'NVUI_ANIMATION_FRAMETIME', <args>)
+command! -nargs=1 NvuiMoveAnimationFrametime call rpcnotify(1, 'NVUI_ANIMATION_FRAMETIME', <args>)
 command! -nargs=1 NvuiAnimationsEnabled call rpcnotify(1, 'NVUI_ANIMATIONS_ENABLED', <args>)
 command! -nargs=1 NvuiMoveAnimationDuration call rpcnotify(1, 'NVUI_MOVE_ANIMATION_DURATION', <args>)
 command! -nargs=1 NvuiTitlebarBg call NvuiNotify('NVUI_TITLEBAR_BG', <f-args>)

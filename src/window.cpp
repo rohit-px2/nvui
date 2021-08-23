@@ -596,8 +596,11 @@ void Window::register_handlers()
       return std::tuple {scaler_names, std::nullopt};
     }
   );
-  QString vim_file = constants::script_dir() % "/nvui.vim";
-  nvim->command(fmt::format("source {}", vim_file.toStdString()));
+  auto script_dir = constants::script_dir().toStdString();
+  nvim->command(fmt::format("set rtp+={}", script_dir));
+  nvim->command("runtime! plugin/nvui.vim");
+  // helptags doesn't automatically update when the documentation has changed
+  nvim->command(fmt::format("helptags {}", script_dir + "/doc"));
 }
 
 enum ResizeType

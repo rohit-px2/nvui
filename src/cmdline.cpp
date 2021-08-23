@@ -27,6 +27,9 @@ CmdLine::CmdLine(const HLState* hl_state, Cursor* cursor, QWidget* parent)
   shadow_effect->setColor({0, 0, 0, 110});
   setGraphicsEffect(shadow_effect);
   setVisible(false);
+  font.setPointSizeF(font_size);
+  big_font.setPointSizeF(font_size * big_font_scale_ratio);
+  update_metrics();
   setAttribute(Qt::WA_NativeWindow);
 }
 

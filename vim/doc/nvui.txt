@@ -1,0 +1,368 @@
+*nvui.txt*		C++ Frontend for Neovim
+
+Author: Rohit Pradhan (rohit.px02@gmail.com)
+License: MIT License
+
+CONTENTS			*nvui-toc*
+
+Commands			|nvui-commands|
+General				|nvui-general|
+Titlebar			|nvui-titlebar|
+Popup					|nvui-popup|
+Cmdline				|nvui-cmdline|
+Multigrid			|nvui-multigrid|
+==============================================================================
+COMMANDS			*nvui-commands*
+
+GENERAL				*nvui-general*
+
+:NvuiOpacity {opacity}					*:NvuiOpacity*
+
+	{opacity} must be greater than 0 and less than or equal to 1.
+	Sets the opacity of the window to {opacity}.
+
+:NvuiCharspace {charspace}			*:NvuiCharspace*
+
+	{charspace} must be greater than or equal to 0.
+	Sets the character spacing between characters to {charspace}.
+	This may make the GUI slower.
+
+:NvuiFullscreen {fullscreen}		*:NvuiFullscreen*
+
+	{fullscreen} is a boolean.
+	If {fullscreen} is true, goes into fullscreen mode.
+	Otherwise, exits fullscreen mode.
+
+:NvuiToggleFullscreen 		*:NvuiToggleFullscreen*
+
+	If the window is in fullscreen mode, exits fullscreen mode.
+	Otherwise, goes into fullscreen mode.
+
+:NvuiCaretExtendTop {num_px}		*:NvuiCaretExtendTop*
+
+	In Insert mode, extend the cursor by num_px pixels upward.
+
+:NvuiCaretExtendBottom {num_px}		*:NvuiCaretExtendBottom*
+
+	In Insert mode, extend the cursor by num_px pixels downward.
+
+==============================================================================
+TITLEBAR			*nvui-titlebar*
+nvui implements a custom title bar by setting a frameless window.
+The custom title bar links with Neovim's default foreground and background
+colors, and is enabled by default (it can be turned off using
+|:NvuiToggleFrameless|). The title bar's font, separators, and background and
+foreground colors are customizable through the below commands.
+
+:NvuiToggleFrameless			*:NvuiToggleFrameless*
+
+	Toggles in and out of frameless mode.
+	In frameless mode, the the custom titlebar is shown, and actions like moving
+	and resizing are handled by the program, so there may be bugs.
+	In non-frameless mode, the custom title bar is hidden and the window actions
+	are handled by the windowing system.
+
+:NvuiTitlebarFg {color}			*:NvuiTitlebarFg*
+
+	Sets the foreground of the title bar to {color}.
+	If no color is set, the foreground color is the foreground color
+	of the {Normal} highlight group.
+	Ex. :NvuiTitlebarFg #cccccc
+
+:NvuiTitlebarBg {color}			*:NvuiTitlebarBg*
+
+	Sets the background color of the title bar to {color}.
+	If no color is set, the background color is the background color of
+	the {Normal} highlight group.
+	Ex. :NvuiTitlebarBg #1e1e1e
+
+:NvuiTitlebarColors {fg} {bg}			*:NvuiTitlebarColors*
+
+	Sets the title bar's foreground and background to {fg} and {bg}
+	respectively.
+	Ex. :NvuiTitlebarColors #cccccc #1e1e1e
+
+:NvuiTitlebarUnsetColors			*:NvuiTitlebarUnsetColors*
+
+	Unsets the foreground and background colors, if they were set.
+	When the colors are unset, the title bar goes back to using the {Normal}
+	highlight attribute's colors.
+
+:NvuiTitlebarSeparator {str}			*:NvuiTitlebarSeparator*
+
+	In the title bar, nvui displays three things:
+	-	The program name (nvui)
+	- The current directory
+	- The current file
+	And there is a separator between each of these.
+	This command changes the separator to {str}.
+	NOTE: Unlike most of the other commands, you must enclose the separator in quotes.
+	This is because you can add spaces to quoted strings.
+	Ex. :NvuiTitlebarSeparator ' - '
+	Use the dash (-) as a separator, with spaces between
+
+:NvuiTitlebarFontFamily {family}			*:NvuiTitlebarFontFamily*
+
+	Sets the font used in the title bar to {family}.
+	Ex. :NvuiTitlebarFontFamily Jetbrains Mono
+
+:NvuiTitlebarFontSize {size}			*:NvuiTitlebarFontSize*
+
+	Sets the font size of the title bar font to {size}.
+	NOTE: The font size is in points.
+	Ex. :NvuiTitlebarFontSize 11.5
+==============================================================================
+POPUP					*nvui-popup*
+The popup menu font is linked to the currently used main font, but other
+attributes are customizable.
+The background and foreground colors of the popup menu are configurable using
+the Pmenu and PmenuSel attributes. For example, to change the color for
+unselected popup menu items, you could do
+>
+	" highlight unselected items as black with a white background
+	hi Pmenu guifg=black guibg=white
+	" highlight selected items as black with a blue background
+	hi PmenuSel guifg=black guibg=blue
+<
+The popup menu also comes with icons (can be toggled), as well as
+commands for setting the maximum width and items displayed.
+
+:NvuiPopupMenuIconsToggle		*:NvuiPopupMenuIconsToggle*
+
+	Toggles popup menu icons.
+
+:NvuiPopupMenuIconFg {icon_name} {icon_color}		*:NvuiPopupMenuIconFg*
+
+	Sets the foreground to icon_color for icon_name.
+	There is a completion list for the icon names.
+	Ex. :NvuiPopupMenuIconFg struct #e5c07b
+
+:NvuiPopupMenuIconBg {icon_name} {icon_color}		*:NvuiPopupMenuIconBg*
+
+	Sets the background to icon_color for icon_name.
+	There is a completion list for the icon names.
+	Ex. :NvuiPopupMenuIconBg struct #282c34
+
+:NvuiPopupMenuIconFgBg {icon_name} {icon_fg} {icon_bg}	*:NvuiPopupMenuIconFgBg*
+
+	Sets the foreground and background colors for icon_name.
+	Ex. :NvuiPopupMenuIconFgBg struct #e5c07b #282c34
+
+:NvuiPopupMenuDefaultIconFg {color}		*:NvuiPopupMenuDefaultIconFg*
+
+	Sets the default foreground color for icons. If an icon's foreground color
+	has not been set, it uses the default foreground color.
+	Ex. :NvuiPopupMenuDefaultIconFg #ffffff
+	Sets the default icon foreground color to white.
+
+:NvuiPopupMenuDefaultIconBg {color}		*:NvuiPopupMenuDefaultIconBg*
+
+	Sets the default background color for icons. The default background color is
+	used if the icon's background color has not been set.
+	Ex. :NvuiPopupMenuDefaultIconBg #282c34
+	Sets the default icon background color to #282c34.
+	Ex. :NvuiPopupMenuDefaultIconBg transparent
+	Makes the icon's background transparent.
+
+:NvuiPopupMenuIconsRightAlign {align}		*:NvuiPopupMenuIconsRightAlign*
+
+	align should be a boolean.
+	If align is true (v:true), the popup menu icons are shown on the right side
+	instead of the left (where they are by default).
+	If align is false, the popup menu icons are shown on the left side.
+
+:NvuiPopupMenuIconOffset {offset}		*:NvuiPopupMenuIconOffset*
+
+	{offset} must be a non-positive integer for this command to do anything.
+	Popup menu icons are created in a square shape, and their default size is
+	the height of the font. This command adds {offset} to the size of the icons
+	during size calculation, reducing the width and height of the icons by
+	the negative offset.
+	Ex. NvuiPopupMenuIconOffset -5
+	Decreases the popup menu icon size by 5 pixels.
+	To reset the size back to full, you can do
+	:NvuiPopupMenuIconOffset 0
+
+:NvuiPopupMenuBorderColor {color}		*:NvuiPopupMenuBorderColor*
+
+	Sets the border color of the popup menu to {color}.
+	Ex. :NvuiPopupMenuBorderColor #1e1e1e
+
+:NvuiPopupMenuBorderWidth {width}		*:NvuiPopupMenuBorderWidth*
+
+	Sets the width of the popup menu's border to {width} in pixels.
+	Ex. :NvuiPopupMenuBorderWidth 5
+
+:NvuiPopupMenuMaxChars {chars}		*:NvuiPopupMenuMaxChars*
+
+	Sets the maximum number of characters displayed horizontally on the popup
+	menu.
+	Ex. :NvuiPopupMenuMaxChars 100
+
+:NvuiPopupMenuMaxItems {items}		*:NvuiPopupMenuMaxItems*
+
+	Sets the maximum number of items that the popup menu should display.
+	Ex. :NvuiPopupMenuMaxItems 15
+
+:NvuiPopupMenuInfoColumns {cols}		*:NvuiPopupMenuInfoColumns*
+
+	When Neovim sends extra information about the popup menu item,
+	it is displayed to the right of the popup menu.
+	This command configures the maximum width of the info display
+	through the number of characters it can show, similar to
+	:NvuiPopupMenuMaxChars.
+	Ex. :NvuiPopupMenuInfoColumns 25
+
+==============================================================================
+CMDLINE					*nvui-cmdline*
+nvui's cmdline features quite a few customization commands,
+all starting with "NvuiCmd".
+NOTE: For all positioning/sizing commands (NvuiCmdCenter(X/Y)Pos,
+NvuiCmd(Left/Top)Pos, NvuiCmdWidth), the input parameter is a decimal number between 0 and 1
+where 0 is the top / left side of the window and 1 is the right / bottom side
+of the window.
+So, for example, for centering the command line, you would use the commands
+:NvuiCmdCenterXPos 0.5
+:NvuiCmdCenterYPos 0.5
+
+:NvuiCmdPadding {padding}			*:NvuiCmdPadding*
+
+	Sets the pixel padding around the command line text to {padding}.
+	Ex. :NvuiCmdPadding 5
+
+:NvuiCmdCenterXPos {pos}			*:NvuiCmdCenterXPos*
+
+	Makes {pos} the center x position of the command line.
+	Ex. :NvuiCmdCenterXPos 0.5
+	Centers the command line horizontally.
+
+:NvuiCmdCenterYPos {pos}			*:NvuiCmdCenterYPos*
+
+	Makes {pos} the center y position of the command line.
+	Ex. :NvuiCmdCenterYPos 0.5
+	Centers the command line vertically.
+
+:NvuiCmdLeftPos {pos}					*:NvuiCmdLeftPos*
+
+	{pos} indicates where the x-position of the left side of the command line
+	should be.
+	Moves the command line's x position to {pos}.
+	Ex. :NvuiCmdLeftPos 0.0
+	Moves the command line to the far left.
+
+:NvuiCmdTopPos {pos}					*:NvuiCmdTopPos*
+
+	{pos} indicates where the top of the cmdline should be positioned.
+	Moves the command line's y position to {pos}
+	Ex. :NvuiCmdTopPos 0.8
+	Moves the command line 80% down the window.
+
+:NvuiCmdWidth {width}					*:NvuiCmdWidth*
+
+	Sets the width of the command line to {width}.
+	NOTE: {width} is not in pixels, instead, {width} is a relative number
+	between 0 and 1 indicating what percentage of the window's width the command
+	line should have.
+	Ex. :NvuiCmdWidth 1.0
+	Indicates for the cmdline to be the same width as the window.
+
+:NvuiCmdHeight {height}				*:NvuiCmdHeight*
+
+	Doesn't do anything right now.
+	The reason for this is that the height automatically changes based on the
+	text in the command line.
+
+:NvuiCmdFontSize {size}				*:NvuiCmdFontSize*
+
+	Sets the font size used in the command line to {size}.
+	NOTE: The font size is specified in point size.
+	Ex. :NvuiCmdFontSize 20
+	Sets the font size to 20pt.
+
+:NvuiCmdFontFamily {family}			*:NvuiCmdFontFamily*
+
+	Sets the font family to use to {family}.
+	Ex. :NvuiCmdFontFamily Jetbrains Mono
+
+:NvuiCmdBigFontScaleFactor {scale_factor} *:NvuiCmdBigFontScaleFactor*
+
+	The "big font" is used for the special first character, for example,
+	the ":" character when typing a command, or the "/" character when doing a
+	search. By default, the scale factor is 2.0 for this big font, so these
+	first characters have a point size 2x larger than the text that comes after.
+	This command changes the scale factor to {scale_factor}.
+	Ex. :NvuiCmdBigFontScaleFactor 1.0
+	Will change the size of the first character to be the same as the regular
+	font size.
+==============================================================================
+MULTIGRID			*nvui-multigrid*
+nvui supports Neovim's multigrid feature, and includes animations for
+scrolling and moving grids. Animations can be disabled while using multigrid
+through :NvuiAnimationsEnabled.
+Some aspects of these animations are configurable
+through commands.
+
+:NvuiAnimationsEnabled {enabled}			*:NvuiAnimationsEnabled*
+
+	{enabled} must be a boolean.
+	If {enabled}, enables animations for scrolling and moving.
+	Otherwise, disables animations for scrolling and moving.
+
+:NvuiSnapshotLimit {limit}			*:NvuiSnapshotLimit*
+
+	Sets the maximum number of snapshots to be used during smooth scrolling.
+	By default, the limit is 4.
+	The more snapshots used, the better the scroll effect should be. However,
+	storing more snapshots uses more memory.
+
+:NvuiScrollAnimationDuration {seconds}		*:NvuiScrollAnimationDuration*
+
+	{seconds} is a floating-point number.
+	Sets the duration of the scroll animation to {seconds}.
+
+:NvuiScrollFrametime {msperframe}			*:NvuiScrollFrametime*
+
+	{msperframe} must be a positive integer.
+	Sets the frametime of the scroll animation to {msperframe}.
+	To calculate the framerate of the animation, divide 1000 by {msperframe}.
+	The lower the {msperframe} the more times the animation will update per
+	second.
+	The framerate also depends on how powerful the computer is. If the computer
+	is not fast enough, it might not be possible to achieve the set frame time.
+
+:NvuiScrollScaler {scaler}			*:NvuiScrollScaler*
+
+	Internally, nvui calculates elapsed time for an animation and converts it to
+	a range between 0 and 1 (0 indicating the animation has just started, and 1
+	indicating the animation has just begin), then uses a "scaler" (a function
+	taking this time and returning another value between 0 and 1) to provide
+	animations.
+	You can change the scaler between a specified list of scalers, which you can
+	see in the autocompletion list for this command.
+	The default scaler for the scroll animation is the "expo" scaler.
+	Ex. :NvuiScrollScaler identity
+	Uses the "identity" scaler (t => t) for the scroll animation. This means
+	that the scroll speed always stays the same.
+
+:NvuiMoveScaler {scaler}				*:NvuiMoveScaler*
+
+	See above at |:NvuiScrollScaler| for a description of scalers.
+	This command changes the scaler used for move animations.
+	Ex. :NvuiMoveScaler quad
+	Uses the "quad" scaler (t => t * t) for the move animation.
+	The default scaler is "expo".
+
+:NvuiMoveAnimationDuration {seconds}		*:NvuiMoveAnimationDuration*
+
+	Sets the duration of the move animation to {seconds}.
+	Ex. :NvuiMoveAnimationDuration 1.2
+	Changes the animation duration to 1.2 seconds.
+
+:NvuiMoveAnimationFrametime {msperframe}		*:NvuiMoveAnimationFrametime*
+
+	{msperframe} must be a positive integer.
+	Sets the frametime of the move animation to {msperframe}.
+	To get the corresponding framerate divide 1000 by {msperframe}.
+
+==============================================================================
+vim:ft=help:textwidth=78:ts=2:noet

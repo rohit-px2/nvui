@@ -15,8 +15,6 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           sdk: 10.0.19041.0
-      - name: Install Clang
-        run: choco install -y llvm
       - name: Install Neovim Nightly (needed for tests)
         run: choco install -y neovim --pre
       - name: Add Neovim to PATH
@@ -26,8 +24,7 @@ jobs:
         with:
           path: |
             build/vcpkg_installed
-            vcpkg
-          key: ${{ runner.os }}-build-debug-${{ hashFiles('**/vcpkg.json') }}
+          key: ${{ runner.os }}-build-debug-${{ hashFiles('vcpkg.json') }}
       - name: Build nvui and nvui_test
         run: .\scripts\windows\build-debug.ps1
       - name: Run tests
@@ -36,8 +33,6 @@ jobs:
           .\nvui_test
         shell: cmd
   build-release:
-    # Only on main branch
-    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -51,15 +46,12 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           sdk: 10.0.19041.0
-      - name: Install Clang
-        run: choco install -y llvm
       - name: Restore deps from cache if they exist
         uses: actions/cache@v2
         with:
           path: |
             build/vcpkg_installed
-            vcpkg
-          key: ${{ runner.os }}-build-release-${{ hashFiles('**/vcpkg.json') }}
+          key: ${{ runner.os }}-build-release-${{ hashFiles('vcpkg.json') }}
       - name: Package into a zip
         run: .\scripts\windows\package.ps1
       - name: Upload artifact

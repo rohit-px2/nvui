@@ -9,8 +9,6 @@ jobs:
     env:
       buildDir: '${{ github.workspace }}/build'
     steps:
-      - name: Add GNU tar to path
-        run: echo "C:\Program Files\Git\usr\bin" >> $GITHUB_PATH
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
@@ -23,20 +21,15 @@ jobs:
         run: choco install -y neovim --pre
       - name: Add Neovim to PATH
         run: echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - uses: lukka/run-vcpkg@v7
+      - name: Restore deps from cache if they exist
+        uses: actions/cache@v2
         with:
-          setupOnly: true
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          appendedCacheKey: ${{ hashFiles('**/vcpkg.json')}}
-          additionalCachedPaths: ${{ env.buildDir }}/vcpkg_installed
-      - name: Generate CMake files (Debug mode)
-        run: |
-          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -G Ninja -DCMAKE_C_COMPILER=clang.exe -DCMAKE_CXX_COMPILER=clang++.exe
-        shell: cmd
-      - name: Build nvui and nvui-test
-        run: |
-          cmake --build build
-        shell: cmd
+          path: |
+            build/vcpkg_installed
+            vcpkg
+          key: ${{ runner.os }}-build-debug-${{ hashFiles('**/vcpkg.json') }}
+      - name: Build nvui and nvui_test
+        run: .\scripts\windows\build-debug.ps1
       - name: Run tests
         run: |
           cd build
@@ -52,8 +45,6 @@ jobs:
     env:
       buildDir: '${{ github.workspace }}/build'
     steps:
-      - name: Add GNU tar to path
-        run: echo "C:\Program Files\Git\usr\bin" >> $GITHUB_PATH
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
@@ -62,33 +53,18 @@ jobs:
           sdk: 10.0.19041.0
       - name: Install Clang
         run: choco install -y llvm
-      - uses: lukka/run-vcpkg@v7
+      - name: Restore deps from cache if they exist
+        uses: actions/cache@v2
         with:
-          setupOnly: true
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          appendedCacheKey: ${{ hashFiles('**/vcpkg.json')}}
-          additionalCachedPaths: ${{ env.buildDir }}/vcpkg_installed
-      - name: Generate CMake files (Release mode)
-        run: |
-          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -G Ninja -DCMAKE_C_COMPILER=clang.exe -DCMAKE_CXX_COMPILER=clang++.exe
-        shell: cmd
-      - name: Build in Release mode (nvui only)
-        run: cmake --build build --target nvui
-        shell: cmd
-      - name: Create final output folder to zip up
-        run: |
-          cd build
-          mkdir nvui
-          cd nvui
-          mkdir bin
-          cd ..
-          (gci -Path ./* -Include *.dll, *.exe, *.conf).fullname | foreach {Copy-Item -Path $_ -Destination nvui/bin}
-          Copy-Item -Recurse -Path plugins -Destination nvui/bin
-          Copy-Item -Recurse -Path ../assets -Destination nvui
-          Copy-Item -Recurse -Path ../vim -Destination nvui
+          path: |
+            build/vcpkg_installed
+            vcpkg
+          key: ${{ runner.os }}-build-release-${{ hashFiles('**/vcpkg.json') }}
+      - name: Package into a zip
+        run: .\scripts\windows\package.ps1
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: nvui-win64
           if-no-files-found: ignore
-          path: build/nvui
+          path: nvui.zip

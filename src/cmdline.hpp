@@ -105,15 +105,7 @@ public:
     int start_y = rel_rect.y()  * size.height();
     int end_x = rel_rect.right() * size.width();
     int end_y = rel_rect.bottom() * size.height();
-    if (end_y - start_y < std::max(big_font_height, font_height))
-    {
-      int diff = std::max(big_font_height, font_height) - (end_y - start_y);
-      end_y += diff;
-    }
-    QRect rect {QPoint {start_x, start_y}, QPoint {end_x, end_y}};
-    int adjust = padding + border_width;
-    rect.adjust(-adjust, -adjust, adjust, adjust);
-    return rect;
+    return {QPoint(start_x, start_y), QPoint(end_x, end_y)};
   }
 
   QPointF relative_pos() const { return {rel_rect.x(), rel_rect.y()}; }

@@ -33,6 +33,8 @@ jobs:
             build/vcpkg_installed
           key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
       - name: Build nvui and nvui_test in Debug mode
-        run: ./scripts/linux/build-debug.sh
+        run: |
+          chmod +x ./scripts/linux/build-debug.sh
+          ./scripts/linux/build-debug.sh
       - name: Run tests
         run: ./build/nvui_test

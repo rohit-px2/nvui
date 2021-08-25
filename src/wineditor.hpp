@@ -217,7 +217,7 @@ private:
     {
       // Check if we already drew the line
       d2pt cur_start = {grid.x * font_width_f, (grid.y + y) * font_height_f};
-      std::uint16_t prev_hl_id = UINT16_MAX;
+      std::size_t prev_hl_id = 0;
       std::uint32_t cur_font_idx = 0;
       for(int x = start_x; x <= end_x && x < grid.cols; ++x)
       {

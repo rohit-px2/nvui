@@ -166,7 +166,7 @@ void EditorArea::grid_resize(const msgpack::object *obj, u32 size)
 void EditorArea::grid_line(NeovimObj obj, u32 size)
 {
   QFontMetrics fm {font};
-  std::uint16_t hl_id = 0;
+  std::size_t hl_id = 0;
   //std::cout << "Received grid line.\nNum params: " << size << '\n';
   for(u32 i = 0; i < size; ++i)
   {
@@ -214,12 +214,12 @@ void EditorArea::grid_line(NeovimObj obj, u32 size)
         }
         case 2:
         {
-          hl_id = seq.ptr[1].as<std::uint16_t>();
+          hl_id = seq.ptr[1].as<std::size_t>();
           break;
         }
         case 3:
         {
-          hl_id = seq.ptr[1].as<std::uint16_t>();
+          hl_id = seq.ptr[1].as<std::size_t>();
           repeat = seq.ptr[2].as<u32>();
           break;
         }
@@ -683,7 +683,7 @@ void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect&
   for(int y = start_y; y <= end_y && y < grid.rows; ++y)
   {
     QPointF start = {(double) grid.x * font_width, (double) (grid.y + y) * font_height};
-    std::uint16_t prev_hl_id = UINT16_MAX;
+    std::size_t prev_hl_id = 0;
     u32 cur_font_idx = 0;
     for(int x = 0; x < grid.cols; ++x)
     {

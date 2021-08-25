@@ -70,7 +70,7 @@ class HLAttr
 {
 public:
   std::uint8_t font_opts = FontOpts::Normal;
-  int hl_id;
+  std::size_t hl_id;
   bool reverse = false;
   std::optional<Color> special;
   std::optional<Color> foreground;
@@ -80,7 +80,7 @@ public:
   std::vector<AttrState> state;
   float opacity = 1;
   HLAttr();
-  HLAttr(int id);
+  HLAttr(std::size_t id);
   HLAttr(const HLAttr& other);
   HLAttr(HLAttr&& other);
   HLAttr& operator=(const HLAttr&) = default;
@@ -102,20 +102,20 @@ public:
 class HLState
 {
 public:
-  HLState() = default;
+  HLState();
   /**
    * Maps name to hl_id.
    * This function maps to "hl_group_set".
    */
-  void set_name_id(const std::string& name, std::uint32_t hl_id);
+  void set_name_id(const std::string& name, std::size_t hl_id);
   /**
    * Maps id to attr.
    */
-  void set_id_attr(int id, HLAttr attr);
+  void set_id_attr(std::size_t id, HLAttr attr);
   /**
    * Returns the highlight attribute for the given id.
    */
-  const HLAttr& attr_for_id(int id) const;
+  const HLAttr& attr_for_id(std::size_t id) const;
   /**
    * Returns the name of the highlight group for the given id.
    */
@@ -141,7 +141,7 @@ public:
 private:
   HLAttr default_colors;
   std::unordered_map<std::string, std::uint32_t> name_to_id;
-  std::unordered_map<int, HLAttr> id_to_attr;
+  std::vector<HLAttr> attrs;
 };
 
 /// Defining a function to parse "hl_attr_define" data

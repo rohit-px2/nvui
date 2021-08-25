@@ -117,7 +117,7 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
   for(int y = start_y; y <= end_y && y < rows; ++y)
   {
     QPointF start = {(double) x * font_width, (double) (y) * font_height};
-    std::uint16_t prev_hl_id = UINT16_MAX;
+    std::size_t prev_hl_id = 0;
     cur_font_idx = 0;
     for(int cur_x = 0; cur_x < cols; ++cur_x)
     {

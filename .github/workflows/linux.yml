@@ -15,10 +15,12 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
-      - name: Update & Upgrade
-        run: |
-          sudo apt update
-          sudo apt upgrade
+      - name: Update
+        run: sudo apt update
+      - name: Install Snap (to install Neovim nightly)
+        run: sudo apt install snapd
+      - name: Install Neovim Nightly
+        run: sudo snap install --edge neovim --classic
       - name: Install dependencies for vcpkg packages
         run: >
           sudo apt-get install gperf autoconf build-essential libtool
@@ -36,5 +38,3 @@ jobs:
         run: |
           chmod +x ./scripts/linux/build-debug.sh
           ./scripts/linux/build-debug.sh
-      - name: Run tests
-        run: ./build/nvui_test

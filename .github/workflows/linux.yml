@@ -20,7 +20,7 @@ jobs:
       - name: Install Snap (to install Neovim nightly)
         run: sudo apt install snapd
       - name: Install Neovim Nightly
-        run: sudo snap install --edge neovim --classic
+        run: sudo snap install --edge nvim --classic
       - name: Install dependencies for vcpkg packages
         run: >
           sudo apt-get install gperf autoconf build-essential libtool

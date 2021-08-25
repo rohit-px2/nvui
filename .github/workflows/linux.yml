@@ -1,0 +1,34 @@
+name: linux-build
+
+on: push
+
+jobs:
+  build-debug:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    timeout-minutes: 500
+    env:
+      CC: "clang-12"
+      CXX: "clang++-12"
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - name: Install dependencies for vcpkg packages
+        run: >
+          sudo apt-get install gperf autoconf build-essential libtool
+          libgl1-mesa-dev libxi-dev libx11-dev libxext-dev
+          libxkbcommon-x11-dev libglu1-mesa-dev libx11-xcb-dev
+          '^libxcb.*-dev' libxrender-dev ninja-build curl
+          zip unzip tar autopoint python
+      - name: Restore deps
+        uses: actions/cache@v2
+        with:
+          path: |
+            build/vcpkg_installed
+          key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
+      - name: Build nvui and nvui_test in Debug mode
+        run: ./scripts/linux/build-debug.sh
+      - name: Run tests
+        run: ./build/nvui_test

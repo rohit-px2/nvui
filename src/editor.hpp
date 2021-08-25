@@ -124,7 +124,6 @@ public:
    * Internally sends the data to neovim_cursor.
    */
   void mode_change(NeovimObj obj, u32 size);
-  using u16 = std::uint16_t;
   /**
    * Handles a "busy_start" event, passing it to the Neovim cursor
    */

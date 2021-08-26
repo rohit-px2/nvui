@@ -58,7 +58,7 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
   move_update_timer.start();
 }
 
-static void draw_text_and_bg(
+void QPaintGrid::draw_text_and_bg(
   QPainter& painter,
   const QString& text,
   const HLAttr& attr,
@@ -69,11 +69,25 @@ static void draw_text_and_bg(
   QFont font
 )
 {
+  Q_UNUSED(offset);
+  const QStaticText* static_text = nullptr;
+  using key_type = decltype(text_cache)::key_type;
+  key_type key = {text, attr.font_opts};
   font.setItalic(attr.font_opts & FontOpts::Italic);
   font.setBold(attr.font_opts & FontOpts::Bold);
   font.setUnderline(attr.font_opts & FontOpts::Underline);
   font.setStrikeOut(attr.font_opts & FontOpts::Strikethrough);
   painter.setFont(font);
+  static_text = text_cache.get(key);
+  if (!static_text)
+  {
+    QStaticText temp {text};
+    temp.setTextFormat(Qt::PlainText);
+    temp.setPerformanceHint(QStaticText::AggressiveCaching);
+    temp.prepare(QTransform(), font);
+    text_cache.put(key, std::move(temp));
+    static_text = text_cache.get(key);
+  }
   Color fg = attr.fg().value_or(*def_clrs.fg());
   Color bg = attr.bg().value_or(*def_clrs.bg());
   if (attr.reverse) std::swap(fg, bg);
@@ -81,8 +95,7 @@ static void draw_text_and_bg(
   painter.setClipRect(rect);
   painter.fillRect(rect, QColor(bg.r, bg.g, bg.b));
   painter.setPen(QColor(fg.r, fg.g, fg.b));
-  const QPointF text_start = {start.x(), start.y() + offset};
-  painter.drawText(text_start, text);
+  painter.drawStaticText(start, *static_text);
 }
 
 void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
@@ -92,8 +105,8 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
   auto font_dims = editor_area->font_dimensions();
   auto font_width = std::get<0>(font_dims);
   auto font_height = std::get<1>(font_dims);
-  int start_x = r.left();
-  int end_x = r.right();
+  //int start_x = r.left();
+  //int end_x = r.right();
   int start_y = r.top();
   int end_y = r.bottom();
   QString buffer;
@@ -287,4 +300,11 @@ void QPaintGrid::update_position(double new_x, double new_y)
 {
   auto&& [font_width, font_height] = editor_area->font_dimensions();
   top_left = {new_x * font_width, new_y * font_height};
+}
+
+void QPaintGrid::initialize_cache()
+{
+  QObject::connect(editor_area, &EditorArea::font_changed, this, [&] {
+    text_cache.clear();
+  });
 }

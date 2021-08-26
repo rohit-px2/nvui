@@ -29,6 +29,13 @@ void D2DPaintGrid::initialize_context()
   context->SetTarget(bitmap);
 }
 
+void D2DPaintGrid::initialize_cache()
+{
+  QObject::connect(editor_area, &EditorArea::font_changed, this, [&] {
+    layout_cache.clear();
+  });
+}
+
 void D2DPaintGrid::process_events()
 {
   context->BeginDraw();
@@ -78,39 +85,47 @@ void D2DPaintGrid::draw_text_and_bg(
   ID2D1SolidColorBrush* bg_brush
 )
 {
-  HRESULT hr;
-  auto* factory = editor_area->dwrite_factory();
+  using key_type = decltype(layout_cache)::key_type;
   IDWriteTextLayout* old_text_layout = nullptr;
-  hr = factory->CreateTextLayout(
-    (LPCWSTR) buf.utf16(),
-    buf.size(),
-    text_format,
-    end.x - start.x,
-    end.y - start.y,
-    &old_text_layout
-  );
-  if (FAILED(hr)) return;
-  // IDWriteTextLayout1 can set char spacing
   IDWriteTextLayout1* text_layout = nullptr;
-  hr = old_text_layout->QueryInterface(&text_layout);
-  if (FAILED(hr)) return;
-  DWRITE_TEXT_RANGE text_range {0, (UINT32) buf.size()};
-  auto charspace = editor_area->charspacing();
-  if (charspace)
+  key_type key = {buf, attr.font_opts};
+  auto objptr = layout_cache.get(key);
+  if (objptr) text_layout = *objptr;
+  else
   {
-    text_layout->SetCharacterSpacing(0, float(charspace), 0, text_range);
-  }
-  if (attr.italic())
-  {
-    text_layout->SetFontStyle(DWRITE_FONT_STYLE_ITALIC, text_range);
-  }
-  if (attr.bold())
-  {
-    text_layout->SetFontWeight(DWRITE_FONT_WEIGHT_BOLD, text_range);
-  }
-  if (attr.underline())
-  {
-    text_layout->SetUnderline(true, text_range);
+    HRESULT hr;
+    auto* factory = editor_area->dwrite_factory();
+    hr = factory->CreateTextLayout(
+      (LPCWSTR) buf.utf16(),
+      buf.size(),
+      text_format,
+      end.x - start.x,
+      end.y - start.y,
+      &old_text_layout
+    );
+    if (FAILED(hr)) return;
+    // IDWriteTextLayout1 can set char spacing
+    hr = old_text_layout->QueryInterface(&text_layout);
+    if (FAILED(hr)) { SafeRelease(&old_text_layout); return; }
+    DWRITE_TEXT_RANGE text_range {0, (UINT32) buf.size()};
+    auto charspace = editor_area->charspacing();
+    if (charspace)
+    {
+      text_layout->SetCharacterSpacing(0, float(charspace), 0, text_range);
+    }
+    if (attr.italic())
+    {
+      text_layout->SetFontStyle(DWRITE_FONT_STYLE_ITALIC, text_range);
+    }
+    if (attr.bold())
+    {
+      text_layout->SetFontWeight(DWRITE_FONT_WEIGHT_BOLD, text_range);
+    }
+    if (attr.underline())
+    {
+      text_layout->SetUnderline(true, text_range);
+    }
+    layout_cache.put(key, text_layout);
   }
   auto fg = attr.fg().value_or(*fallback.fg()).to_uint32();
   auto bg = attr.bg().value_or(*fallback.bg()).to_uint32();
@@ -128,7 +143,6 @@ void D2DPaintGrid::draw_text_and_bg(
     D2D1_DRAW_TEXT_OPTIONS_NONE
   );
   SafeRelease(&old_text_layout);
-  SafeRelease(&text_layout);
 }
 
 void D2DPaintGrid::draw(

@@ -549,6 +549,7 @@ void EditorArea::set_guifont(const QString& new_font)
   update_font_metrics(true);
   resized(size());
   send_redraw();
+  emit font_changed();
 }
 
 

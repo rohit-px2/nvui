@@ -13,7 +13,7 @@ class EditorArea;
 
 struct GridChar
 {
-  std::size_t hl_id;
+  int hl_id; // Shouldn't have more than 65k highlight attributes
   grid_char text;
   bool double_width = false;
   std::uint32_t ucs;

@@ -9,7 +9,7 @@ namespace hl
     assert(obj.type == msgpack::type::ARRAY);
     const msgpack::object_array& arr = obj.via.array;
     assert(arr.size == 4);
-    const auto id = arr.ptr[0].as<std::size_t>();
+    const int id = arr.ptr[0].as<int>();
     assert(arr.ptr[1].type == msgpack::type::MAP);
     const msgpack::object_map& opts = arr.ptr[1].via.map;
     // We ignore arr.ptr[2] since that's the cterm_attr,
@@ -102,7 +102,7 @@ namespace hl
 HLAttr::HLAttr()
 : hl_id(0) {}
 
-HLAttr::HLAttr(std::size_t id)
+HLAttr::HLAttr(int id)
 : hl_id(id) {}
 
 HLAttr::HLAttr(const HLAttr& other)
@@ -139,14 +139,14 @@ HLAttr& HLAttr::operator=(HLAttr&& other)
 */
 
 
-HLState::HLState()
+const HLAttr& HLState::attr_for_id(int id) const
 {
-  attrs.reserve(500);
-}
-
-const HLAttr& HLState::attr_for_id(std::size_t id) const
-{
-  return attrs.at(id);
+  const auto it = id_to_attr.find(id);
+  if (it != id_to_attr.end())
+  {
+    return it->second;
+  }
+  return default_colors;
 }
 
 
@@ -161,15 +161,15 @@ int HLState::id_for_name(const std::string &name) const
 }
 
 
-void HLState::set_name_id(const std::string& name, std::size_t hl_id)
+void HLState::set_name_id(const std::string& name, std::uint32_t hl_id)
 {
   name_to_id[name] = hl_id;
 }
 
 
-void HLState::set_id_attr(std::size_t id, HLAttr attr)
+void HLState::set_id_attr(int id, HLAttr attr)
 {
-  attrs[id] = attr;
+  id_to_attr[id] = attr;
 }
 
 
@@ -195,8 +195,7 @@ const HLAttr& HLState::default_colors_get() const
 void HLState::define(const msgpack::object& obj)
 {
   HLAttr attr = hl::hl_attr_from_object(obj);
-  auto id = attr.hl_id;
-  if (id >= attrs.size()) attrs.resize(id + 1);
+  int id = attr.hl_id;
   for(const AttrState& s : attr.state)
   {
     if (!s.hi_name.empty())
@@ -208,7 +207,7 @@ void HLState::define(const msgpack::object& obj)
       set_name_id(s.ui_name, id);
     }
   }
-  attrs[id] = attr;
+  id_to_attr[id] = attr;
 }
 
 
@@ -220,6 +219,6 @@ void HLState::group_set(const msgpack::object &obj)
   assert(arr.ptr[0].type == msgpack::type::STR);
   assert(arr.ptr[1].type == msgpack::type::POSITIVE_INTEGER);
   std::string hl_name = arr.ptr[0].as<std::string>();
-  auto hl_id = arr.ptr[1].as<std::size_t>();
+  int hl_id = arr.ptr[1].as<int>();
   set_name_id(hl_name, hl_id);
 }

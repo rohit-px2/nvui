@@ -167,7 +167,7 @@ void D2DPaintGrid::draw(
   for(int y = start_y; y <= end_y && y < rows; ++y)
   {
     d2pt start = {0, y * font_height};
-    std::size_t prev_hl_id = 0;
+    std::uint16_t prev_hl_id = UINT16_MAX;
     for(int x = 0; x < cols; ++x)
     {
       const auto& gc = area[y * cols + x];

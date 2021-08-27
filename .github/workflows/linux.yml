@@ -63,7 +63,7 @@ jobs:
         if: matrix.upload
         run: |
           chmod +x ./scripts/linux/package.sh
-          chmox +x ./scripts/linux/build-release.sh
+          chmod +x ./scripts/linux/build-release.sh
           ./scripts/linux/package.sh
       - name: Upload artifact
         uses: actions/upload-artifact@v2

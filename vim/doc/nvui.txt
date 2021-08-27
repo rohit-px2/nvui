@@ -51,8 +51,17 @@ TITLEBAR			*nvui-titlebar*
 nvui implements a custom title bar by setting a frameless window.
 The custom title bar links with Neovim's default foreground and background
 colors, and is enabled by default (it can be turned off using
-|:NvuiToggleFrameless|). The title bar's font, separators, and background and
+|:NvuiToggleFrameless| or :NvuiFrameless v:false). The title bar's font, separators, and background and
 foreground colors are customizable through the below commands.
+
+:NvuiFrameless {enabled}		*:NvuiFrameless*
+
+	{enabled} is a boolean indicating whether to enable
+	the frameless window or not.
+	If {enabled}, enables the frameless window.
+	Otherwise, turns it off.
+	Ex. :NvuiFrameless v:false
+	Turns off the frameless window.
 
 :NvuiToggleFrameless			*:NvuiToggleFrameless*
 

@@ -12,6 +12,7 @@
 :NvuiCmdPadding	nvui.txt	/*:NvuiCmdPadding*
 :NvuiCmdTopPos	nvui.txt	/*:NvuiCmdTopPos*
 :NvuiCmdWidth	nvui.txt	/*:NvuiCmdWidth*
+:NvuiFrameless	nvui.txt	/*:NvuiFrameless*
 :NvuiFullscreen	nvui.txt	/*:NvuiFullscreen*
 :NvuiMoveAnimationDuration	nvui.txt	/*:NvuiMoveAnimationDuration*
 :NvuiMoveAnimationFrametime	nvui.txt	/*:NvuiMoveAnimationFrametime*

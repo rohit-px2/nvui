@@ -3,20 +3,20 @@ name: linux-build
 on: push
 
 jobs:
-  build-debug:
+  linux-build:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - cc: clang-12
+          - buildtype: 'Debug'
+            cc: clang-12
             cxx: clang++-12
-            buildtype: 'Debug'
             test: true
             upload: false
-          - cc: clang-12
+          - buildtype: 'Release'
+            cc: clang-12
             cxx: clang++-12
-            buildtype: 'Release'
             test: false
             upload: true
     timeout-minutes: 500

@@ -1,10 +1,12 @@
 #ifndef NVUI_GRID_HPP
 #define NVUI_GRID_HPP
 
+#include <QStaticText>
 #include <QString>
 #include <QTimer>
 #include <QWidget>
 #include <queue>
+#include "hlstate.hpp"
 #include "utils.hpp"
 
 using grid_char = QString;
@@ -41,6 +43,99 @@ struct Viewport
   std::uint32_t botline;
   std::uint32_t curline;
   std::uint32_t curcol;
+};
+
+// Default delete does nothing (variables clean up themselves)
+template<typename T>
+struct do_nothing_deleter
+{
+  void operator()(T* p) const {}
+};
+
+/// LRUCache with optional custom deleter
+/// I use the custom deleter for IDWriteTextLayout1
+/// so they get automatically released
+/// The caching strategy for QPaintGrid (using QStaticText)
+/// cleans up itself so the deleter doesn't need to be specified
+/// Once again, using Neovide's idea of caching text blobs.
+/// See
+/// https://github.com/neovide/neovide/blob/main/src/renderer/fonts/caching_shaper.rs
+/// Uses QHash internally since it's expected to be used with QString
+/// to cache drawn text.
+template<typename K, typename V, typename ValueDeleter = do_nothing_deleter<V>>
+class LRUCache
+{
+public:
+  using key_type = K;
+  using value_type = V;
+  LRUCache(std::size_t capacity)
+    : max_size(capacity),
+      map(),
+      keys()
+  {
+    map.reserve(max_size);
+  }
+
+  void put(K k, V v)
+  {
+    auto it = map.find(k);
+    if (it != map.end())
+    {
+      it->first = std::move(v);
+      move_to_front(it->second);
+    }
+    else
+    {
+      keys.push_front(k);
+      map[k] = {v, keys.begin()};
+    }
+    if (keys.size() > max_size)
+    {
+      const auto& back_key = keys.back();
+      auto erase_it = map.find(back_key);
+      ValueDeleter()(std::addressof(erase_it->first));
+      map.erase(erase_it);
+      keys.pop_back();
+    }
+  }
+
+  const V* get(const K& k)
+  {
+    auto it = map.find(k);
+    if (it != map.end())
+    {
+      move_to_front(it->second);
+      return std::addressof(it->first);
+    }
+    else
+    {
+      return nullptr;
+    }
+  }
+
+  ~LRUCache()
+  {
+    constexpr auto deleter = ValueDeleter();
+    for(auto& val : map) deleter(std::addressof(val.first));
+  }
+
+  void clear()
+  {
+    constexpr auto deleter = ValueDeleter();
+    for(auto& val : map) deleter(std::addressof(val.first));
+    map.clear();
+    keys.clear();
+  }
+
+private:
+  // https://stackoverflow.com/questions/14579957/std-container-c-move-to-front
+  void move_to_front(typename std::list<K>::iterator it)
+  {
+    if (it != keys.begin()) keys.splice(keys.begin(), keys, it);
+  }
+  std::size_t max_size = 10;
+  QHash<K, QPair<V, typename std::list<K>::iterator>> map;
+  std::list<K> keys;
 };
 
 namespace scalers
@@ -97,8 +192,9 @@ namespace scalers
 /// position, size, etc.
 /// The event queue contains the rendering commands to
 /// be performed.
-class GridBase
+class GridBase : public QObject
 {
+  Q_OBJECT
 public:
   using u16 = std::uint16_t;
   using u32 = std::uint32_t;
@@ -243,6 +339,7 @@ public:
 /// the screen.
 class QPaintGrid : public GridBase
 {
+  Q_OBJECT
   using GridBase::u16;
   struct Snapshot
   {
@@ -254,10 +351,12 @@ public:
     : GridBase(args...),
       editor_area(ea),
       pixmap(),
-      top_left()
+      top_left(),
+      text_cache(2000)
   {
     update_pixmap_size();
     update_position(x, y);
+    initialize_cache();
   }
   ~QPaintGrid() override = default;
   void set_size(u16 w, u16 h) override;
@@ -274,8 +373,22 @@ public:
 private:
   /// Draw the grid range given by the rect.
   void draw(QPainter& p, QRect r, const double font_offset);
+  /// Draw the given text with attr and def_clrs indicating
+  /// the background, foreground colors and font options.
+  void draw_text_and_bg(
+    QPainter& painter,
+    const QString& text,
+    const HLAttr& attr,
+    const HLAttr& def_clrs,
+    const QPointF& start,
+    const QPointF& end,
+    const int offset,
+    QFont font
+  );
   /// Update the pixmap size
   void update_pixmap_size();
+  /// Initialize the cache
+  void initialize_cache();
   /// Update the grid's position (new position can be found through pos()).
   void update_position(double new_x, double new_y);
 private:
@@ -293,6 +406,8 @@ private:
   bool is_scrolling = false;
   float scroll_animation_time;
   QTimer scroll_animation_timer {};
+  using FontOptions = decltype(HLAttr::font_opts);
+  LRUCache<QPair<QString, FontOptions>, QStaticText> text_cache;
 };
 
 #endif // NVUI_GRID_HPP

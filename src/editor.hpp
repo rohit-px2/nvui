@@ -124,7 +124,6 @@ public:
    * Internally sends the data to neovim_cursor.
    */
   void mode_change(NeovimObj obj, u32 size);
-  using u16 = std::uint16_t;
   /**
    * Handles a "busy_start" event, passing it to the Neovim cursor
    */
@@ -538,6 +537,8 @@ public slots:
   virtual void default_colors_changed(QColor fg, QColor bg);
   void set_fallback_for_ucs(std::uint32_t ucs);
   std::uint32_t font_for_ucs(std::uint32_t ucs);
+signals:
+  void font_changed();
 protected:
   void resizeEvent(QResizeEvent* event) override;
   void paintEvent(QPaintEvent* event) override;

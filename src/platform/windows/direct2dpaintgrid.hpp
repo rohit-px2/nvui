@@ -22,11 +22,25 @@ class WinEditorArea;
 /// to the screen (HWND).
 class D2DPaintGrid : public GridBase
 {
+  Q_OBJECT
   struct Snapshot
   {
     Viewport vp;
     ID2D1Bitmap1* image;
   };
+  template<typename Resource>
+  struct WinDeleter
+  {
+    void operator()(Resource** res) const
+    {
+      if (*res)
+      {
+        (*res)->Release();
+        *res = nullptr;
+      }
+    }
+  };
+  using TextLayoutDeleter = WinDeleter<IDWriteTextLayout1>;
 public:
   using GridBase::u16;
   using GridBase::u32;
@@ -36,9 +50,11 @@ public:
 public:
   D2DPaintGrid(WinEditorArea* wea, auto... args)
     : GridBase(args...),
-      editor_area(wea)
+      editor_area(wea),
+      layout_cache(2000)
   {
     initialize_context();
+    initialize_cache();
     update_bitmap_size();
   }
   ~D2DPaintGrid();
@@ -79,11 +95,18 @@ private:
   float cur_top = 0.f;
   float scroll_animation_time;
   QTimer scroll_animation_timer {};
+  using FontOptions = decltype(HLAttr::font_opts);
+  /// A lot of time is spent text shaping, we cache the created text
+  /// layouts
+  LRUCache<QPair<QString, FontOptions>, IDWriteTextLayout1*, TextLayoutDeleter>
+  layout_cache;
   /// Update the size of the bitmap to match the
   /// grid size
   void update_bitmap_size();
   /// Initialize the device contexts and bitmap.
   void initialize_context();
+  /// Initialize the cache
+  void initialize_cache();
   /// Draw the grid range given by the rect.
   /// Since we draw from the top-left, no offset is needed
   /// (unlike in QPaintGrid).

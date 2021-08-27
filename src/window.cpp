@@ -579,6 +579,10 @@ void Window::register_handlers()
     paramify<int>([this](int cols) {
       editor_area.popupmenu_info_set_columns(cols);
   }));
+  listen_for_notification("NVUI_FRAMELESS", paramify<bool>([this](bool b) {
+    if (b) enable_frameless_window();
+    else disable_frameless_window();
+  }));
   /// Add request handlers
   using arr = msgpack::object_array;
   handle_request<std::vector<std::string>, std::string>(

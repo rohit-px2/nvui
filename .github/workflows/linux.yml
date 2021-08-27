@@ -7,10 +7,22 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - cc: clang-12
+            cxx: clang++-12
+            buildtype: Debug
+            test: true
+            upload: false
+          - cc: clang-12
+            cxx: clang++-12
+            buildtype: Release
+            test: false
+            upload: true
     timeout-minutes: 500
     env:
-      CC: "clang-12"
-      CXX: "clang++-12"
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -18,10 +30,13 @@ jobs:
       - name: Update
         run: sudo apt update
       - name: Install Snap (to install Neovim nightly)
+        if: matrix.test
         run: sudo apt install snapd
       - name: Install Neovim Nightly
+        if: matrix.test
         run: sudo snap install --edge nvim --classic
       - name: Add Neovim to PATH
+        if: matrix.test
         run: echo "/snap/bin" >> $GITHUB_PATH
         shell: bash
       - name: Install dependencies for vcpkg packages
@@ -42,4 +57,14 @@ jobs:
           chmod +x ./scripts/linux/build-debug.sh
           ./scripts/linux/build-debug.sh
       - name: Run tests
+        if: matrix.test
         run: ./build/nvui_test
+      - name: Copy executable and assets into a folder
+        if: matrix.upload
+        run: ./scripts/linux/package.sh
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: nvui-linux-x64
+          if-no-files-found: ignore
+          path: build/packaged

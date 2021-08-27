@@ -61,7 +61,10 @@ jobs:
         run: ./build/nvui_test
       - name: Copy executable and assets into a folder
         if: matrix.upload
-        run: ./scripts/linux/package.sh
+        run: |
+          chmod +x ./scripts/linux/package.sh
+          chmox +x ./scripts/linux/build-release.sh
+          ./scripts/linux/package.sh
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:

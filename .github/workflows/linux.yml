@@ -11,12 +11,12 @@ jobs:
         include:
           - cc: clang-12
             cxx: clang++-12
-            buildtype: Debug
+            buildtype: 'Debug'
             test: true
             upload: false
           - cc: clang-12
             cxx: clang++-12
-            buildtype: Release
+            buildtype: 'Release'
             test: false
             upload: true
     timeout-minutes: 500
@@ -53,6 +53,7 @@ jobs:
             build/vcpkg_installed
           key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
       - name: Build nvui and nvui_test in Debug mode
+        if: matrix.buildtype == 'Debug'
         run: |
           chmod +x ./scripts/linux/build-debug.sh
           ./scripts/linux/build-debug.sh

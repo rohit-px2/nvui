@@ -99,7 +99,11 @@ void D2DPaintGrid::draw_text_and_bg(
       (LPCWSTR) buf.utf16(),
       buf.size(),
       text_format,
-      end.x - start.x,
+      // Sometimes the text clips weirdly & adding
+      // to the width solves it. It's probably because
+      // the text is just a little wider than the max width we set
+      // so we increase the max width by a little here.
+      end.x - start.x + 1.f,
       end.y - start.y,
       &old_text_layout
     );

@@ -11,6 +11,7 @@ Titlebar			|nvui-titlebar|
 Popup					|nvui-popup|
 Cmdline				|nvui-cmdline|
 Multigrid			|nvui-multigrid|
+Cursor				|nvui-cursor|
 ==============================================================================
 COMMANDS			*nvui-commands*
 
@@ -373,5 +374,38 @@ through commands.
 	Sets the frametime of the move animation to {msperframe}.
 	To get the corresponding framerate divide 1000 by {msperframe}.
 
+==============================================================================
+CURSOR					*nvui-cursor*
+The cursor is pretty simple. There is an animation for the cursor when it
+moves, and some commands to customize the animation.
+
+:NvuiCursorScaler {scaler}				*:NvuiCursorScaler*
+
+	Changes the animation scaler to {scaler}.
+	For a description of how the animation scalers work, look at
+	|:NvuiMoveScaler| and |:NvuiScrollScaler|.
+	There is a completion list of the available scaler functions, any other
+	input will do nothing.
+	Ex. :NvuiCursorScaler identity
+	Uses the "identity" scaler (t => t) to process the animation. The cursor
+	travels at a constant speed.
+
+:NvuiCursorAnimationDuration {seconds}				*:NvuiCursorAnimationDuration*
+
+	Change the animation duration to {seconds}. This is how long the cursor
+	takes to move from one point to the other.
+	Ex. :NvuiCursorAnimationDuration 2.0
+	The cursor takes 2.0 seconds to move from one point to another.
+
+:NvuiCursorFrametime {ms}					*:NvuiCursorFrametime*
+
+	{ms} must be an integer. If the value of {ms} is less than or equal to 0,
+	the animation is disabled.
+	Changes the frametime of the cursor animation.
+	To get the framerate, divide 1000 by {ms}.
+	Ex. :NvuiCursorFrametime 10
+	Sets the animation to update every 10ms (100fps). Of course this is only if
+	the frames are able to render in the correct amount of time.
+	:NvuiCursorFrametime -1 will disable the animations.
 ==============================================================================
 vim:ft=help:textwidth=78:ts=2:noet

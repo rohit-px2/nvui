@@ -75,7 +75,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   state(hl_state),
   nvim(nv),
   pixmap(width(), height()),
-  neovim_cursor(),
+  neovim_cursor(this),
   popup_menu(hl_state, this),
   cmdline(hl_state, &neovim_cursor, this)
 {

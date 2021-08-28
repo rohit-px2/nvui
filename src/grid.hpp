@@ -5,6 +5,7 @@
 #include <QString>
 #include <QTimer>
 #include <QWidget>
+#include <cmath>
 #include <queue>
 #include "hlstate.hpp"
 #include "utils.hpp"

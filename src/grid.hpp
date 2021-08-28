@@ -357,6 +357,8 @@ public:
     update_pixmap_size();
     update_position(x, y);
     initialize_cache();
+    initialize_scroll_animation();
+    initialize_move_animation();
   }
   ~QPaintGrid() override = default;
   void set_size(u16 w, u16 h) override;
@@ -389,6 +391,10 @@ private:
   void update_pixmap_size();
   /// Initialize the cache
   void initialize_cache();
+  /// Initialize scroll animation timer
+  void initialize_scroll_animation();
+  /// Initialize move animation timer
+  void initialize_move_animation();
   /// Update the grid's position (new position can be found through pos()).
   void update_position(double new_x, double new_y);
 private:
@@ -406,6 +412,11 @@ private:
   bool is_scrolling = false;
   float scroll_animation_time;
   QTimer scroll_animation_timer {};
+  float dest_move_x = 0.f;
+  float dest_move_y = 0.f;
+  float old_move_x = 0.f;
+  float old_move_y = 0.f;
+  float destination_scroll_y = 0.f;
   using FontOptions = decltype(HLAttr::font_opts);
   LRUCache<QPair<QString, FontOptions>, QStaticText> text_cache;
 };

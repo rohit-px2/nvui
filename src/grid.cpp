@@ -27,35 +27,18 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
     update_position(new_x, new_y);
     return;
   }
-  auto x_diff = new_x - cur_left;
-  auto y_diff = new_y - cur_top;
-  auto old_x = cur_left, old_y = cur_top;
-  move_update_timer.disconnect();
+  old_move_x = cur_left;
+  old_move_y = cur_top;
+  dest_move_x = new_x;
+  dest_move_y = new_y;
   auto interval = editor_area->move_animation_frametime();
   move_animation_time = editor_area->move_animation_duration();
-  move_update_timer.setInterval(interval);
-  move_update_timer.callOnTimeout([=] {
-    auto ms_interval = move_update_timer.interval();
-    move_animation_time -= float(ms_interval) / 1000.f;
-    if (move_animation_time <= 0)
-    {
-      move_update_timer.stop();
-      update_position(new_x, new_y);
-    }
-    else
-    {
-      auto duration = editor_area->move_animation_duration();
-      auto animation_left = move_animation_time / duration;
-      float animation_finished = 1.0f - animation_left;
-      float scale = move_scaler(animation_finished);
-      cur_left = old_x + (float(x_diff) * scale);
-      cur_top = old_y + (float(y_diff) * scale);
-      update_position(cur_left, cur_top);
-    }
-    editor_area->update();
-  });
+  if (move_update_timer.interval() != interval)
+  {
+    move_update_timer.setInterval(interval);
+  }
   GridBase::set_pos(new_x, new_y);
-  move_update_timer.start();
+  if (!move_update_timer.isActive()) move_update_timer.start();
 }
 
 void QPaintGrid::draw_text_and_bg(
@@ -262,38 +245,21 @@ void QPaintGrid::viewport_changed(Viewport vp)
   /// here: http://02credits.com/blog/day96-neovide-smooth-scrolling/
   auto dest_topline = vp.topline;
   start_scroll_y = current_scroll_y;
-  auto diff = float(dest_topline) - start_scroll_y;
-  snapshots.push_back({vp, pixmap});
+  destination_scroll_y = static_cast<float>(dest_topline);
+  snapshots.push_back({viewport, pixmap});
   if (snapshots.size() > editor_area->snapshot_limit())
   {
     snapshots.erase(snapshots.begin());
   }
   GridBase::viewport_changed(vp);
-  scroll_animation_timer.disconnect();
   auto interval = editor_area->scroll_animation_frametime();
   scroll_animation_time = editor_area->scroll_animation_duration();
-  scroll_animation_timer.setInterval(interval);
-  scroll_animation_timer.callOnTimeout([=] {
-    auto timer_interval = scroll_animation_timer.interval();
-    scroll_animation_time -= float(timer_interval) / 1000.f;
-    if (scroll_animation_time <= 0.f)
-    {
-      scroll_animation_timer.stop();
-      is_scrolling = false;
-      snapshots.clear();
-    }
-    else
-    {
-      auto duration = editor_area->scroll_animation_duration();
-      auto animation_left = scroll_animation_time / duration;
-      float animation_finished = 1.0f - animation_left;
-      float scale = scroll_scaler(animation_finished);
-      current_scroll_y = start_scroll_y + (diff * scale);
-    }
-    editor_area->update();
-  });
+  if (scroll_animation_timer.interval() != interval)
+  {
+    scroll_animation_timer.setInterval(interval);
+  }
   is_scrolling = true;
-  scroll_animation_timer.start();
+  if (!scroll_animation_timer.isActive()) scroll_animation_timer.start();
 }
 
 void QPaintGrid::update_position(double new_x, double new_y)
@@ -306,5 +272,55 @@ void QPaintGrid::initialize_cache()
 {
   QObject::connect(editor_area, &EditorArea::font_changed, this, [&] {
     text_cache.clear();
+  });
+}
+
+void QPaintGrid::initialize_scroll_animation()
+{
+  scroll_animation_timer.callOnTimeout([this] {
+    auto timer_interval = scroll_animation_timer.interval();
+    scroll_animation_time -= float(timer_interval) / 1000.f;
+    if (scroll_animation_time <= 0.f)
+    {
+      scroll_animation_timer.stop();
+      is_scrolling = false;
+      snapshots.clear();
+    }
+    else
+    {
+      auto diff = destination_scroll_y - start_scroll_y;
+      auto duration = editor_area->scroll_animation_duration();
+      auto animation_left = scroll_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float scale = scroll_scaler(animation_finished);
+      current_scroll_y = start_scroll_y + (diff * scale);
+    }
+    editor_area->update();
+  });
+}
+
+void QPaintGrid::initialize_move_animation()
+{
+  move_update_timer.callOnTimeout([this] {
+    auto ms_interval = move_update_timer.interval();
+    move_animation_time -= float(ms_interval) / 1000.f;
+    if (move_animation_time <= 0)
+    {
+      move_update_timer.stop();
+      update_position(dest_move_x, dest_move_y);
+    }
+    else
+    {
+      auto x_diff = dest_move_x - old_move_x;
+      auto y_diff = dest_move_y - old_move_y;
+      auto duration = editor_area->move_animation_duration();
+      auto animation_left = move_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float scale = move_scaler(animation_finished);
+      cur_left = old_move_x + (float(x_diff) * scale);
+      cur_top = old_move_y + (float(y_diff) * scale);
+      update_position(cur_left, cur_top);
+    }
+    editor_area->update();
   });
 }

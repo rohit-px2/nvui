@@ -36,6 +36,58 @@ void D2DPaintGrid::initialize_cache()
   });
 }
 
+void D2DPaintGrid::initialize_move_animation()
+{
+  move_update_timer.callOnTimeout([this] {
+    auto ms_interval = move_update_timer.interval();
+    move_animation_time -= float(ms_interval) / 1000.f;
+    if (move_animation_time <= 0)
+    {
+      move_update_timer.stop();
+      update_position(dest_move_x, dest_move_y);
+    }
+    else
+    {
+      auto x_diff = dest_move_x - old_move_x;
+      auto y_diff = dest_move_y - old_move_y;
+      auto duration = editor_area->move_animation_duration();
+      // What % of the animation is left (between 0 and 1)
+      auto animation_left = move_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float scale = move_scaler(animation_finished);
+      cur_left = old_move_x + (float(x_diff) * scale);
+      cur_top = old_move_y + (float(y_diff) * scale);
+      update_position(cur_left, cur_top);
+    }
+    editor_area->update();
+  });
+}
+
+void D2DPaintGrid::initialize_scroll_animation()
+{
+  scroll_animation_timer.callOnTimeout([this] {
+    auto timer_interval = scroll_animation_timer.interval();
+    scroll_animation_time -= float(timer_interval) / 1000.f;
+    if (scroll_animation_time <= 0.f)
+    {
+      scroll_animation_timer.stop();
+      is_scrolling = false;
+      for(auto& snapshot : snapshots) SafeRelease(&snapshot.image);
+      snapshots.clear();
+    }
+    else
+    {
+      auto diff = dest_scroll_y - start_scroll_y;
+      auto duration = editor_area->scroll_animation_duration();
+      auto animation_left = scroll_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float scaled = scroll_scaler(animation_finished);
+      current_scroll_y = start_scroll_y + (diff * scaled);
+    }
+    editor_area->update();
+  });
+}
+
 void D2DPaintGrid::process_events()
 {
   context->BeginDraw();
@@ -251,44 +303,25 @@ D2DPaintGrid::d2rect D2DPaintGrid::source_rect() const
 
 void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
 {
-  // If x_diff is negative, then new_x is to the left of x.
-  auto x_diff = new_x - cur_left;
-  // If y_diff is negative, then new_y is above y.
-  auto y_diff = new_y - cur_top;
-  auto old_x = cur_left, old_y = cur_top;
   if (!editor_area->animations_enabled())
   {
+    move_update_timer.stop();
     GridBase::set_pos(new_x, new_y);
     update_position(new_x, new_y);
     return;
   }
+  old_move_x = cur_left;
+  old_move_y = cur_top;
+  dest_move_x = new_x;
+  dest_move_y = new_y;
   move_animation_time = editor_area->move_animation_duration();
   auto interval = editor_area->move_animation_frametime();
-  move_update_timer.disconnect();
-  move_update_timer.setInterval(interval);
-  move_update_timer.callOnTimeout([=] {
-    auto ms_interval = move_update_timer.interval();
-    move_animation_time -= float(ms_interval) / 1000.f;
-    if (move_animation_time <= 0)
-    {
-      move_update_timer.stop();
-      update_position(new_x, new_y);
-    }
-    else
-    {
-      auto duration = editor_area->move_animation_duration();
-      // What % of the animation is left (between 0 and 1)
-      auto animation_left = move_animation_time / duration;
-      float animation_finished = 1.0f - animation_left;
-      float scale = move_scaler(animation_finished);
-      cur_left = old_x + (float(x_diff) * scale);
-      cur_top = old_y + (float(y_diff) * scale);
-      update_position(cur_left, cur_top);
-    }
-    editor_area->update();
-  });
+  if (move_update_timer.interval() != interval)
+  {
+    move_update_timer.setInterval(interval);
+  }
   GridBase::set_pos(new_x, new_y);
-  move_update_timer.start();
+  if (!move_update_timer.isActive()) move_update_timer.start();
 }
 
 void D2DPaintGrid::update_position(double x, double y)
@@ -304,45 +337,28 @@ void D2DPaintGrid::viewport_changed(Viewport vp)
   // at http://02credits.com/blog/day96-neovide-smooth-scrolling.
   if (!editor_area->animations_enabled() || viewport.topline == vp.topline)
   {
+    //scroll_animation_timer.stop();
     GridBase::viewport_changed(vp);
     return;
   }
   auto dest_topline = vp.topline;
   start_scroll_y = current_scroll_y;
-  auto diff = float(dest_topline) - start_scroll_y;
-  snapshots.push_back({vp, copy_bitmap(bitmap)});
+  dest_scroll_y = dest_topline;
+  snapshots.push_back({viewport, copy_bitmap(bitmap)});
   if (snapshots.size() > editor_area->snapshot_limit())
   {
     SafeRelease(&snapshots[0].image);
     snapshots.erase(snapshots.begin());
   }
   GridBase::viewport_changed(vp);
-  scroll_animation_timer.disconnect();
   auto interval = editor_area->scroll_animation_frametime();
   scroll_animation_time = editor_area->scroll_animation_duration();
-  scroll_animation_timer.setInterval(interval);
-  scroll_animation_timer.callOnTimeout([=] {
-    auto timer_interval = scroll_animation_timer.interval();
-    scroll_animation_time -= float(timer_interval) / 1000.f;
-    if (scroll_animation_time <= 0.f)
-    {
-      scroll_animation_timer.stop();
-      is_scrolling = false;
-      for(auto& snapshot : snapshots) SafeRelease(&snapshot.image);
-      snapshots.clear();
-    }
-    else
-    {
-      auto duration = editor_area->scroll_animation_duration();
-      auto animation_left = scroll_animation_time / duration;
-      float animation_finished = 1.0f - animation_left;
-      float scaled = scroll_scaler(animation_finished);
-      current_scroll_y = start_scroll_y + (diff * scaled);
-    }
-    editor_area->update();
-  });
+  if (scroll_animation_timer.interval() != interval)
+  {
+    scroll_animation_timer.setInterval(interval);
+  }
   is_scrolling = true;
-  scroll_animation_timer.start();
+  if (!scroll_animation_timer.isActive()) scroll_animation_timer.start();
 }
 
 ID2D1Bitmap1* D2DPaintGrid::copy_bitmap(ID2D1Bitmap1* src)
@@ -385,7 +401,7 @@ void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
     const auto& snapshot = *it;
     float snapshot_top = snapshot.vp.topline * font_height;
     float offset = snapshot_top - cur_scroll_y;
-    auto pixmap_top = top_left.y() + offset - font_height;
+    auto pixmap_top = top_left.y() + offset;
     d2pt pt = D2D1::Point2F(top_left.x(), pixmap_top);
     r = D2D1::RectF(pt.x, pt.y, pt.x + sz.width, pt.y + sz.height);
     render_target->DrawBitmap(

@@ -56,6 +56,8 @@ public:
     initialize_context();
     initialize_cache();
     update_bitmap_size();
+    initialize_scroll_animation();
+    initialize_move_animation();
   }
   ~D2DPaintGrid();
   ID2D1Bitmap1* buffer() { return bitmap; }
@@ -95,6 +97,11 @@ private:
   float cur_top = 0.f;
   float scroll_animation_time;
   QTimer scroll_animation_timer {};
+  float dest_move_x = 0.f;
+  float dest_move_y = 0.f;
+  float old_move_x = 0.f;
+  float old_move_y = 0.f;
+  float dest_scroll_y = 0.f;
   using FontOptions = decltype(HLAttr::font_opts);
   /// A lot of time is spent text shaping, we cache the created text
   /// layouts
@@ -107,6 +114,10 @@ private:
   void initialize_context();
   /// Initialize the cache
   void initialize_cache();
+  /// Initialize the move animation
+  void initialize_move_animation();
+  /// Initialize the scroll animation
+  void initialize_scroll_animation();
   /// Draw the grid range given by the rect.
   /// Since we draw from the top-left, no offset is needed
   /// (unlike in QPaintGrid).

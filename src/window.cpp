@@ -583,6 +583,18 @@ void Window::register_handlers()
     if (b) enable_frameless_window();
     else disable_frameless_window();
   }));
+  listen_for_notification("NVUI_CURSOR_SCALER",
+    paramify<std::string>([this](std::string scaler) {
+      editor_area.set_cursor_scaler(scaler);
+  }));
+  listen_for_notification("NVUI_CURSOR_ANIMATION_DURATION",
+    paramify<float>([this](float s) {
+      editor_area.set_cursor_animation_duration(s);
+  }));
+  listen_for_notification("NVUI_CURSOR_FRAMETIME",
+    paramify<int>([this](int ms) {
+      editor_area.set_cursor_frametime(ms);
+  }));
   /// Add request handlers
   using arr = msgpack::object_array;
   handle_request<std::vector<std::string>, std::string>(

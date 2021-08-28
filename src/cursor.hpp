@@ -1,10 +1,13 @@
 #ifndef NVUI_CURSOR_HPP
 #define NVUI_CURSOR_HPP
+
+#include <QElapsedTimer>
 #include <QRect>
 #include <QTimer>
 #include <cstdint>
 #include <msgpack.hpp>
 #include "hlstate.hpp"
+#include "grid.hpp"
 
 enum class CursorShape : std::uint8_t
 {
@@ -56,12 +59,15 @@ struct ModeInfo
   // (mouse_shape)
 };
 
+class EditorArea;
 /// The Cursor class stores the data for the Neovim cursor
 class Cursor : public QObject
 {
   Q_OBJECT
 public:
+  static scalers::time_scaler animation_scaler;
   Cursor();
+  Cursor(EditorArea* editor_area);
   /**
    * Handles a 'mode_info_set' Neovim redraw event.
    */
@@ -132,6 +138,7 @@ public:
     caret_extend_bottom = bottom;
   }
 private:
+  EditorArea* editor_area = nullptr;
   float caret_extend_top = 0.f;
   float caret_extend_bottom = 0.f;
   int cell_width;
@@ -150,6 +157,18 @@ private:
   std::size_t old_mode_idx;
   float old_mode_scale = 1.0f;
   std::string cur_mode_name;
+  float cursor_animation_time;
+  // These x and y are in terms of text, not pixels
+  float cur_x = 0.f;
+  float cur_y = 0.f;
+  float old_x = 0.f;
+  float old_y = 0.f;
+  float destination_x = 0.f;
+  float destination_y = 0.f;
+  QTimer cursor_animation_timer {};
+  // Check the actual amount of time that passed between
+  // each animation update
+  QElapsedTimer elapsed_timer {};
 signals:
   void cursor_visible();
   void cursor_hidden();
@@ -187,6 +206,7 @@ private:
   {
     return status == CursorStatus::Busy;
   }
+  bool use_animated_position() const;
 };
 
 #endif // NVUI_CURSOR_HPP

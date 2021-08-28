@@ -12,6 +12,9 @@
 :NvuiCmdPadding	nvui.txt	/*:NvuiCmdPadding*
 :NvuiCmdTopPos	nvui.txt	/*:NvuiCmdTopPos*
 :NvuiCmdWidth	nvui.txt	/*:NvuiCmdWidth*
+:NvuiCursorAnimationDuration	nvui.txt	/*:NvuiCursorAnimationDuration*
+:NvuiCursorFrametime	nvui.txt	/*:NvuiCursorFrametime*
+:NvuiCursorScaler	nvui.txt	/*:NvuiCursorScaler*
 :NvuiFrameless	nvui.txt	/*:NvuiFrameless*
 :NvuiFullscreen	nvui.txt	/*:NvuiFullscreen*
 :NvuiMoveAnimationDuration	nvui.txt	/*:NvuiMoveAnimationDuration*
@@ -46,6 +49,7 @@
 :NvuiToggleFullscreen	nvui.txt	/*:NvuiToggleFullscreen*
 nvui-cmdline	nvui.txt	/*nvui-cmdline*
 nvui-commands	nvui.txt	/*nvui-commands*
+nvui-cursor	nvui.txt	/*nvui-cursor*
 nvui-general	nvui.txt	/*nvui-general*
 nvui-multigrid	nvui.txt	/*nvui-multigrid*
 nvui-popup	nvui.txt	/*nvui-popup*

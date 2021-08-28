@@ -309,6 +309,13 @@ public:
       GridBase::scroll_scaler = scalers::scalers().at(scaler);
     }
   }
+  void set_cursor_scaler(std::string scaler)
+  {
+    if (scalers::scalers().contains(scaler))
+    {
+      Cursor::animation_scaler = scalers::scalers().at(scaler);
+    }
+  }
   void set_scroll_animation_duration(float dur)
   {
     if (dur > 0.f) scroll_animation_time = dur;
@@ -328,6 +335,22 @@ public:
   void popupmenu_info_set_columns(int columns)
   {
     popup_menu.info_display().set_cols(columns);
+  }
+  float cursor_animation_duration() const
+  {
+    return cursor_animation_time;
+  }
+  int cursor_animation_frametime() const
+  {
+    return cursor_animation_frametime_ms;
+  }
+  void set_cursor_frametime(int ms)
+  {
+    cursor_animation_frametime_ms = ms;
+  }
+  void set_cursor_animation_duration(float secs)
+  {
+    cursor_animation_time = secs;
   }
   /// For input methods
   virtual QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
@@ -364,6 +387,8 @@ protected:
   int animation_frame_interval_ms = 10;
   int scroll_animation_frame_interval = 10;
   float scroll_animation_time = 0.3f;
+  float cursor_animation_time = 0.3f;
+  int cursor_animation_frametime_ms = 10;
   /**
    * Sets the current font to new_font.
    */

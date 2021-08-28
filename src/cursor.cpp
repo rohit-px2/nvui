@@ -1,6 +1,13 @@
 #include "cursor.hpp"
+#include "editor.hpp"
+#include "grid.hpp"
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <QElapsedTimer>
+
+using scalers::time_scaler;
+time_scaler Cursor::animation_scaler = scalers::oneminusexpo2negative10;
+
 Cursor::Cursor()
   : blinkwait_timer(nullptr),
     blinkon_timer(nullptr),
@@ -21,6 +28,36 @@ Cursor::Cursor()
   QObject::connect(&blinkoff_timer, &QTimer::timeout, [this]() {
     show();
     set_blinkon_timer(cur_mode.blinkon);
+  });
+}
+
+Cursor::Cursor(EditorArea* ea)
+  : Cursor()
+{
+  assert(editor_area);
+  editor_area = ea;
+  cursor_animation_timer.callOnTimeout([this] {
+    auto elapsed_ms = elapsed_timer.elapsed();
+    cursor_animation_time -= static_cast<float>(elapsed_ms) / 1000.f;
+    if (cursor_animation_time <= 0.f)
+    {
+      cursor_animation_timer.stop();
+      cur_x = destination_x;
+      cur_y = destination_y;
+    }
+    else
+    {
+      auto x_diff = destination_x - old_x;
+      auto y_diff = destination_y - old_y;
+      auto duration = editor_area->cursor_animation_duration();
+      auto animation_left = cursor_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float scaled = animation_scaler(animation_finished);
+      cur_x = old_x + (x_diff * scaled);
+      cur_y = old_y + (y_diff * scaled);
+    }
+    editor_area->update();
+    elapsed_timer.start();
   });
 }
 
@@ -170,13 +207,42 @@ void Cursor::show() noexcept
 void Cursor::go_to(CursorPos pos)
 {
   prev_pos = cur_pos;
-  cur_pos = pos;
+  if (!use_animated_position())
+  {
+    cursor_animation_timer.stop();
+    cur_pos = pos;
+  }
+  else
+  {
+    cur_pos = pos;
+    old_x = cur_x;
+    old_y = cur_y;
+    destination_x = cur_pos->grid_x + cur_pos->col;
+    destination_y = cur_pos->grid_y + cur_pos->row;
+    cursor_animation_time = editor_area->cursor_animation_duration();
+    auto interval = editor_area->cursor_animation_frametime();
+    elapsed_timer.start();
+    if (cursor_animation_timer.interval() != interval)
+    {
+      cursor_animation_timer.setInterval(interval);
+    }
+    if (!cursor_animation_timer.isActive()) cursor_animation_timer.start();
+  }
   reset_timers();
 }
 
 /// Returns a CursorRect containing the cursor rectangle
 /// in pixels, based on the row, column, font width, and font height.
-static CursorRect get_rect(const ModeInfo& mode, int row, int col, float font_width, float font_height, float caret_extend_top, float caret_extend_bottom, float scale = 1.0f)
+static CursorRect get_rect(
+  const ModeInfo& mode,
+  float row,
+  float col,
+  float font_width,
+  float font_height,
+  float caret_extend_top,
+  float caret_extend_bottom,
+  float scale = 1.0f
+)
 {
   // These do nothing for now
   bool should_draw_text = mode.cursor_shape == CursorShape::Block;
@@ -214,10 +280,17 @@ static CursorRect get_rect(const ModeInfo& mode, int row, int col, float font_wi
 std::optional<CursorRect> Cursor::rect(float font_width, float font_height, float scale) const noexcept
 {
   if (!cur_pos.has_value()) return std::nullopt;
+  float x = cur_pos->grid_x + cur_pos->col;
+  float y = cur_pos->grid_y + cur_pos->row;
+  if (use_animated_position())
+  {
+    x = cur_x;
+    y = cur_y;
+  }
   return get_rect(
     cur_mode,
-    cur_pos->grid_y + cur_pos->row,
-    cur_pos->grid_x + cur_pos->col,
+    y,
+    x,
     font_width, font_height,
     caret_extend_top,
     caret_extend_bottom,
@@ -251,4 +324,11 @@ void Cursor::busy_stop()
 {
   status = CursorStatus::Visible;
   reset_timers();
+}
+
+bool Cursor::use_animated_position() const
+{
+  return editor_area
+      && editor_area->animations_enabled()
+      && editor_area->cursor_animation_frametime() > 0;
 }

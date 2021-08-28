@@ -1,5 +1,7 @@
 #ifndef NVUI_CURSOR_HPP
 #define NVUI_CURSOR_HPP
+
+#include <QElapsedTimer>
 #include <QRect>
 #include <QTimer>
 #include <cstdint>
@@ -164,6 +166,9 @@ private:
   float destination_x = 0.f;
   float destination_y = 0.f;
   QTimer cursor_animation_timer {};
+  // Check the actual amount of time that passed between
+  // each animation update
+  QElapsedTimer elapsed_timer {};
 signals:
   void cursor_visible();
   void cursor_hidden();

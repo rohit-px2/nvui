@@ -3,6 +3,7 @@
 #include "grid.hpp"
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <QElapsedTimer>
 
 using scalers::time_scaler;
 time_scaler Cursor::animation_scaler = scalers::oneminusexpo2negative10;
@@ -36,8 +37,8 @@ Cursor::Cursor(EditorArea* ea)
   assert(editor_area);
   editor_area = ea;
   cursor_animation_timer.callOnTimeout([this] {
-    auto interval = cursor_animation_timer.interval();
-    cursor_animation_time -= static_cast<float>(interval) / 1000.f;
+    auto elapsed_ms = elapsed_timer.elapsed();
+    cursor_animation_time -= static_cast<float>(elapsed_ms) / 1000.f;
     if (cursor_animation_time <= 0.f)
     {
       cursor_animation_timer.stop();
@@ -56,6 +57,7 @@ Cursor::Cursor(EditorArea* ea)
       cur_y = old_y + (y_diff * scaled);
     }
     editor_area->update();
+    elapsed_timer.start();
   });
 }
 
@@ -219,6 +221,7 @@ void Cursor::go_to(CursorPos pos)
     destination_y = cur_pos->grid_y + cur_pos->row;
     cursor_animation_time = editor_area->cursor_animation_duration();
     auto interval = editor_area->cursor_animation_frametime();
+    elapsed_timer.start();
     if (cursor_animation_timer.interval() != interval)
     {
       cursor_animation_timer.setInterval(interval);

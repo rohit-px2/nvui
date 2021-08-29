@@ -1,9 +1,7 @@
-name: linux-build
-
+name: build-and-test
 on: push
-
 jobs:
-  linux-build:
+  linux:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -72,3 +70,66 @@ jobs:
           name: nvui-linux-x64
           if-no-files-found: ignore
           path: build/packaged
+  windows-debug:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    timeout-minutes: 500
+    env:
+      buildDir: '${{ github.workspace }}/build'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          sdk: 10.0.19041.0
+      - name: Install Neovim Nightly (needed for tests)
+        run: choco install -y neovim --pre
+      - name: Add Neovim to PATH
+        run: echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Restore deps from cache if they exist
+        uses: actions/cache@v2
+        with:
+          path: |
+            build/vcpkg_installed
+          key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-debug-${{ hashFiles('vcpkg.json') }}
+      - name: Build nvui and nvui_test
+        run: .\scripts\windows\build-debug.ps1
+      - name: Run tests
+        run: |
+          cd build
+          .\nvui_test
+        shell: cmd
+  windows-release:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    timeout-minutes: 500
+    env:
+      buildDir: '${{ github.workspace }}/build'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          sdk: 10.0.19041.0
+      - name: Restore deps from cache if they exist
+        uses: actions/cache@v2
+        with:
+          path: |
+            build/vcpkg_installed
+          key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-release-${{ hashFiles('vcpkg.json') }}
+      - name: Package into a zip
+        run: .\scripts\windows\package.ps1
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: nvui-win64
+          if-no-files-found: ignore
+          path: build/nvui

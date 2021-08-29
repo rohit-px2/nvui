@@ -1,15 +1,21 @@
 #ifndef NVUI_TITLEBAR_HPP
 #define NVUI_TITLEBAR_HPP
 
+#include "constants.hpp"
+#include "utils.hpp"
+#include <QApplication>
+#include <QBitmap>
+#include <QEvent>
+#include <QLabel>
 #include <QLayout>
 #include <QWidget>
 #include <QMainWindow>
 #include <QHBoxLayout>
-#include <QResizeEvent>
+#include <QPixmap>
 #include <QPointF>
-#include <QEvent>
-#include <QLabel>
 #include <QPushButton>
+#include <QResizeEvent>
+#include <QStyle>
 
 /// MenuButtons for our TitleBar that inherit from QPushButton
 /// These have overridden the default hover events to provide
@@ -86,6 +92,45 @@ public:
     return titlebar_widget;
   }
 private:
+  QIcon icon_or(
+    const QString& fp,
+    QStyle::StandardPixmap sp
+  ) const
+  {
+    auto icon = icon_from_svg(fp, foreground);
+    if (!icon)
+    {
+      auto sp_px = QApplication::style()->standardPixmap(sp);
+      auto mask = sp_px.createMaskFromColor({"black"}, Qt::MaskOutColor);
+      sp_px.fill(foreground);
+      sp_px.setMask(mask);
+      icon = QIcon(sp_px);
+    }
+    return *icon;
+  }
+  QIcon get_close_icon() const
+  {
+    return icon_or(constants::closeicon(), QStyle::SP_TitleBarCloseButton);
+  }
+  QIcon get_maximized_icon() const
+  {
+    return icon_or(
+      constants::maxicon_second(),
+      QStyle::SP_TitleBarNormalButton
+    );
+  }
+  QIcon get_maximize_icon() const
+  {
+    return icon_or(constants::maxicon(), QStyle::SP_TitleBarMaxButton);
+  }
+  QIcon get_minimize_icon() const
+  {
+    return icon_or(constants::minicon(), QStyle::SP_TitleBarMinButton);
+  }
+  QIcon get_app_icon() const
+  {
+    return icon_from_svg(constants::appicon(), foreground).value_or(QIcon());
+  }
   /**
    * Updates the titlebar with new colors.
    * This should only be called after the colors are updated

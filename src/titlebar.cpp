@@ -190,9 +190,9 @@ TitleBar::TitleBar(QString text, Window* window)
   const int menu_width = (menu_height * 3) / 2;
   title_font.setPointSizeF(9.5);
   title_font.setHintingPreference(QFont::HintingPreference::PreferVerticalHinting);
-  close_icon = icon_from_svg(constants::closeicon(), foreground);
-  max_icon = icon_from_svg(constants::maxicon(), foreground);
-  min_icon = icon_from_svg(constants::minicon(), foreground);
+  close_icon = get_close_icon();
+  max_icon = get_maximize_icon();
+  min_icon = get_minimize_icon();
   close_btn = new MenuButton(this, close_bg);
   max_btn = new MenuButton(this, mm_dark);
   min_btn = new MenuButton(this, mm_dark);
@@ -300,8 +300,8 @@ bool is_light(const QColor& color)
 
 void TitleBar::update_titlebar()
 {
-  close_icon = icon_from_svg(constants::closeicon(), foreground);
-  min_icon = icon_from_svg(constants::minicon(), foreground);
+  close_icon = get_close_icon();
+  min_icon = get_minimize_icon();
   close_btn->setIcon(close_icon);
   min_btn->setIcon(min_icon);
   update_maxicon();
@@ -324,12 +324,12 @@ void TitleBar::update_maxicon()
 {
   if (win->isMaximized())
   {
-    max_icon = icon_from_svg(constants::maxicon_second(), foreground);
+    max_icon = get_maximized_icon();
     max_btn->setIcon(max_icon);
   }
   else
   {
-    max_icon = icon_from_svg(constants::maxicon(), foreground);
+    max_icon = get_maximize_icon();
     max_btn->setIcon(max_icon);
   }
 }

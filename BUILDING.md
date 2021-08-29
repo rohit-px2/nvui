@@ -12,6 +12,7 @@ See the vcpkg.json for the packages used in this project.
 
 ## Installling Dependencies
 <hr>
+
 ### Linux
 On Linux, dependencies installed using vcpkg require some packages to be
 installed by the system package manger. In order for the dependencies

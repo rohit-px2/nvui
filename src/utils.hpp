@@ -16,7 +16,7 @@
 // Creates a QIcon from the given svg, with the given foreground
 // and background color.
 // Assumption: The only color in the file is black ("#000").
-inline QIcon icon_from_svg(
+inline std::optional<QIcon> icon_from_svg(
   const QString filename,
   const QColor& foreground,
   const QColor& background = QColor(0, 0, 0, 0),
@@ -27,7 +27,7 @@ inline QIcon icon_from_svg(
   QFile file {filename};
   if (!file.exists())
   {
-    throw std::runtime_error("file not found.");
+    return std::nullopt;
   }
   file.open(QIODevice::ReadOnly);
   QString text = file.readAll();

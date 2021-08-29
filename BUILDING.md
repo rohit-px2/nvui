@@ -40,16 +40,19 @@ On Windows you don't need to install any dependencies, vcpkg takes care of it.
 ### NOTE (Windows, MSVC):
 When you use MSVC / Visual Studio the project is not built into the "build" folder,
 instead it is built into "build/Release".
-If you run the executable from this directory, nvui will fail to find the assets and vim files, and will close with a "file not found" error.
+If you run the executable from this directory, nvui will fail to find the assets and vim files, and, if you have commands in your vimrc, they won't be recognized (since nvui.vim is not loaded). Also, you won't see any popup menu icons (if you use the external popup menu).
 You should move the executable and DLLs from the "build/Release" folder into the "build" folder.
-This issue does not occur with Clang.
+This issue does not occur with Clang, since the executable is placed right into
+the "build" directory.
 <hr>
 
 ## Packaging Executable
 nvui must find the assets folder in "../assets" and the folder for vim files at "../vim". Thus, if you are trying to package the executable the folder everything is packaged in should look like this:
 
-- nvui
+- nvui (the main folder)
   - bin (can be whatever name, this is where the executable is stored)
+    - nvui executable
+    - (On Windows) the "plugins" directory, DLLs
   - assets
   - vim
 

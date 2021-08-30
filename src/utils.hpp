@@ -125,4 +125,18 @@ msgpack::object pack(const T& obj)
   return msgpack::object(obj, z);
 }
 
+/// Thanks Neovim-Qt
+/// https://github.com/equalsraf/neovim-qt/blob/master/src/gui/shellwidget/shellwidget.cpp#L42-L50
+/// Returns a monospace font family.
+inline QString default_font_family()
+{
+#if defined(Q_OS_MAC)
+  return "Courier New";
+#elif defined(Q_OS_WIN)
+  return "Consolas";
+#else
+  return "Monospace";
+#endif
+}
+
 #endif // NVUI_UTILS_HPP

@@ -34,7 +34,7 @@ Cursor::Cursor()
 Cursor::Cursor(EditorArea* ea)
   : Cursor()
 {
-  assert(editor_area);
+  assert(ea);
   editor_area = ea;
   cursor_animation_timer.callOnTimeout([this] {
     auto elapsed_ms = elapsed_timer.elapsed();

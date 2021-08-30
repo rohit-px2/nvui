@@ -65,7 +65,7 @@ int main(int argc, char** argv)
 #ifdef Q_OS_LINUX
   // See issue #21
   auto env = boost::this_process::environment();
-  if (env.find("FONTCONFIG_PATH") != env.end())
+  if (env.find("FONTCONFIG_PATH") == env.end())
   {
     env.set("FONTCONFIG_PATH", "/etc/fonts");
   }

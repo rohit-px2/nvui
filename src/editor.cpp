@@ -513,7 +513,7 @@ static std::tuple<QString, double, std::uint8_t> parse_guifont(const QString& st
   }
 }
 
-void EditorArea::set_guifont(const QString& new_font)
+void EditorArea::set_guifont(QString new_font)
 {
   // Can take the form
   // <fontname>, <fontname:h<size>, <fontname>:h<size>:b, <fontname>:b,
@@ -521,6 +521,12 @@ void EditorArea::set_guifont(const QString& new_font)
   // for fallback.
   // We want to consider the fonts one at a time so we have to first
   // split the text. The delimiter that signifies a new font is a comma.
+
+  // Neovim sends "" on initialization, but we want a monospace font
+  if (new_font.isEmpty())
+  {
+    new_font = default_font_family();
+  }
   const QStringList lst = new_font.split(",");
   fonts.clear();
   font_for_unicode.clear();

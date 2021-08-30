@@ -391,8 +391,10 @@ protected:
   int cursor_animation_frametime_ms = 10;
   /**
    * Sets the current font to new_font.
+   * If new_font is empty (this indicates an unset value),
+   * uses a default font given by default_font_family() in utils.hpp.
    */
-  void set_guifont(const QString& new_font);
+  void set_guifont(QString new_font);
   /**
    * Adds text to the given grid number at the given row and col number,
    * overwriting the previous text a the position.

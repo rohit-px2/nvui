@@ -14,6 +14,7 @@
 #include "window.hpp"
 #include <msgpack.hpp>
 #include <fmt/format.h>
+#include <boost/process/env.hpp>
 
 using std::string;
 using std::vector;
@@ -61,9 +62,17 @@ Q_DECLARE_METATYPE(msgpack::object_handle*)
 const std::string geometry_opt = "--geometry=";
 int main(int argc, char** argv)
 {
+#ifdef Q_OS_LINUX
+  // See issue #21
+  auto env = boost::this_process::environment();
+  if (env.find("FONTCONFIG_PATH") != env.end())
+  {
+    env.set("FONTCONFIG_PATH", "/etc/fonts");
+  }
+#endif
   const auto args = get_args(argc, argv);
   // Arguments to pass to nvim
-  vector<string> nvim_args {"--embed" };
+  vector<string> nvim_args {"--embed"};
   vector<string> cl_nvim_args = neovim_args(args);
   nvim_args.insert(nvim_args.end(), cl_nvim_args.begin(), cl_nvim_args.end());
   string nvim_path = "";

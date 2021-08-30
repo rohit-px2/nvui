@@ -483,7 +483,7 @@ void Nvim::send_response(
   }
   catch(...)
   {
-    fmt::print("Could not send response. Msgid: {}\n");
+    fmt::print("Could not send response. Msgid: {}\n", msgid);
   }
 }
 

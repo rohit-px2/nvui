@@ -29,16 +29,17 @@
 
 ![fallback](assets/display/4.png)
 
+
 <ul>
 <li> External Multigrid Support (<code>:h nvui-multigrid</code>) </li>
 <li> <code>nvui --ext_multigrid</code></li>
 <li> Smooth Scrolling </li>
 
-![smoothscroll](assets/display/videos/smoothscroll.gif)
+![Click here for a demonstration of smooth scrolling](https://user-images.githubusercontent.com/64917719/131388187-7807833e-0fce-4db2-a25e-1e6ac7d48aed.mp4)
 
 <li> Animated Windows</li>
 
-![windows](assets/display/videos/windows.gif)
+![Click here for a demonstration of animated windows](https://user-images.githubusercontent.com/64917719/131388158-84783f63-0e43-45e7-8b9d-7e0d85649cb3.mp4)
 
 <li> Animated Cursor (no VFX... yet) </li>
 <li> Customizable cursor height (see <code>:h NvuiCaretExtendTop</code>
@@ -48,7 +49,7 @@ and <code>:h NvuiCaretExtendBottom</code>)
   </ul>
 </ul>
 
-![caretextend](assets/display/videos/caretextend.gif)
+![Click here for a demonstration of the cursor extending](https://user-images.githubusercontent.com/64917719/131388133-379a32ae-1b36-4dc2-aee9-4303c20dc764.mp4)
 
 ## Documentation
 <code>:h nvui</code> (vim/doc/nvui.txt)

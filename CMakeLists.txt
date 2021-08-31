@@ -31,10 +31,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(msgpack CONFIG REQUIRED)
 find_package(Catch2 CONFIG REQUIRED)
-find_package(Qt5Core CONFIG REQUIRED)
-find_package(Qt5Gui CONFIG REQUIRED)
-find_package(Qt5Widgets CONFIG REQUIRED)
-find_package(Qt5Svg CONFIG REQUIRED)
+find_package(Qt5 5.15.2 REQUIRED COMPONENTS Core Gui Svg Widgets)
 find_package(fmt CONFIG REQUIRED)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -81,9 +78,9 @@ if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
 else()
   add_executable(nvui ${SOURCES})
 endif()
-target_link_libraries(nvui PRIVATE msgpackc msgpackc-cxx)
-target_link_libraries(nvui PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg)
-target_link_libraries(nvui PRIVATE fmt::fmt-header-only)
+target_link_libraries(nvui PRIVATE msgpackc-cxx)
+target_link_libraries(nvui PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
+target_link_libraries(nvui PRIVATE fmt::fmt)
 target_include_directories(nvui PRIVATE
   "${PROJECT_SOURCE_DIR}/src"
 )
@@ -97,9 +94,6 @@ endif()
 if (Boost_FOUND)
   target_include_directories(nvui PRIVATE ${Boost_INCLUDE_DIR})
 endif()
-target_link_libraries(${PROJECT_NAME} PRIVATE
-  ${Boost_LIBRARIES}
-)
 include(CheckIPOSupported)
 check_ipo_supported(RESULT LTOAvailable)
 if(LTOAvailable)
@@ -141,10 +135,10 @@ if (WIN32)
   list(APPEND TEST_SOURCES ${WINONLYTESTSOURCES})
 endif()
 add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
-target_link_libraries(nvui_test PRIVATE msgpackc msgpackc-cxx)
+target_link_libraries(nvui_test PRIVATE msgpackc-cxx)
 target_link_libraries(nvui_test PRIVATE Catch2::Catch2)
-target_link_libraries(nvui_test PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg)
-target_link_libraries(nvui_test PRIVATE fmt::fmt-header-only)
+target_link_libraries(nvui_test PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
+target_link_libraries(nvui_test PRIVATE fmt::fmt)
 target_include_directories(nvui_test PRIVATE
   "${PROJECT_SOURCE_DIR}/test"
   "${PROJECT_SOURCE_DIR}/src"
@@ -153,9 +147,8 @@ if (BOOST_FOUND)
   target_include_directories(nvui_test PRIVATE ${Boost_INCLUDE_DIR})
 endif()
 target_link_libraries(nvui_test PRIVATE
-  ${Boost_FILESYSTEM_LIBRARY}
-  ${Boost_THREAD_LIBRARY}
-  ${Boost_LIBRARIES}
+  Boost::thread
+  Boost::filesystem
 )
 include(CTest)
 include(Catch)

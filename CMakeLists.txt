@@ -94,6 +94,9 @@ endif()
 if (Boost_FOUND)
   target_include_directories(nvui PRIVATE ${Boost_INCLUDE_DIR})
 endif()
+target_link_libraries(nvui PRIVATE
+  ${Boost_LIBRARIES}
+)
 include(CheckIPOSupported)
 check_ipo_supported(RESULT LTOAvailable)
 if(LTOAvailable)

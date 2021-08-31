@@ -910,8 +910,8 @@ void Window::changeEvent(QEvent* event)
 
 bool Window::nativeEvent(const QByteArray& e_type, void* msg, long* result)
 {
-#ifdef Q_OS_WIN
   Q_UNUSED(e_type);
+#ifdef Q_OS_WIN
   if (!is_frameless()) return false;
   MSG* message = static_cast<MSG*>(msg);
   switch(message->message)
@@ -920,6 +920,9 @@ bool Window::nativeEvent(const QByteArray& e_type, void* msg, long* result)
       *result = 0;
       return true;
   }
+#else
+  Q_UNUSED(msg);
+  Q_UNUSED(result);
 #endif
   return false;
 }

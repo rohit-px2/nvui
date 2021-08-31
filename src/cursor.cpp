@@ -63,6 +63,7 @@ Cursor::Cursor(EditorArea* ea)
 
 void Cursor::mode_change(const msgpack::object* obj, std::uint32_t size)
 {
+  Q_UNUSED(size);
   assert(obj->type == msgpack::type::ARRAY);
   const auto& arr = obj->via.array;
   assert(arr.size == 2);
@@ -87,7 +88,7 @@ void Cursor::mode_info_set(const msgpack::object* obj, std::uint32_t size)
     assert(o.type == msgpack::type::ARRAY);
     const auto& arr = o.via.array;
     assert(arr.size == 2);
-    const bool cursor_style_enabled = arr.ptr[0].as<bool>();
+    // const bool cursor_style_enabled = arr.ptr[0].as<bool>();
     const auto& modes_arr = arr.ptr[1].via.array;
     for(std::uint32_t j = 0; j < modes_arr.size; ++j)
     {

@@ -50,7 +50,7 @@ struct Viewport
 template<typename T>
 struct do_nothing_deleter
 {
-  void operator()(T* p) const {}
+  void operator()(T* p) const { Q_UNUSED(p); }
 };
 
 /// LRUCache with optional custom deleter
@@ -215,7 +215,7 @@ public:
   {
   }
   GridBase(const GridBase& other)
-  : x(other.x), y(other.y), cols(other.cols), rows(other.rows),
+  : QObject{}, x(other.x), y(other.y), cols(other.cols), rows(other.rows),
     id(other.id), area(other.area), hidden(other.hidden),
     viewport(other.viewport)
   {
@@ -259,7 +259,7 @@ public:
     for(std::uint16_t i = 0; i < repeat; ++i)
     {
       // row * cols - get current row
-      assert(row * cols + col + i < area.size());
+      assert(static_cast<std::size_t>(row * cols + col + i) < area.size());
       area[row * cols + col + i] = {hl_id, c, is_dbl_width, ucs};
     }
   }

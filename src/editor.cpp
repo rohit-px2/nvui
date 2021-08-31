@@ -857,6 +857,8 @@ std::string event_to_string(QKeyEvent* event, bool* special)
       return "Esc";
     case Qt::Key_Home:
       return "Home";
+    case Qt::Key_End:
+      return "End";
     case Qt::Key_Insert:
       return "Insert";
     case Qt::Key_Delete:

@@ -40,6 +40,7 @@ jobs:
       - name: Install dependencies from system package manager
         run: >
           sudo apt-get install libmsgpack-dev libfmt-dev libboost-all-dev
+          mesa-common-dev libglu1-mesa-dev
       - name: Install Catch2
         run: |
           git clone https://github.com/catchorg/Catch2.git

@@ -1,4 +1,5 @@
 #include "nvim.hpp"
+#include "utils.hpp"
 #include <catch2/catch.hpp>
 #include <atomic>
 #include <iostream>
@@ -23,7 +24,7 @@ TEST_CASE("nvim_eval callbacks work", "[eval_cb]")
       REQUIRE(res.as<int>() == 3);
       done = true;
     });
-    std::atomic_wait(&done, true);
+    wait_for_value(done, true);
   }
   SECTION("Can evaluate variables")
   {
@@ -33,7 +34,7 @@ TEST_CASE("nvim_eval callbacks work", "[eval_cb]")
       REQUIRE(res.type == msgpack::type::STR);
       done = true;
     });
-    std::atomic_wait(&done, true);
+    wait_for_value(done, true);
   }
   SECTION("Will send errors in the 'err' parameter")
   {
@@ -43,6 +44,6 @@ TEST_CASE("nvim_eval callbacks work", "[eval_cb]")
       REQUIRE(!err.is_nil());
       done = true;
     });
-    std::atomic_wait(&done, true);
+    wait_for_value(done, true);
   }
 }

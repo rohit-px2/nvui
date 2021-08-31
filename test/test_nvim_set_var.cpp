@@ -1,5 +1,7 @@
 #include "nvim.hpp"
+#include "utils.hpp"
 #include <catch2/catch.hpp>
+#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <memory>
@@ -28,7 +30,7 @@ TEST_CASE("nvim_set_var sets variables properly", "[nvim_set_var]")
       REQUIRE(res.as<int>() == 253);
       done = true;
     });
-    std::atomic_wait(&done, true);
+    wait_for_value(done, true);
   }
   SECTION("nvim_set_var works for strings")
   {
@@ -40,6 +42,6 @@ TEST_CASE("nvim_set_var sets variables properly", "[nvim_set_var]")
       REQUIRE(res.as<std::string>() == "doesthiswork");
       done = true;
     });
-    std::atomic_wait(&done, true);
+    wait_for_value(done, true);
   }
 }

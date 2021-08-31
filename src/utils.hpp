@@ -7,6 +7,7 @@
 #include <QStringBuilder>
 #include <QSvgRenderer>
 #include <QPainter>
+#include <atomic>
 #include <chrono>
 #include <stdexcept>
 #include <optional>
@@ -137,6 +138,12 @@ inline QString default_font_family()
 #else
   return "Monospace";
 #endif
+}
+
+template<typename T>
+void wait_for_value(std::atomic<T>& v, T val)
+{
+  while(v != val) {}
 }
 
 #endif // NVUI_UTILS_HPP

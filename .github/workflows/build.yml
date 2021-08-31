@@ -37,32 +37,32 @@ jobs:
         if: matrix.test
         run: echo "/snap/bin" >> $GITHUB_PATH
         shell: bash
-      - name: Install dependencies for vcpkg packages
+      - name: Install dependencies from system package manager
         run: >
-          sudo apt-get install gperf autoconf build-essential libtool
-          libgl1-mesa-dev libxi-dev libx11-dev libxext-dev
-          libxkbcommon-x11-dev libglu1-mesa-dev libx11-xcb-dev
-          '^libxcb.*-dev' libxrender-dev ninja-build curl
-          zip unzip tar autopoint python
-      - name: Restore deps
-        uses: actions/cache@v2
-        with:
-          path: |
-            build/vcpkg_installed
-          key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
-      - name: Build nvui and nvui_test in Debug mode
-        if: matrix.buildtype == 'Debug'
+          sudo apt-get install libmsgpack-dev libfmt-dev libboost-all-dev
+      - name: Install Catch2
         run: |
-          chmod +x ./scripts/linux/build-debug.sh
-          ./scripts/linux/build-debug.sh
+          git clone https://github.com/catchorg/Catch2.git
+          cd Catch2
+          cmake -B build -H. -DBUILD_TESTING=OFF
+          cd build
+          sudo make install
+      - name: Install Qt and set Qt5_DIR
+        run: |
+          python3 -m pip install aqtinstall
+          python3 -m aqt install -O ./Qt 5.15.2 linux desktop -m qtsvg
+          echo "Qt5_DIR=$(cd Qt/5.15.2/gcc_64/lib/cmake/Qt5; pwd)" >> $GITHUB_ENV
+      - name: Build nvui and nvui_test
+        run: |
+          cmake -B build . -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
+          cmake --build build --config ${{ matrix.buildtype }}
       - name: Run tests
         if: matrix.test
         run: ./build/nvui_test
-      - name: Copy executable and assets into a folder
+      - name: Package
         if: matrix.upload
         run: |
           chmod +x ./scripts/linux/package.sh
-          chmod +x ./scripts/linux/build-release.sh
           ./scripts/linux/package.sh
       - name: Upload artifact
         uses: actions/upload-artifact@v2

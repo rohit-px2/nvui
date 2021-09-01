@@ -1,37 +1,49 @@
 #include "nvim.hpp"
+#include "utils.hpp"
 #include <catch2/catch.hpp>
+#include <atomic>
+#include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 
-TEST_CASE("nvim_eval works", "[nvim_eval]")
+using obj = msgpack::object;
+using obj_handle = msgpack::object_handle;
+using namespace std::chrono_literals;
+
+TEST_CASE("nvim_eval callbacks work", "[eval_cb]")
 {
-  auto nvim = std::make_shared<Nvim>();
-  REQUIRE(nvim->running());
-  SECTION("nvim_eval works for evaluating math")
+  Nvim nvim;
+  REQUIRE(nvim.running());
+  SECTION("Evaluating math")
   {
-    const auto math = nvim->eval("1 + 2").get().as<std::int32_t>();
-    REQUIRE(math == 3);
+    std::atomic<bool> done = false;
+    nvim.eval_cb("1 + 2", [&](obj res, obj err) {
+      REQUIRE(err.is_nil());
+      REQUIRE(res.type == msgpack::type::POSITIVE_INTEGER);
+      REQUIRE(res.as<int>() == 3);
+      done = true;
+    });
+    wait_for_value(done, true);
   }
-  SECTION("nvim_eval can evaluate variables")
+  SECTION("Can evaluate variables")
   {
-    // Everyone can have a different config path,
-    // so we just check that it's not empty
-    const auto config = nvim->eval("stdpath('config')").get().as<std::string>();
-    REQUIRE(!config.empty());
+    std::atomic<bool> done = false;
+    nvim.eval_cb("stdpath('config')", [&](obj res, obj err) {
+      REQUIRE(err.is_nil());
+      REQUIRE(res.type == msgpack::type::STR);
+      done = true;
+    });
+    wait_for_value(done, true);
   }
-  SECTION("nvim_eval returns errors if things don't work out")
+  SECTION("Will send errors in the 'err' parameter")
   {
-    bool exception_occurred = false;
-    try
-    {
-      // When we get an error the output reader gives us an array.
-      // We should run into a type error when we try to convert it.
-      const auto error = nvim->eval("stdpath('')").get().as<std::string>();
-    }
-    catch (const std::exception& e)
-    {
-      exception_occurred = true;
-    }
-    REQUIRE(exception_occurred);
+    std::atomic<bool> done = false;
+    nvim.eval_cb("stdpath", [&](obj res, obj err) {
+      REQUIRE(res.is_nil());
+      REQUIRE(!err.is_nil());
+      done = true;
+    });
+    wait_for_value(done, true);
   }
 }

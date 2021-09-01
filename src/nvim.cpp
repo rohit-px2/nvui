@@ -145,18 +145,30 @@ void Nvim::read_output_sync()
   // buffer_maxsize of 1MB
   constexpr int buffer_maxsize = 1024 * 1024;
   auto buffer = std::make_unique<char[]>(buffer_maxsize);
-  auto buf = buffer.get();
-  std::int64_t msg_size;
+  char* buf = buffer.get();
   while(!closed && running())
   {
-    msg_size = stdout_pipe.read(buf, buffer_maxsize);
-    if (msg_size)
+    int msg_size = stdout_pipe.read(buf, buffer_maxsize);
+    if (msg_size > buffer_maxsize)
     {
+      using fmt::format;
+      throw std::runtime_error(format(
+        "Message of size {} could not fit in buffer of size {}\n",
+        msg_size, buffer_maxsize
+      ));
+    }
+    if (msg_size > 0)
+    {
+      msgpack::unpacker unpacker;
+      unpacker.reserve_buffer(msg_size);
+      memcpy(unpacker.buffer(), buf, msg_size);
+      unpacker.buffer_consumed(msg_size);
       // There can be multiple messages inside of the buffer
-      std::size_t offset = 0;
-      while((std::int64_t) offset != msg_size)
+      //std::size_t offset = 0;
+      msgpack::object_handle oh;
+      while(unpacker.next(oh))
       {
-        oh = msgpack::unpack(buf, msg_size, offset);
+        //oh = msgpack::unpack(buf, msg_size, offset);
         const msgpack::object& obj = oh.get();
         // According to msgpack-rpc spec, this must be an array
         assert(obj.type == msgpack::type::ARRAY);

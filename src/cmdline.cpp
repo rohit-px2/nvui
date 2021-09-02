@@ -103,19 +103,19 @@ void CmdLine::cmdline_cursor_pos(NvimObj obj, msg_size size)
   update();
 }
 
-void CmdLine::cmdline_special_char(NvimObj /* obj */, msg_size /* size */)
+void CmdLine::cmdline_special_char(NvimObj, msg_size)
 {
 }
 
-void CmdLine::cmdline_block_show(NvimObj /* obj */, msg_size /* size */)
+void CmdLine::cmdline_block_show(NvimObj, msg_size)
 {
 }
 
-void CmdLine::cmdline_block_append(NvimObj /* obj */, msg_size /* size */)
+void CmdLine::cmdline_block_append(NvimObj, msg_size)
 {
 }
 
-void CmdLine::cmdline_block_hide(NvimObj /* obj */, msg_size /* size */)
+void CmdLine::cmdline_block_hide(NvimObj, msg_size)
 {
 }
 

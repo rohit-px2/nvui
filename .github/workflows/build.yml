@@ -48,6 +48,13 @@ jobs:
           cmake -B build -H. -DBUILD_TESTING=OFF
           cd build
           sudo make install
+      - name: Install msgpack
+        run: |
+          git clone https://github.com/msgpack/msgpack-c msgpack
+          cd msgpack
+          git checkout cpp_master
+          cmake .
+          sudo make install
       - name: Install Qt and set Qt5_DIR
         run: |
           python3 -m pip install aqtinstall

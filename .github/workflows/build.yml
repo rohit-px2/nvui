@@ -56,7 +56,7 @@ jobs:
         run: |
           curl -LO https://github.com/neovim/neovim/releases/download/v0.5.0/nvim-macos.tar.gz
           tar xzvf nvim-macos.tar.gz
-          echo "$(cd nvim-osx64/bin/nvim; pwd)" >> $GITHUB_PATH
+          echo "$(cd nvim-osx64/bin; pwd)" >> $GITHUB_PATH
 
       - name: Ubuntu - Add Neovim to PATH
         if: matrix.test && startsWith(matrix.os, 'ubuntu')
@@ -118,6 +118,7 @@ jobs:
       - name: Package (Ubuntu & Mac)
         if: matrix.upload
         run: |
+          ls build
           chmod +x ./scripts/linux/package.sh
           ./scripts/linux/package.sh
 

@@ -254,6 +254,9 @@ void EditorArea::grid_cursor_goto(const msgpack::object* obj, u32 size)
   if (!old_pos.has_value()) return;
   QRect rect {old_pos->col, old_pos->row, 1, 0};
   send_draw(old_pos->grid_num, rect);
+  // Thanks Neovim-Qt
+  // https://github.com/equalsraf/neovim-qt/blob/4212ee18a7536c5e2ed101fc1aeed610c502c0df/src/gui/shell.cpp#L1203-L1220
+  qApp->inputMethod()->update(Qt::ImCursorRectangle);
   //update();
 }
 

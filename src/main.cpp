@@ -82,7 +82,7 @@ int main(int argc, char** argv)
     {"ext_cmdline", false},
     {"ext_popupmenu", false},
     {"ext_linegrid", true},
-    {"ext_hlstate", true}
+    {"ext_hlstate", false}
   };
   for(const auto& capability : capabilities)
   {

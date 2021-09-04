@@ -924,6 +924,11 @@ void EditorArea::keyPressEvent(QKeyEvent* event)
   bool ctrl = modifiers & Qt::ControlModifier;
   bool shift = modifiers & Qt::ShiftModifier;
   bool alt = modifiers & Qt::AltModifier;
+#ifdef Q_OS_WIN
+  // Windows: Ctrl+Alt (AltGr) is used for alternate characters
+  // don't send modifiers with text
+  if (ctrl && alt) { ctrl = false; alt = false; }
+#endif
   bool is_special = false;
   const QString& text = event->text();
   std::string key = event_to_string(event, &is_special);

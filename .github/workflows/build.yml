@@ -51,6 +51,12 @@ jobs:
         if: matrix.test && startsWith(matrix.os, 'ubuntu')
         run: sudo snap install --edge nvim --classic
 
+      - name: Mac - Install Neovim Nightly
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew install --HEAD luajit
+          brew install --HEAD neovim
+
       - name: Ubuntu - Add Neovim to PATH
         if: matrix.test && startsWith(matrix.os, 'ubuntu')
         run: echo "/snap/bin" >> $GITHUB_PATH
@@ -107,11 +113,13 @@ jobs:
       - name: Run tests
         if: matrix.test
         run: ./build/nvui_test
-      - name: Ubuntu - Package
-        if: matrix.upload && startsWith(matrix.os, 'ubuntu')
+
+      - name: Package (Ubuntu & Mac)
+        if: matrix.upload
         run: |
           chmod +x ./scripts/linux/package.sh
           ./scripts/linux/package.sh
+
       - name: Ubuntu - Upload artifact
         uses: actions/upload-artifact@v2
         if: matrix.upload && startsWith(matrix.os, 'ubuntu')
@@ -119,6 +127,15 @@ jobs:
           name: nvui-linux-x64
           if-no-files-found: ignore
           path: build/packaged
+
+      - name: Mac - Upload artifact
+        uses: actions/upload-artifact@v2
+        if: matrix.upload && startsWith(matrix.os, 'macos')
+        with:
+          name: nvui-macos-x64
+          if-no-files-found: ignore
+          path: build/packaged
+
       - name: Prepare release zip
         if: matrix.upload && startsWith(github.ref, 'refs/tags/')
         run: |

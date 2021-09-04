@@ -92,7 +92,7 @@ jobs:
         if: startsWith(matrix.os, 'macos')
         run: |
           brew install fmt boost qt@5 msgpack-cxx catch2
-          ln -s /usr/local/Cellar/qt@5/5.15.2/plugins /usr/local/plugins
+          sudo ln -s /usr/local/Cellar/qt@5/5.15.2/plugins /usr/local/plugins
 
       - name: Mac - Set environment variables
         if: startsWith(matrix.os, 'macos')

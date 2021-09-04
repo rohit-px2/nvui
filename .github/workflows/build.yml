@@ -1,22 +1,36 @@
 name: build-and-test
 on: push
 jobs:
-  linux:
-    runs-on: ubuntu-latest
+  unix:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - buildtype: 'Debug'
+          - os: ubuntu-latest
+            buildtype: 'Debug'
             cc: clang-12
             cxx: clang++-12
             test: true
             upload: false
-          - buildtype: 'Release'
+          - os: ubuntu-latest
+            buildtype: 'Release'
             cc: clang-12
             cxx: clang++-12
             test: false
             upload: true
+          - os: macos-latest
+            buildtype: 'Debug'
+            cc: clang-12
+            cxx: clang++-12
+            test: true
+            upload: false
+          - os: macos-latest
+            buildtype: 'Release'
+            cc: clang-12
+            cxx: clang++-12
+            test: false
+            upload: true
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 500
     env:
       CC: ${{ matrix.cc }}
@@ -25,23 +39,31 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
-      - name: Update
+      - name: Ubuntu - Update
+        if: startsWith(matrix.os, 'ubuntu')
         run: sudo apt update
-      - name: Install Snap (to install Neovim nightly)
-        if: matrix.test
+
+      - name: Ubuntu - Install Snap (to install Neovim nightly)
+        if: matrix.test && startsWith(matrix.os, 'ubuntu')
         run: sudo apt install snapd
-      - name: Install Neovim Nightly
-        if: matrix.test
+
+      - name: Ubuntu - Install Neovim Nightly
+        if: matrix.test && startsWith(matrix.os, 'ubuntu')
         run: sudo snap install --edge nvim --classic
-      - name: Add Neovim to PATH
-        if: matrix.test
+
+      - name: Ubuntu - Add Neovim to PATH
+        if: matrix.test && startsWith(matrix.os, 'ubuntu')
         run: echo "/snap/bin" >> $GITHUB_PATH
         shell: bash
-      - name: Install dependencies from system package manager
+
+      - name: Ubuntu - Install dependencies from system package manager
+        if: startsWith(matrix.os, 'ubuntu')
         run: >
           sudo apt-get install libmsgpack-dev libfmt-dev libboost-all-dev
           mesa-common-dev libglu1-mesa-dev
-      - name: Install Catch2
+
+      - name: Ubuntu - Install Catch2
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           git clone https://github.com/catchorg/Catch2.git
           cd Catch2
@@ -49,18 +71,35 @@ jobs:
           cmake -B build -H. -DBUILD_TESTING=OFF
           cd build
           sudo make install
-      - name: Install msgpack
+
+      - name: Ubuntu - Install msgpack
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           git clone https://github.com/msgpack/msgpack-c msgpack
           cd msgpack
           git checkout cpp_master
           cmake .
           sudo make install
-      - name: Install Qt and set Qt5_DIR
+
+      - name: Ubuntu - Install Qt and set Qt5_DIR
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           python3 -m pip install aqtinstall
           python3 -m aqt install -O ./Qt 5.15.2 linux desktop -m qtsvg
           echo "Qt5_DIR=$(cd Qt/5.15.2/gcc_64/lib/cmake/Qt5; pwd)" >> $GITHUB_ENV
+
+      - name: Mac - Install dependencies
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew install fmt@8.0.1 boost qt@5.15.2 msgpack-cxx catch2
+          ln -s /usr/local/Cellar/qt@5/5.15.2/plugins /usr/local/plugins
+
+      - name: Mac - Set environment variables
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          echo "Qt5_DIR=/usr/local/Cellar/qt@5/5.15.2/lib/cmake/Qt5" >> $GITHUB_PATH
+          echo "fmt_DIR=/usr/local/Cellar/fmt/8.0.1" >> $GITHUB_PATH
+
       - name: Build nvui and nvui_test
         run: |
           cmake -B build . -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
@@ -68,14 +107,14 @@ jobs:
       - name: Run tests
         if: matrix.test
         run: ./build/nvui_test
-      - name: Package
-        if: matrix.upload
+      - name: Ubuntu - Package
+        if: matrix.upload && startsWith(matrix.os, 'ubuntu')
         run: |
           chmod +x ./scripts/linux/package.sh
           ./scripts/linux/package.sh
-      - name: Upload artifact
+      - name: Ubuntu - Upload artifact
         uses: actions/upload-artifact@v2
-        if: matrix.upload
+        if: matrix.upload && startsWith(matrix.os, 'ubuntu')
         with:
           name: nvui-linux-x64
           if-no-files-found: ignore

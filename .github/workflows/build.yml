@@ -20,14 +20,14 @@ jobs:
             upload: true
           - os: macos-latest
             buildtype: 'Debug'
-            cc: clang-12
-            cxx: clang++-12
+            cc: clang
+            cxx: clang++
             test: true
             upload: false
           - os: macos-latest
             buildtype: 'Release'
-            cc: clang-12
-            cxx: clang++-12
+            cc: clang
+            cxx: clang++
             test: false
             upload: true
     runs-on: ${{ matrix.os }}

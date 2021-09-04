@@ -348,7 +348,8 @@ class QPaintGrid : public GridBase
     QPixmap image;
   };
 public:
-  QPaintGrid(EditorArea* ea, auto... args)
+  template<typename... GridBaseArgs>
+  QPaintGrid(EditorArea* ea, GridBaseArgs... args)
     : GridBase(args...),
       editor_area(ea),
       pixmap(),

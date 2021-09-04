@@ -54,8 +54,7 @@ jobs:
       - name: Mac - Install Neovim Nightly
         if: startsWith(matrix.os, 'macos')
         run: |
-          brew install --HEAD luajit
-          brew install --HEAD neovim
+          brew install neovim
 
       - name: Ubuntu - Add Neovim to PATH
         if: matrix.test && startsWith(matrix.os, 'ubuntu')

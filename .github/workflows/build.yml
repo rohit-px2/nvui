@@ -97,8 +97,8 @@ jobs:
       - name: Mac - Set environment variables
         if: startsWith(matrix.os, 'macos')
         run: |
-          echo "Qt5_DIR=/usr/local/Cellar/qt@5/5.15.2/lib/cmake/Qt5" >> $GITHUB_PATH
-          echo "fmt_DIR=/usr/local/Cellar/fmt/8.0.1" >> $GITHUB_PATH
+          echo "Qt5_DIR=/usr/local/Cellar/qt@5/5.15.2/lib/cmake/Qt5" >> $GITHUB_ENV
+          echo "fmt_DIR=/usr/local/Cellar/fmt/8.0.1" >> $GITHUB_ENV
 
       - name: Build nvui and nvui_test
         run: |

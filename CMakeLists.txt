@@ -27,7 +27,7 @@ if(MSVC)
   #C4458 - fmt
   add_compile_options(/W4 /WX /wd5054 /wd4459 /wd4458 /wd4244 /wd4127 /wd4702)
   set(CMAKE_CXX_FLAGS_RELEASE /O2 /DNDEBUG)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+else()
   add_compile_options(-Wall -Wextra -pedantic -Werror -Wfatal-errors -Wno-language-extension-token)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 endif()

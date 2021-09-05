@@ -199,7 +199,6 @@ class GridBase : public QObject
 public:
   using u16 = std::uint16_t;
   using u32 = std::uint32_t;
-  using u64 = std::uint64_t;
   GridBase(
     u16 x,
     u16 y,
@@ -323,7 +322,7 @@ public:
   u16 cols;
   u16 rows;
   u16 id;
-  u64 z_index = 0;
+  std::size_t z_index = 0;
   std::vector<GridChar> area; // Size = rows * cols
   bool hidden = false;
   std::queue<PaintEventItem> evt_q;

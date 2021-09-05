@@ -536,7 +536,7 @@ protected:
   void send_draw(std::uint16_t grid_num, QRect r);
   /// Shift down all grids with a z index greater than idx
   /// by 1.
-  void shift_z(u32 idx)
+  void shift_z(std::size_t idx)
   {
     for(auto& g : grids)
     {

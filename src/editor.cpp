@@ -533,7 +533,7 @@ void EditorArea::set_guifont(QString new_font)
   font_for_unicode.clear();
   // No need for complicated stuff if there's only one font to deal with
   if (lst.size() == 0) return;
-  const auto [font_name, font_size, font_opts] = parse_guifont(lst.at(0));
+  auto [font_name, font_size, font_opts] = parse_guifont(lst.at(0));
   font.setFamily(font_name);
   if (font_size > 0)
   {
@@ -544,7 +544,7 @@ void EditorArea::set_guifont(QString new_font)
   fonts.push_back({font});
   for(int i = 1; i < lst.size(); ++i)
   {
-    auto&& [font_name, font_size, font_opts] = parse_guifont(lst[i]);
+    std::tie(font_name, font_size, font_opts) = parse_guifont(lst[i]);
     QFont f;
     f.setFamily(font_name);
     set_relative_font_size(font, f, 0.0001, 1000);

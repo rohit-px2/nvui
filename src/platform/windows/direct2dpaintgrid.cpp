@@ -210,7 +210,7 @@ void D2DPaintGrid::draw(
 {
   auto target_size = context->GetPixelSize();
   const auto& fonts = editor_area->fallback_list();
-  const int start_x = r.left(), end_x = r.right();
+  //const int start_x = r.left(), end_x = r.right();
   const int start_y = r.top(), end_y = r.bottom();
   const auto font_dims = editor_area->font_dimensions();
   const float font_width = std::get<0>(font_dims);

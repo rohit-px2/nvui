@@ -125,7 +125,7 @@ void EditorArea::set_text(
   for(std::uint16_t i = 0; i < repeat; ++i)
   {
     // row * grid.cols - get current row
-    assert(row * grid.cols + col + i < grid.area.size());
+    assert(static_cast<std::size_t>(row * grid.cols + col + i) < grid.area.size());
     grid.area[row * grid.cols + col + i] = {hl_id, c, is_dbl_width, ucs};
   }
 }
@@ -239,6 +239,7 @@ void EditorArea::grid_line(NeovimObj obj, u32 size)
 
 void EditorArea::grid_cursor_goto(const msgpack::object* obj, u32 size)
 {
+  Q_UNUSED(size);
   assert(obj->type == msgpack::type::ARRAY);
   const auto& arr = obj->via.array;
   assert(arr.size == 3);
@@ -532,7 +533,7 @@ void EditorArea::set_guifont(QString new_font)
   font_for_unicode.clear();
   // No need for complicated stuff if there's only one font to deal with
   if (lst.size() == 0) return;
-  const auto [font_name, font_size, font_opts] = parse_guifont(lst.at(0));
+  auto [font_name, font_size, font_opts] = parse_guifont(lst.at(0));
   font.setFamily(font_name);
   if (font_size > 0)
   {
@@ -543,7 +544,7 @@ void EditorArea::set_guifont(QString new_font)
   fonts.push_back({font});
   for(int i = 1; i < lst.size(); ++i)
   {
-    auto&& [font_name, font_size, font_opts] = parse_guifont(lst[i]);
+    std::tie(font_name, font_size, font_opts) = parse_guifont(lst[i]);
     QFont f;
     f.setFamily(font_name);
     set_relative_font_size(font, f, 0.0001, 1000);
@@ -663,9 +664,9 @@ void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect&
 {
   QString buffer;
   buffer.reserve(100);
-  const int start_x = rect.x();
+  // const int start_x = rect.x();
   const int start_y = rect.y();
-  const int end_x = rect.right();
+  // const int end_x = rect.right();
   const int end_y = rect.bottom();
   const HLAttr& def_clrs = state->default_colors_get();
   const QFontMetrics metrics {font};
@@ -750,6 +751,7 @@ void EditorArea::ignore_next_paint_event()
 
 void EditorArea::grid_clear(const msgpack::object *obj, u32 size)
 {
+  Q_UNUSED(size);
   assert(obj->type == msgpack::type::ARRAY);
   const auto& arr = obj->via.array;
   assert(arr.size == 1);
@@ -765,6 +767,7 @@ void EditorArea::grid_clear(const msgpack::object *obj, u32 size)
 
 void EditorArea::grid_scroll(const msgpack::object* obj, u32 size)
 {
+  Q_UNUSED(size);
   using u16 = std::uint16_t;
   assert(obj->type == msgpack::type::ARRAY);
   const msgpack::object_array& arr = obj->via.array;
@@ -775,7 +778,7 @@ void EditorArea::grid_scroll(const msgpack::object* obj, u32 size)
   const u16 left = arr.ptr[3].as<u16>();
   const u16 right = arr.ptr[4].as<u16>();
   const int rows = arr.ptr[5].as<int>();
-  const int cols = arr.ptr[6].as<int>();
+  // const int cols = arr.ptr[6].as<int>();
   GridBase* grid = find_grid(grid_num);
   if (!grid) return;
   assert(grid);
@@ -948,13 +951,15 @@ void EditorArea::keyPressEvent(QKeyEvent* event)
   }
 }
 
-bool EditorArea::focusNextPrevChild(bool next)
+bool EditorArea::focusNextPrevChild(bool /* is_next */)
 {
   return false;
 }
 
 void EditorArea::default_colors_changed(QColor fg, QColor bg)
 {
+  Q_UNUSED(fg);
+  Q_UNUSED(bg);
   // Since we draw to an internal bitmap it is better to draw the entire
   // bitmap with the bg color and then send a redraw message.
   // This makes it looks nicer when resizing (otherwise the part that hasn't been
@@ -1056,7 +1061,7 @@ void EditorArea::draw_popup_menu()
     assert(grid);
     start_x = (grid->x + col) * font_width;
     start_y = (grid->y + row + 1) * font_height;
-    int p_width = popup_rect.width();
+    // int p_width = popup_rect.width();
     int p_height = popup_rect.height();
     if (start_y + p_height > height() && (start_y - p_height - font_height) >= 0)
     {

@@ -63,17 +63,14 @@ void PopupMenuIconManager::load_icons(int width)
 
 const QPixmap* PopupMenuIconManager::icon_for_kind(const QString& kind)
 {
-  static const auto not_found = [this] {
-    return nullptr;
-  };
-  if (kind.isEmpty()) return not_found();
+  if (kind.isEmpty()) return nullptr;
   QString iname = kind_to_iname(kind).trimmed();
   const auto it = icons.find(iname);
   if (it == icons.end())
   {
     // Check the icons folder for the icon file
     QPixmap p = load_icon(iname, sq_width);
-    if (p.isNull()) return not_found();
+    if (p.isNull()) return nullptr;
     else
     {
       icons[iname] = std::move(p);
@@ -92,6 +89,7 @@ PopupMenuInfo::PopupMenuInfo(PopupMenu* parent)
 
 void PopupMenuInfo::draw(QPainter& p, const HLAttr& attr, const QString& info)
 {
+  Q_UNUSED(p);
   setFont(parent_menu->pmenu_font);
   current_attr = attr;
   current_text = info;
@@ -170,6 +168,7 @@ void PopupMenu::pum_show(const msgpack::object* obj, std::uint32_t size)
 
 void PopupMenu::pum_sel(const msgpack::object* obj, std::uint32_t size)
 {
+  Q_UNUSED(size);
   assert(obj->type == msgpack::type::ARRAY);
   const msgpack::object_array& arr = obj->via.array;
   assert(arr.size == 1);
@@ -281,7 +280,7 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   p.setFont(pmenu_font);
   const QPixmap* icon_ptr = icon_manager.icon_for_kind(item.kind);
   int start_x = std::ceil(border_width);
-  int end_y = y + cell_height;
+  // int end_y = y + cell_height;
   int end_x = pixmap.width() - border_width;
   p.setClipRect(QRect(start_x, y, end_x, cell_height));
   p.fillRect(QRect(start_x, y, end_x, cell_height), QColor(bg.r, bg.g, bg.b));

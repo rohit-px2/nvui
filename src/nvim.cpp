@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <QtCore>
 
 #ifdef _WIN32
 #include <boost/process/windows.hpp>
@@ -93,7 +94,8 @@ void Nvim::send_request(const std::string& method, const T& params, bool blockin
   // Potential for an exception when calling below code
   try
   {
-    int written = stdin_pipe.write(sbuf.data(), sbuf.size());
+    auto written = stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
+    Q_UNUSED(written);
     assert(written);
     ++current_msgid;
   }
@@ -114,7 +116,8 @@ void Nvim::send_notification(const std::string& method, const T& params)
   msgpack::pack(sbuf, msg);
   try
   {
-    int written = stdin_pipe.write(sbuf.data(), sbuf.size());
+    auto written = stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
+    Q_UNUSED(written);
     assert(written);
   }
   catch (const std::exception& e)
@@ -491,7 +494,7 @@ void Nvim::send_response(
   msgpack::pack(sbuf, msg);
   try
   {
-    stdin_pipe.write(sbuf.data(), sbuf.size());
+    stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
   }
   catch(...)
   {

@@ -467,6 +467,7 @@ protected:
 
   void default_colors_changed(QColor fg, QColor bg) override
   {
+    (void)fg; (void)bg;
     send_redraw();
   }
   

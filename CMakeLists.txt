@@ -19,12 +19,17 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_CXX_CPPCHECK "cppcheck")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
 endif()
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 project(nvui)
 if(MSVC)
-  add_compile_options(/W4)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-  add_compile_options(-Wall -Wextra -pedantic)
+  #C5054 - Qt
+  #C4702 - Msgpack
+  #C4127 - Qt
+  #C4458 - fmt
+  add_compile_options(/W4 /WX /wd5054 /wd4459 /wd4458 /wd4244 /wd4127 /wd4702)
+  set(CMAKE_CXX_FLAGS_RELEASE /O2 /DNDEBUG)
+else()
+  add_compile_options(-Wall -Wextra -pedantic -Werror -Wfatal-errors -Wno-language-extension-token)
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -74,8 +74,8 @@ void CmdLine::cmdline_show(NvimObj obj, msg_size size)
   if (!firstc.isEmpty()) first_char = std::move(firstc);
   else first_char.reset();
   QString prompt = arr.ptr[3].as<QString>();
-  int indent = arr.ptr[4].as<int>();
-  int level = arr.ptr[5].as<int>();
+  // int indent = arr.ptr[4].as<int>();
+  // int level = arr.ptr[5].as<int>();
   int new_height = padded(fitting_height());
   if (new_height != height()) resize(width(), new_height);
   update();
@@ -91,30 +91,31 @@ void CmdLine::cmdline_hide(NvimObj obj, msg_size size)
 
 void CmdLine::cmdline_cursor_pos(NvimObj obj, msg_size size)
 {
+  Q_UNUSED(size);
   assert(obj->type == msgpack::type::ARRAY);
   const auto& arr = obj->via.array;
   assert(arr.size == 2);
   assert(arr.ptr[0].type == msgpack::type::POSITIVE_INTEGER);
   assert(arr.ptr[1].type == msgpack::type::POSITIVE_INTEGER);
   const int pos = arr.ptr[0].as<int>();
-  const int level = arr.ptr[1].as<int>();
+  // const int level = arr.ptr[1].as<int>();
   cursor_pos = pos;
   update();
 }
 
-void CmdLine::cmdline_special_char(NvimObj obj, msg_size size)
+void CmdLine::cmdline_special_char(NvimObj, msg_size)
 {
 }
 
-void CmdLine::cmdline_block_show(NvimObj obj, msg_size size)
+void CmdLine::cmdline_block_show(NvimObj, msg_size)
 {
 }
 
-void CmdLine::cmdline_block_append(NvimObj obj, msg_size size)
+void CmdLine::cmdline_block_append(NvimObj, msg_size)
 {
 }
 
-void CmdLine::cmdline_block_hide(NvimObj obj, msg_size size)
+void CmdLine::cmdline_block_hide(NvimObj, msg_size)
 {
 }
 
@@ -152,9 +153,6 @@ void CmdLine::paintEvent(QPaintEvent* event)
   bool cursor_drawn = false;
   QRect inner = inner_rect();
   const HLAttr& default_colors = state->default_colors_get();
-  static const auto is_first_line = [&](std::size_t i) -> bool {
-    return pt.y == base_y;
-  };
   for(std::size_t i = 0; i < lines.size(); ++i)
   {
     for(const auto& seq : lines[i])

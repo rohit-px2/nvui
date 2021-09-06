@@ -15,6 +15,8 @@
 :NvuiCursorAnimationDuration	nvui.txt	/*:NvuiCursorAnimationDuration*
 :NvuiCursorFrametime	nvui.txt	/*:NvuiCursorFrametime*
 :NvuiCursorScaler	nvui.txt	/*:NvuiCursorScaler*
+:NvuiD2DInterpolationMode	nvui.txt	/*:NvuiD2DInterpolationMode*
+:NvuiD2DTextAntiAliasMode	nvui.txt	/*:NvuiD2DTextAntiAliasMode*
 :NvuiFrameless	nvui.txt	/*:NvuiFrameless*
 :NvuiFullscreen	nvui.txt	/*:NvuiFullscreen*
 :NvuiMoveAnimationDuration	nvui.txt	/*:NvuiMoveAnimationDuration*
@@ -52,6 +54,8 @@ nvui-commands	nvui.txt	/*nvui-commands*
 nvui-cursor	nvui.txt	/*nvui-cursor*
 nvui-general	nvui.txt	/*nvui-general*
 nvui-multigrid	nvui.txt	/*nvui-multigrid*
+nvui-platform	nvui.txt	/*nvui-platform*
+nvui-platform-windows	nvui.txt	/*nvui-platform-windows*
 nvui-popup	nvui.txt	/*nvui-popup*
 nvui-titlebar	nvui.txt	/*nvui-titlebar*
 nvui-toc	nvui.txt	/*nvui-toc*

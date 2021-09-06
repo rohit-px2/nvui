@@ -51,14 +51,66 @@ create_default_bitmap(ID2D1DeviceContext* t, ID2D1Bitmap1** ppb, D2D1_SIZE_U siz
   );
 }
 
+
+namespace enum_utils
+{
+  template<typename K, typename V, std::size_t N>
+  using arr_map = std::array<std::pair<K, V>, N>;
+
+  template<typename K, typename V, std::size_t N>
+  static constexpr
+  const V* map_at(const arr_map<K, V, N>& mp, const K& k)
+  {
+    const auto it = std::find_if(mp.begin(), mp.end(), [&](const auto& p) {
+      return p.first == k;
+    });
+    if (it != mp.end()) return std::addressof(it->second);
+    return nullptr;
+  }
+
+  template<typename K, typename V, std::size_t N>
+  static constexpr
+  std::vector<K> map_keys(const arr_map<K, V, N>& mp)
+  {
+    std::vector<K> key_list;
+    for(const auto& [k, v]: mp)
+    {
+      key_list.push_back(k);
+      Q_UNUSED(v);
+    }
+    return key_list;
+  }
+
+} // namespace enum_utils
+
 /// The WinEditorArea is a version of the EditorArea that only works on
 /// Windows, since it uses Direct2D and DirectWrite for rendering instead
 /// of Qt's cross-platform solution.
 class WinEditorArea : public EditorArea
 {
+  Q_OBJECT
   using u32 = std::uint32_t;
   using d2pt = D2D1_POINT_2F;
   using d2clr = D2D1::ColorF;
+  template<typename K, typename V, std::size_t N>
+  using arr_map = enum_utils::arr_map<K, V, N>;
+  static constexpr
+  arr_map<std::string_view, D2D1_INTERPOLATION_MODE, 6> inter_map = {{
+    {"linear", D2D1_INTERPOLATION_MODE_LINEAR},
+    {"nearest_neighbor", D2D1_INTERPOLATION_MODE_NEAREST_NEIGHBOR},
+    {"cubic", D2D1_INTERPOLATION_MODE_CUBIC},
+    {"multi_sample_linear", D2D1_INTERPOLATION_MODE_MULTI_SAMPLE_LINEAR},
+    {"anisotropic", D2D1_INTERPOLATION_MODE_ANISOTROPIC},
+    {"high_quality_cubic", D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC},
+  }};
+  static constexpr
+  arr_map<std::string_view, D2D1_TEXT_ANTIALIAS_MODE, 5> ta_map = {{
+    {"default", D2D1_TEXT_ANTIALIAS_MODE_DEFAULT},
+    {"aliased", D2D1_TEXT_ANTIALIAS_MODE_ALIASED},
+    {"cleartype", D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE},
+    {"grayscale", D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE},
+    {"force_dword", D2D1_TEXT_ANTIALIAS_MODE_FORCE_DWORD}
+  }};
 public:
   WinEditorArea(
     QWidget* parent = nullptr,
@@ -80,12 +132,9 @@ public:
     d2d_factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(), D2D1::HwndRenderTargetProperties(hwnd, sz), &hwnd_target);
     hwnd_target->QueryInterface(&device_context);
     device_context->GetDevice(&device);
-    device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_ENABLE_MULTITHREADED_OPTIMIZATIONS, &mtd_context);
-    device_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
-    device_context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-    create_default_bitmap(mtd_context, &dc_bitmap, sz);
-    mtd_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
-    mtd_context->SetTarget(dc_bitmap);
+    device_context->SetTextAntialiasMode(text_antialias_mode);
+    device_context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+    nvim->set_var("nvui_d2d", 1);
   }
 
   ~WinEditorArea()
@@ -99,7 +148,6 @@ public:
     SafeRelease(&device_context);
     SafeRelease(&dc_bitmap);
     SafeRelease(&device);
-    SafeRelease(&mtd_context);
   }
 
   QPaintEngine* paintEngine() const override
@@ -155,6 +203,42 @@ public:
   DWriteFactory* dwrite_factory() { return factory; }
   auto linespacing() const { return linespace; }
   auto charspacing() const { return charspace; }
+  auto interpolation_mode() const { return bitmap_interpolation_mode; }
+
+
+  void set_interpolation_mode(std::string_view mode)
+  {
+    const auto* v = enum_utils::map_at(inter_map, mode);
+    if (v)
+    {
+      bitmap_interpolation_mode = *v;
+      send_redraw();
+    }
+  }
+
+  auto interpolation_modes() const
+  {
+    return enum_utils::map_keys(inter_map);
+  }
+  
+  auto text_antialiasing_mode() const { return text_antialias_mode; }
+
+  void set_text_antialias_mode(std::string_view mode)
+  {
+    const auto* v = enum_utils::map_at(ta_map, mode);
+    if (v)
+    {
+      text_antialias_mode = *v;
+      send_redraw();
+      emit ta_mode_changed();
+    }
+  }
+
+  auto text_antialias_modes() const
+  {
+    return enum_utils::map_keys(ta_map);
+  }
+
 private:
   HWND hwnd = nullptr;
   ID2D1HwndRenderTarget* hwnd_target = nullptr;
@@ -166,10 +250,13 @@ private:
   ID2D1DeviceContext* device_context = nullptr;
   ID2D1Bitmap1* dc_bitmap = nullptr;
   ID2D1Device* device = nullptr;
-  ID2D1DeviceContext* mtd_context = nullptr;
   QString font_name = "";
   float font_width_f = -1.f;
   float font_height_f = -1.f;
+  D2D1_INTERPOLATION_MODE bitmap_interpolation_mode
+    = D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC;
+  D2D1_TEXT_ANTIALIAS_MODE text_antialias_mode
+    = D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE;
 
   // Override EditorArea draw_grid
   // We can use native Windows stuff here
@@ -482,6 +569,7 @@ protected:
   {
     event->accept();
     device_context->BeginDraw();
+    device_context->SetTransform(D2D1::IdentityMatrix());
     auto bg = default_bg().rgb();
     ID2D1SolidColorBrush* bg_brush = nullptr;
     device_context->CreateSolidColorBrush(D2D1::ColorF(bg), &bg_brush);
@@ -500,37 +588,6 @@ protected:
       }
     }
     device_context->PopAxisAlignedClip();
-    /// ------------ Old Drawing Code ---------------------------
-    //device_context->EndDraw();
-    //Q_UNUSED(event);
-    //mtd_context->BeginDraw();
-    //while(!events.empty())
-    //{
-      //const PaintEventItem& event = events.front();
-      //const GridBase* grid = find_grid(event.grid_num);
-      //assert(grid);
-      //if (event.type == PaintKind::Clear)
-      //{
-        //clear_grid(*grid, event.rect, mtd_context);
-      //}
-      //else if (event.type == PaintKind::Redraw)
-      //{
-        //for(const auto& grid : grids)
-        //{
-          //if (grid->hidden) continue;
-          //draw_grid(*grid, QRect(0, 0, grid->cols, grid->rows), mtd_context);
-        //}
-      //}
-      //else
-      //{
-        //draw_grid(*grid, event.rect, mtd_context);
-      //}
-      //events.pop();
-    //}
-    //mtd_context->EndDraw();
-    //device_context->BeginDraw();
-    //device_context->DrawBitmap(dc_bitmap);
-    /// ------- Old Drawing Code End --------------------------------
     if (!neovim_cursor.hidden() && cmdline.isHidden())
     {
       draw_cursor(device_context);
@@ -546,6 +603,8 @@ protected:
     hwnd_target->Resize(sz);
     repaint();
   }
+signals:
+  void ta_mode_changed();
 };
 
 #endif // NVUI_WINEDITOR_HPP

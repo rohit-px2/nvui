@@ -12,6 +12,7 @@ Popup					|nvui-popup|
 Cmdline				|nvui-cmdline|
 Multigrid			|nvui-multigrid|
 Cursor				|nvui-cursor|
+Platform Specific			|nvui-platform|
 ==============================================================================
 COMMANDS			*nvui-commands*
 
@@ -407,5 +408,27 @@ moves, and some commands to customize the animation.
 	Sets the animation to update every 10ms (100fps). Of course this is only if
 	the frames are able to render in the correct amount of time.
 	:NvuiCursorFrametime -1 will disable the animations.
+==============================================================================
+PLATFORM SPECIFIC			*nvui-platform*
+Some platform specific commands.
+
+Windows					*nvui-platform-windows*
+
+:NvuiD2DInterpolationMode {mode}			*:NvuiD2DInterpolationMode*
+
+	Sets the interpolatiom mode to {mode}. Completion list is available.
+	{mode} must be a string that is one of the the items in the completion list.
+	Eg. :NvuiD2DInterpolationMode nearest_neighbor
+	Sets the interpolation mode to interpolate based on the nearest neighbor
+	pixel.
+
+:NvuiD2DTextAntiAliasMode {mode}			*:NvuiD2DTextAntiAliasMode*
+
+	Sets the text antialiasing method. Completion list is available.
+	{mode} must be a string that is one of the items in the completion list.
+	Eg. :NvuiD2DTextAntiAliasMode use_cleartype
+	Sets the renderer to use Cleartype in text rendering.
+
+
 ==============================================================================
 vim:ft=help:textwidth=78:ts=2:noet

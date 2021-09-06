@@ -54,7 +54,7 @@ public:
       layout_cache(2000)
   {
     initialize_context();
-    initialize_cache();
+    init_connections();
     update_bitmap_size();
     initialize_scroll_animation();
     initialize_move_animation();
@@ -81,7 +81,7 @@ public:
   /// allow for better pixel precision.
   void update_position(double x, double y);
   /// Render this grid to a render target
-  void render(ID2D1RenderTarget* render_target);
+  void render(ID2D1DeviceContext* render_target);
 private:
   std::vector<Snapshot> snapshots;
   WinEditorArea* editor_area = nullptr;
@@ -113,7 +113,7 @@ private:
   /// Initialize the device contexts and bitmap.
   void initialize_context();
   /// Initialize the cache
-  void initialize_cache();
+  void init_connections();
   /// Initialize the move animation
   void initialize_move_animation();
   /// Initialize the scroll animation

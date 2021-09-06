@@ -20,7 +20,7 @@ void D2DPaintGrid::update_bitmap_size()
   u32 height = std::ceil(rows * font_height);
   editor_area->resize_bitmap(context, &bitmap, width, height);
   context->SetTarget(bitmap);
-  context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+  context->SetTextAntialiasMode(editor_area->text_antialiasing_mode());
 }
 
 void D2DPaintGrid::initialize_context()
@@ -29,10 +29,13 @@ void D2DPaintGrid::initialize_context()
   context->SetTarget(bitmap);
 }
 
-void D2DPaintGrid::initialize_cache()
+void D2DPaintGrid::init_connections()
 {
   QObject::connect(editor_area, &EditorArea::font_changed, this, [&] {
     layout_cache.clear();
+  });
+  QObject::connect(editor_area, &WinEditorArea::ta_mode_changed, this, [&] {
+    context->SetTextAntialiasMode(editor_area->text_antialiasing_mode()); 
   });
 }
 
@@ -373,18 +376,20 @@ ID2D1Bitmap1* D2DPaintGrid::copy_bitmap(ID2D1Bitmap1* src)
   return dst;
 }
 
-void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
+void D2DPaintGrid::render(ID2D1DeviceContext* render_target)
 {
+  const auto interpolation_mode = editor_area->interpolation_mode();
   auto&& [font_width, font_height] = editor_area->font_dimensions();
   auto sz = bitmap->GetPixelSize();
   d2rect r = rect();
   if (!editor_area->animations_enabled() || !is_scrolling)
   {
-    render_target->DrawBitmap(
+    auto grid_pos = D2D1::Point2F(top_left.x(), top_left.y());
+    render_target->DrawImage(
       bitmap,
-      &r,
-      1.0f,
-      D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+      &grid_pos,
+      nullptr,
+      interpolation_mode
     );
     return;
   }
@@ -404,21 +409,21 @@ void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
     auto pixmap_top = top_left.y() + offset;
     d2pt pt = D2D1::Point2F(top_left.x(), pixmap_top);
     r = D2D1::RectF(pt.x, pt.y, pt.x + sz.width, pt.y + sz.height);
-    render_target->DrawBitmap(
+    render_target->DrawImage(
       snapshot.image,
-      &r,
-      1.0f,
-      D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+      &pt,
+      nullptr,
+      interpolation_mode
     );
   }
   float offset = cur_snapshot_top - cur_scroll_y;
   d2pt pt = D2D1::Point2F(top_left.x(), top_left.y() + offset);
   r = D2D1::RectF(pt.x, pt.y, pt.x + sz.width, pt.y + sz.height);
-  render_target->DrawBitmap(
+  render_target->DrawImage(
     bitmap,
-    &r,
-    1.0f,
-    D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+    &pt,
+    nullptr,
+    interpolation_mode
   );
   render_target->PopAxisAlignedClip();
 }

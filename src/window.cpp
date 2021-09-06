@@ -595,6 +595,26 @@ void Window::register_handlers()
     paramify<int>([this](int ms) {
       editor_area.set_cursor_frametime(ms);
   }));
+#ifdef USE_DIRECT2D
+  listen_for_notification("NVUI_D2D_INTERPOLATION_MODE",
+      paramify<std::string>([this](std::string mode) {
+        editor_area.set_interpolation_mode(mode);
+  }));
+  handle_request<std::vector<std::string_view>, std::string>(
+    "NVUI_D2D_INTERPOLATION_MODES", [&](const auto&) {
+      return std::tuple {editor_area.interpolation_modes(), std::nullopt};
+    }
+  );
+  listen_for_notification("NVUI_D2D_TEXT_ANTIALIAS_MODE",
+      paramify<std::string>([this](std::string mode) {
+        editor_area.set_text_antialias_mode(mode);
+  }));
+  handle_request<std::vector<std::string_view>, std::string>(
+    "NVUI_D2D_TEXT_ANTIALIAS_MODES", [&](const auto&) {
+      return std::tuple {editor_area.text_antialias_modes(), std::nullopt};
+    }
+  );
+#endif
   /// Add request handlers
   using arr = msgpack::object_array;
   handle_request<std::vector<std::string>, std::string>(

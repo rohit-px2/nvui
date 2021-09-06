@@ -63,3 +63,13 @@ command! -nargs=1 NvuiCursorAnimationDuration call rpcnotify(1, 'NVUI_CURSOR_ANI
 command! -nargs=1 NvuiCursorFrametime call rpcnotify(1, 'NVUI_CURSOR_FRAMETIME', <args>)
 autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))
 autocmd DirChanged * call rpcnotify(1, 'NVUI_DIRCHANGED', fnamemodify(getcwd(), ':t'), getcwd())
+if exists('g:nvui_d2d')
+	function! s:complete_interpolation_mode(arg, line, pos)
+		return rpcrequest(1, 'NVUI_D2D_INTERPOLATION_MODES')
+	endfunction
+	function! s:complete_ta(arg, line, pos)
+		return rpcrequest(1, 'NVUI_D2D_TEXT_ANTIALIAS_MODES')
+	endfunction
+	command! -nargs=1 -complete=customlist,s:complete_interpolation_mode NvuiD2DInterpolationMode call NvuiNotify('NVUI_D2D_INTERPOLATION_MODE', <f-args>)
+	command! -nargs=1 -complete=customlist,s:complete_ta NvuiD2DTextAntialiasMode call NvuiNotify('NVUI_D2D_TEXT_ANTIALIAS_MODE', <f-args>)
+endif

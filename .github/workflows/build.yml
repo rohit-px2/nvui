@@ -12,24 +12,29 @@ jobs:
             cxx: clang++-12
             test: true
             upload: false
+
           - os: ubuntu-latest
             buildtype: 'Release'
             cc: clang-12
             cxx: clang++-12
             test: false
             upload: true
+            use_vcpkg: true
+
           - os: macos-latest
             buildtype: 'Debug'
             cc: clang
             cxx: clang++
             test: true
             upload: false
+
           - os: macos-latest
             buildtype: 'Release'
             cc: clang
             cxx: clang++
             test: false
             upload: true
+            use_vcpkg: true
     runs-on: ${{ matrix.os }}
     timeout-minutes: 500
     env:
@@ -63,14 +68,30 @@ jobs:
         run: echo "/snap/bin" >> $GITHUB_PATH
         shell: bash
 
+      - name: Ubuntu - Install vcpkg dependencies
+        if: startsWith(matrix.os, 'ubuntu') && matrix.use_vcpkg
+        run: >
+          sudo apt-get install gperf autoconf build-essential libtool
+          libgl1-mesa-dev libxi-dev libx11-dev libxext-dev
+          libxkbcommon-x11-dev libglu1-mesa-dev libx11-xcb-dev
+          '^libxcb.*-dev' libxrender-dev ninja-build curl
+          zip unzip tar autopoint python
+
+      - name: Ubuntu - Restore vcpkg dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            build/vcpkg_installed
+          key: ${{ matrix.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
+
       - name: Ubuntu - Install dependencies from system package manager
-        if: startsWith(matrix.os, 'ubuntu')
+        if: startsWith(matrix.os, 'ubuntu') && ${{ !matrix.use_vcpkg }}
         run: >
           sudo apt-get install libmsgpack-dev libfmt-dev libboost-all-dev
           mesa-common-dev libglu1-mesa-dev
 
       - name: Ubuntu - Install Catch2
-        if: startsWith(matrix.os, 'ubuntu')
+        if: startsWith(matrix.os, 'ubuntu') && ${{ !matrix.use_vcpkg }}
         run: |
           git clone https://github.com/catchorg/Catch2.git
           cd Catch2
@@ -80,7 +101,7 @@ jobs:
           sudo make install
 
       - name: Ubuntu - Install msgpack
-        if: startsWith(matrix.os, 'ubuntu')
+        if: startsWith(matrix.os, 'ubuntu') && ${{ !matrix.use_vcpkg }}
         run: |
           git clone https://github.com/msgpack/msgpack-c msgpack
           cd msgpack
@@ -89,25 +110,32 @@ jobs:
           sudo make install
 
       - name: Ubuntu - Install Qt and set Qt5_DIR
-        if: startsWith(matrix.os, 'ubuntu')
+        if: startsWith(matrix.os, 'ubuntu') && ${{ !matrix.use_vcpkg }}
         run: |
           python3 -m pip install aqtinstall
           python3 -m aqt install -O ./Qt 5.15.2 linux desktop -m qtsvg
           echo "Qt5_DIR=$(cd Qt/5.15.2/gcc_64/lib/cmake/Qt5; pwd)" >> $GITHUB_ENV
 
       - name: Mac - Install dependencies
-        if: startsWith(matrix.os, 'macos')
+        if: startsWith(matrix.os, 'macos') && ${{ !matrix.use_vcpkg }}
         run: |
           brew install fmt boost qt@5 msgpack-cxx catch2
           sudo ln -s /usr/local/Cellar/qt@5/5.15.2/plugins /usr/local/plugins
 
       - name: Mac - Set environment variables
-        if: startsWith(matrix.os, 'macos')
+        if: startsWith(matrix.os, 'macos') && ${{ !matrix.use_vcpkg }}
         run: |
           echo "Qt5_DIR=/usr/local/Cellar/qt@5/5.15.2/lib/cmake/Qt5" >> $GITHUB_ENV
           echo "fmt_DIR=/usr/local/Cellar/fmt/8.0.1" >> $GITHUB_ENV
+      
+      - name: Build nvui and nvui_test using vcpkg
+        if: matrix.use_vcpkg
+        run: |
+          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
+          cmake --build build --config ${{ matrix.buildtype }}
 
       - name: Build nvui and nvui_test
+        if: ${{ !matrix.use_vcpkg }}
         run: |
           cmake -B build . -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
           cmake --build build --config ${{ matrix.buildtype }}
@@ -168,7 +196,7 @@ jobs:
         with:
           sdk: 10.0.19041.0
       - name: Install Neovim Nightly (needed for tests)
-        run: choco install -y neovim
+        run: choco install -y neovim --pre
       - name: Add Neovim to PATH
         run: echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Restore deps from cache if they exist

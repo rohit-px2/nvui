@@ -100,7 +100,11 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   setMouseTracking(true);
   QObject::connect(this, &Window::resize_done, &editor_area, &decltype(editor_area)::resized);
   prev_state = windowState();
+
+#ifndef Q_OS_MAC
   setWindowFlags(Qt::FramelessWindowHint);
+#endif
+
   const auto font_dims = editor_area.font_dimensions();
   resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
   emit resize_done(size());
@@ -114,6 +118,10 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   QObject::connect(this, &Window::default_colors_changed, [this] { update_titlebar_colors(); });
   QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
   QObject::connect(this, &Window::win_state_changed, title_bar.get(), &TitleBar::win_state_changed);
+#ifdef Q_OS_MAC
+  title_bar->hide();
+#endif
+
 #ifdef Q_OS_WIN
   windows_setup_frameless((HWND) winId());
 #endif

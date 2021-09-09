@@ -17,6 +17,7 @@
 #include <QIcon>
 #include <QWindow>
 #include <QSizeGrip>
+#include <fstream>
 #include <sstream>
 #include <thread>
 #include "constants.hpp"
@@ -87,13 +88,13 @@ static std::function<void (const object_array&)> paramify(Func f)
   };
 }
 
-Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
+Window::Window(QWidget* parent, Nvim* nv, int width, int height)
 : QMainWindow(parent),
   semaphore(1),
   resizing(false),
   title_bar(nullptr),
   hl_state(),
-  nvim(nv.get()),
+  nvim(nv),
   editor_area(nullptr, &hl_state, nvim)
 {
   assert(width > 0 && height > 0);
@@ -613,10 +614,27 @@ void Window::register_handlers()
     }
   );
   auto script_dir = constants::script_dir().toStdString();
-  nvim->command(fmt::format("set rtp+={}", script_dir));
-  nvim->command("runtime! plugin/nvui.vim");
-  // helptags doesn't automatically update when the documentation has changed
-  nvim->command(fmt::format("helptags {}", script_dir + "/doc"));
+  switch(nvim->connection_type())
+  {
+    case ConnectionMode::Local:
+      nvim->command(fmt::format("set rtp+={}", script_dir));
+      nvim->command("runtime! plugin/nvui.vim");
+      // helptags doesn't automatically update when the documentation has changed
+      nvim->command(fmt::format("helptags {}", script_dir + "/doc"));
+    case ConnectionMode::Tcp:
+      // On TCP connection, we assume that the files can't be loaded (since
+      // the connection is likely not on the same computer).
+      // This doesn't give you the documentation but at least the commands
+      // are there
+      // Load the vim file into a string and execute it
+      std::ifstream vim_script(script_dir + "/plugin/nvui.vim");
+      if (vim_script)
+      {
+        std::stringstream buf;
+        buf << vim_script.rdbuf();
+        nvim->exec_viml(buf.str());
+      }
+  }
 }
 
 enum ResizeType
@@ -831,14 +849,8 @@ void Window::handle_request(
           const auto msgid = arr.ptr[1].as<std::uint64_t>();
           const object& params_obj = arr.ptr[3];
           if (params_obj.type != msgpack::type::ARRAY) return;
-          std::optional<Res> res;
-          std::optional<Err> err;
-          std::tie(res, err) = f(params_obj.via.array);
-          msgpack::object result = msgpack::object();
-          msgpack::object error = msgpack::object();
-          if (res) result = pack(*res);
-          if (err) error = pack(*err);
-          nvim->send_response(msgid, result, error);
+          auto [res, err] = f(params_obj.via.array);
+          nvim->send_response(msgid, res, err);
         },
         Qt::QueuedConnection
       );

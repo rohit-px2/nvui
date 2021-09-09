@@ -19,19 +19,17 @@
 using std::string;
 using std::vector;
 
-/**
- * When a string is observed in v that starts with s, this function trims s
- * from the beginning of the string and calls f with the resulting string.
- * This only occurs for the first string that satisfies the condition.
- */
-template<typename Func>
-void on_argument(const std::vector<string>& v, const std::string& s, const Func& f)
+std::optional<string> get_arg(
+  const vector<string>& args,
+  const std::string& prefix
+)
 {
-  for(const auto& e : v)
+  for(const auto& arg : args)
   {
-    if (e == "--") return; // Don't process command line arguments beyond "--" (those are for Neovim)
-    if (e.rfind(s, 0) == 0) { f(e.substr(s.size())); return; }
+    if (arg == "--") break;
+    if (arg.rfind(prefix, 0) == 0) return arg.substr(prefix.size());
   }
+  return std::nullopt;
 }
 
 vector<string> neovim_args(const vector<string>& listofargs)
@@ -59,6 +57,20 @@ vector<string> get_args(int argc, char** argv)
 Q_DECLARE_METATYPE(msgpack::object)
 Q_DECLARE_METATYPE(msgpack::object_handle*)
 
+static const ClientInfo client_info {
+  "nvui",
+  {
+    {"major", 0},
+    {"minor", 1}
+  },
+  "ui",
+  {},
+  {
+    {"website", "https://github.com/rohit-px2/nvui"},
+    {"license", "MIT"}
+  }
+};
+
 const std::string geometry_opt = "--geometry=";
 int main(int argc, char** argv)
 {
@@ -70,12 +82,25 @@ int main(int argc, char** argv)
     env.set("FONTCONFIG_PATH", "/etc/fonts");
   }
 #endif
+  int width = 100;
+  int height = 50;
   const auto args = get_args(argc, argv);
+  const auto nvim_path = get_arg(args, "--nvim=").value_or("");
+  const auto tcp = get_arg(args, "--tcp=");
+  const auto geometry_opt = get_arg(args, "--geometry=");
+  if (geometry_opt)
+  {
+    auto pos = geometry_opt->find("x");
+    if (pos != std::string::npos)
+    {
+      width = std::stoi(geometry_opt->substr(0, pos));
+      height = std::stoi(geometry_opt->substr(pos + 1));
+    }
+  }
   // Arguments to pass to nvim
   vector<string> nvim_args {"--embed"};
   vector<string> cl_nvim_args = neovim_args(args);
   nvim_args.insert(nvim_args.end(), cl_nvim_args.begin(), cl_nvim_args.end());
-  string nvim_path = "";
   std::unordered_map<std::string, bool> capabilities = {
     {"ext_tabline", false},
     {"ext_multigrid", false},
@@ -86,56 +111,42 @@ int main(int argc, char** argv)
   };
   for(const auto& capability : capabilities)
   {
+    using fmt::format;
     // Ex. --ext_popupmenu=true
-    on_argument(args, fmt::format("--{}=", capability.first), [&](std::string opt) {
-      if (opt == "true") capabilities[capability.first] = true;
-      else capabilities[capability.first] = false;
-    });
+    const auto cap_set = get_arg(args, format("--{}=", capability.first));
+    if (cap_set)
+    {
+      capabilities[capability.first] = *cap_set == "true" ? true : false;
+    }
     // Single argument (e.g. --ext_popupmenu)
-    on_argument(args, fmt::format("--{}", capability.first), [&](std::string opt) {
-      if (opt.size() == 0) capabilities[capability.first] = true;
-    });
+    const auto cap_no_eq = get_arg(args, format("--{}", capability.first));
+    if (cap_no_eq) capabilities[capability.first] = true;
   }
-  on_argument(args, "--nvim=", [&](std::string opt) {
-    QFileInfo nvim_path_info {QString::fromStdString(opt)};
-    if (nvim_path_info.exists() && nvim_path_info.isExecutable()) nvim_path = opt;
-  });
-  int width = 100;
-  int height = 50;
   std::ios_base::sync_with_stdio(false);
   qRegisterMetaType<msgpack::object>();
   qRegisterMetaType<msgpack::object_handle*>();
-  // Get "size" option
-  on_argument(args, geometry_opt, [&](std::string size_opt) {
-    std::size_t pos = size_opt.find("x");
-    if (pos != std::string::npos)
-    {
-      int new_width = std::stoi(size_opt.substr(0, pos));
-      int new_height = std::stoi(size_opt.substr(pos + 1));
-      width = new_width;
-      height = new_height;
-    }
-  });
   QApplication app {argc, argv};
+  Nvim nvim;
   try
   {
-    const auto nvim = std::make_shared<Nvim>(nvim_path, nvim_args);
-    Window w {nullptr, nvim, width, height};
-    w.register_handlers();
-    w.show();
-    nvim->set_var("nvui", 1);
-    nvim->attach_ui(width, height, capabilities);
-    nvim->on_exit([&] {
-      QMetaObject::invokeMethod(&w, &QMainWindow::close, Qt::QueuedConnection);
-    });
-    return app.exec();
+    if (tcp) nvim.open_tcp(*tcp);
+    else nvim.open_local(nvim_path, std::move(nvim_args));
   }
-  catch (const std::exception& e)
+  catch(const std::exception& e)
   {
-    // The main purpose is to catch the exception where Neovim is not
-    // found in PATH
     QMessageBox msg;
-    msg.setText("Error occurred: " % QLatin1String(e.what()) % ".");
+    msg.setText(QString::fromStdString(e.what()));
     msg.exec();
+    return EXIT_FAILURE;
   }
+  nvim.set_client_info(client_info);
+  nvim.set_var("nvui", 1);
+  Window w {nullptr, &nvim, width, height};
+  w.register_handlers();
+  nvim.attach_ui(width, height, capabilities);
+  w.show();
+  nvim.on_exit([&] {
+    QMetaObject::invokeMethod(&w, &QMainWindow::close, Qt::QueuedConnection);
+  });
+  return app.exec();
 }

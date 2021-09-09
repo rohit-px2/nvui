@@ -123,7 +123,7 @@ template<typename T>
 msgpack::object pack(const T& obj)
 {
   msgpack::zone z;
-  return msgpack::object(obj, z);
+  return {obj, z};
 }
 
 /// Thanks Neovim-Qt

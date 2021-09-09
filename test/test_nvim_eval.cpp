@@ -14,6 +14,7 @@ using namespace std::chrono_literals;
 TEST_CASE("nvim_eval callbacks work", "[eval_cb]")
 {
   Nvim nvim;
+  nvim.open_local();
   REQUIRE(nvim.running());
   SECTION("Evaluating math")
   {

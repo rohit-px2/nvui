@@ -10,8 +10,12 @@
 #include <msgpack.hpp>
 #include <atomic>
 #include <optional>
+#include <boost/asio.hpp>
+#include <fmt/core.h>
+#include <fmt/format.h>
 
-enum Type : std::uint64_t {
+enum Type : std::uint64_t
+{
   Request = 0,
   Response = 1,
   Notification = 2
@@ -19,6 +23,24 @@ enum Type : std::uint64_t {
 enum Notifications : std::uint8_t;
 enum Request : std::uint8_t;
 using msgpack_callback = std::function<void (msgpack::object_handle*)>;
+
+struct ClientInfo
+{
+  std::string name;
+  std::unordered_map<std::string, int> version;
+  std::string type;
+  std::unordered_map<std::string, std::string> methods;
+  std::unordered_map<std::string, std::string> attributes;
+  MSGPACK_DEFINE(name, version, type, methods, attributes);
+};
+
+
+enum class ConnectionMode
+{
+  Local,
+  Tcp
+};
+
 /// The Nvim class contains an embedded Neovim instance and
 /// some useful functions to receive output and send input
 /// using the msgpack-rpc protocol.
@@ -28,11 +50,25 @@ private:
   using response_cb = std::function<void (msgpack::object, msgpack::object)>;
 public:
   ~Nvim();
+  Nvim();
   /**
-   * Constructs an embedded Neovim instance and establishes communication.
-   * The Neovim instance is created with the command "nvim --embed".
+   * Opens Neovim locally with the given args.
+   * Note that if you provide arguments, "--embed" or "--headless" should be
+   * one of them.
+   * path should either be empty, or point to a Neovim executable.
+   * If path is empty, the PATH is searched for an Neovim executable,
+   * and if it stil not found, an exception is thrown.
    */
-  Nvim(std::string path = "", std::vector<std::string> args = {"--embed"});
+  void open_local(
+    const std::string& path = "",
+    const std::vector<std::string>& args = {"--embed"}
+  );
+  /**
+   * Connects to Neovim through TCP. The output and input will come from
+   * the TCP connection.
+   * If addr is empty or invalid, an exception is thrown.
+   */
+  void open_tcp(const std::string& addr);
   /**
    * Get the exit code of the Neovim instance.
    * If Neovim is still running, the exit code that is return will be INT_MIN.
@@ -180,11 +216,29 @@ public:
    * Send the response to Neovim for the given msgid,
    * with the given error and result objects.
    */
+  template<typename Res, typename Err>
   void send_response(
     std::uint64_t msgid,
-    msgpack::object res,
-    msgpack::object err
+    const Res& res,
+    const Err& err
   );
+  /**
+   * Set client info
+   */
+  void set_client_info(ClientInfo client_info);
+  /**
+   * Returns the current connection mode.
+   * See the 'ConnectionMode' enum.
+   */
+  ConnectionMode connection_type() const
+  {
+    return connection_mode;
+  }
+
+  bool is_closed()
+  {
+    return closed || !running();
+  }
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
@@ -207,11 +261,15 @@ private:
   std::mutex response_cb_mutex;
   std::uint32_t num_responses;
   std::uint32_t current_msgid;
+  ConnectionMode connection_mode = ConnectionMode::Local;
   boost::process::group proc_group;
   boost::process::child nvim;
   boost::process::pipe stdout_pipe;
   boost::process::pipe stdin_pipe;
   boost::process::ipstream error;
+  // For tcp connection
+  boost::asio::io_service ios;
+  boost::asio::ip::tcp::socket socket;
   template<typename T>
   void send_request(const std::string& method, const T& params, bool blocking = false);
   template<typename T>
@@ -220,6 +278,80 @@ private:
   void read_error_sync();
   template<typename T>
   msgpack::object_handle send_request_sync(const std::string& method, const T& params);
+  void write(const char* str, std::size_t size);
+  int read(char* str, std::size_t max_size);
 };
+
+template<typename T>
+void Nvim::send_request(const std::string& method, const T& data, bool blocking)
+{
+  std::unique_lock<std::mutex> lock {input_mutex};
+  is_blocking.push_back(blocking);
+  std::uint64_t msg_type = Type::Request;
+  const std::tuple msg {msg_type, current_msgid, method, data};
+  msgpack::sbuffer sbuf;
+  msgpack::pack(sbuf, msg);
+  try
+  {
+    this->write(sbuf.data(), sbuf.size());
+  }
+  catch(const std::exception& e)
+  {
+    fmt::print("Error occurred while sending request: {}\n", e.what());
+  }
+  ++current_msgid;
+}
+
+template<typename T>
+void Nvim::send_notification(const std::string& method, const T& params)
+{
+  std::unique_lock<std::mutex> lock {input_mutex};
+  std::uint64_t msg_type = Type::Notification;
+  const std::tuple msg {msg_type, method, params};
+  msgpack::sbuffer sbuf;
+  msgpack::pack(sbuf, msg);
+  try
+  {
+    write(sbuf.data(), sbuf.size());
+  }
+  catch(const std::exception& e)
+  {
+    fmt::print("Error occurred while sending notification: {}\n", e.what());
+  }
+}
+
+template<typename Res, typename Err>
+void Nvim::send_response(
+  std::uint64_t msgid,
+  const Res& res,
+  const Err& err
+)
+{
+  std::unique_lock<std::mutex> lock {input_mutex};
+  std::uint64_t msg_type = Type::Response;
+  const auto msg = std::make_tuple(msg_type, msgid, err, res);
+  msgpack::sbuffer sbuf;
+  msgpack::pack(sbuf, msg);
+  try
+  {
+    write(sbuf.data(), sbuf.size());
+  }
+  catch(const std::exception& e)
+  {
+    fmt::print("Error occurred while sending response: {}\n", e.what());
+  }
+}
+
+template<typename T>
+void Nvim::send_request_cb(
+  const std::string& method,
+  const T& params,
+  response_cb cb
+)
+{
+  std::unique_lock<std::mutex> lock {response_cb_mutex};
+  singleshot_callbacks[current_msgid] = std::move(cb);
+  send_request(method, params, false);
+}
 
 #endif

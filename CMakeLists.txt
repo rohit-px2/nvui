@@ -31,11 +31,14 @@ else()
   add_compile_options(-Wall -Wextra -pedantic -Werror -Wfatal-errors -Wno-language-extension-token)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 endif()
+option(BOOST_ASIO_DISABLE_COROUTINES "Disable boost asio coroutines (sometimes causes a build failure)" OFF)
+if(BOOST_ASIO_DISABLE_COROUTINES)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_ASIO_DISABLE_CO_AWAIT -DBOOST_ASIO_DISABLE_STD_COROUTINE")
+endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(msgpack CONFIG REQUIRED)
-find_package(Catch2 CONFIG REQUIRED)
 find_package(Qt5Core CONFIG REQUIRED)
 find_package(Qt5Gui CONFIG REQUIRED)
 find_package(Qt5Widgets CONFIG REQUIRED)
@@ -111,57 +114,61 @@ if(LTOAvailable)
   set_property(TARGET nvui PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
-file(GLOB TEST_SOURCES
-  src/msgpack_overrides.hpp
-  src/editor.hpp
-  src/editor.cpp
-  src/titlebar.hpp
-  src/titlebar.cpp
-  src/utils.hpp
-  src/nvim.hpp
-  src/nvim.cpp
-  src/window.hpp
-  src/window.cpp
-  src/hlstate.hpp
-  src/hlstate.cpp
-  src/cursor.hpp
-  src/cursor.cpp
-  test/*.cpp
-  src/popupmenu.hpp
-  src/popupmenu.cpp
-  src/cmdline.hpp
-  src/cmdline.cpp
-  src/font.hpp
-  src/grid.cpp
-  src/grid.hpp
-  src/decide_renderer.hpp
-)
-if (WIN32)
-  file(GLOB WINONLYTESTSOURCES
-    src/wineditor.hpp
-    src/wineditor.cpp
-    src/platform/windows/*.cpp
-    src/platform/windows/*.hpp
+option(BUILD_TEST "Build test target" ON)
+if(BUILD_TEST)
+  file(GLOB TEST_SOURCES
+    src/msgpack_overrides.hpp
+    src/editor.hpp
+    src/editor.cpp
+    src/titlebar.hpp
+    src/titlebar.cpp
+    src/utils.hpp
+    src/nvim.hpp
+    src/nvim.cpp
+    src/window.hpp
+    src/window.cpp
+    src/hlstate.hpp
+    src/hlstate.cpp
+    src/cursor.hpp
+    src/cursor.cpp
+    test/*.cpp
+    src/popupmenu.hpp
+    src/popupmenu.cpp
+    src/cmdline.hpp
+    src/cmdline.cpp
+    src/font.hpp
+    src/grid.cpp
+    src/grid.hpp
+    src/decide_renderer.hpp
   )
-  list(APPEND TEST_SOURCES ${WINONLYTESTSOURCES})
+  if (WIN32)
+    file(GLOB WINONLYTESTSOURCES
+      src/wineditor.hpp
+      src/wineditor.cpp
+      src/platform/windows/*.cpp
+      src/platform/windows/*.hpp
+    )
+    list(APPEND TEST_SOURCES ${WINONLYTESTSOURCES})
+  endif()
+  find_package(Catch2 CONFIG REQUIRED)
+  add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
+  target_link_libraries(nvui_test PRIVATE msgpackc msgpackc-cxx)
+  target_link_libraries(nvui_test PRIVATE Catch2::Catch2)
+  target_link_libraries(nvui_test PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg)
+  target_link_libraries(nvui_test PRIVATE fmt::fmt-header-only)
+  target_include_directories(nvui_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/test"
+    "${PROJECT_SOURCE_DIR}/src"
+  )
+  if (BOOST_FOUND)
+    target_include_directories(nvui_test PRIVATE ${Boost_INCLUDE_DIR})
+  endif()
+  target_link_libraries(nvui_test PRIVATE
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_LIBRARIES}
+  )
+  include(CTest)
+  include(Catch)
+  catch_discover_tests(nvui_test)
 endif()
-add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
-target_link_libraries(nvui_test PRIVATE msgpackc msgpackc-cxx)
-target_link_libraries(nvui_test PRIVATE Catch2::Catch2)
-target_link_libraries(nvui_test PRIVATE Qt::Core Qt::Gui Qt::Widgets Qt::Svg)
-target_link_libraries(nvui_test PRIVATE fmt::fmt-header-only)
-target_include_directories(nvui_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/test"
-  "${PROJECT_SOURCE_DIR}/src"
-)
-if (BOOST_FOUND)
-  target_include_directories(nvui_test PRIVATE ${Boost_INCLUDE_DIR})
-endif()
-target_link_libraries(nvui_test PRIVATE
-  ${Boost_FILESYSTEM_LIBRARY}
-  ${Boost_THREAD_LIBRARY}
-  ${Boost_LIBRARIES}
-)
-include(CTest)
-include(Catch)
-catch_discover_tests(nvui_test)

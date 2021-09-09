@@ -21,6 +21,8 @@
 #endif
 
 namespace bp = boost::process;
+namespace ba = boost::asio;
+namespace baip = boost::asio::ip;
 
 // ######################## SETTING UP ####################################
 
@@ -36,7 +38,7 @@ using Lock = std::lock_guard<std::mutex>;
   //return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
 //}
 /// Constructor
-Nvim::Nvim(std::string path, std::vector<std::string> args)
+Nvim::Nvim()
 : notification_handlers(),
   request_handlers(),
   closed(false),
@@ -45,7 +47,16 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   proc_group(),
   stdout_pipe(),
   stdin_pipe(),
-  error()
+  error(),
+  ios(),
+  socket(ios)
+{
+}
+
+void Nvim::open_local(
+  const std::string& path,
+  const std::vector<std::string>& args
+)
 {
   auto nvim_path = boost::filesystem::path(path);
   if (path.empty())
@@ -69,6 +80,31 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   );
   err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
   out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
+  connection_mode = ConnectionMode::Local;
+}
+
+void Nvim::open_tcp(const std::string& addr_and_port)
+{
+  const auto colon_pos = addr_and_port.find(":");
+  if (colon_pos == std::string::npos)
+  {
+    throw std::runtime_error("Invalid format of TCP address");
+  }
+  const auto host = addr_and_port.substr(0, colon_pos);
+  const auto port_str = addr_and_port.substr(colon_pos + 1);
+  using baip::tcp;
+  tcp::resolver resolver(ios);
+  tcp::resolver::query q(host, port_str, tcp::resolver::numeric_service);
+  auto endpoints = resolver.resolve(q);
+  if (endpoints.size() == 0)
+  {
+    throw std::runtime_error("No endpoints with this name.");
+  }
+  baip::tcp::endpoint endpoint = endpoints->endpoint();
+  socket.connect(endpoint);
+  connection_mode = ConnectionMode::Tcp;
+  err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
+  out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
 }
 
 //static int file_num = 0;
@@ -81,50 +117,6 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   //out.close();
   //++file_num;
 //}
-
-template<typename T>
-void Nvim::send_request(const std::string& method, const T& params, bool blocking)
-{
-  is_blocking.push_back(blocking);
-  Lock lock {input_mutex};
-  const std::uint64_t msg_type = Type::Request;
-  msgpack::sbuffer sbuf;
-  const auto msg = std::make_tuple(msg_type, current_msgid, method, params);
-  msgpack::pack(sbuf, msg);
-  // Potential for an exception when calling below code
-  try
-  {
-    auto written = stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
-    Q_UNUSED(written);
-    assert(written);
-    ++current_msgid;
-  }
-  catch (const std::exception& e)
-  {
-    std::cout << "Exception occurred: " << e.what() << '\n';
-  }
-}
-
-template<typename T>
-void Nvim::send_notification(const std::string& method, const T& params)
-{
-  // Same deal as Nvim::send_request, but for a notification this time
-  Lock lock {input_mutex};
-  const std::uint64_t msg_type = Type::Notification;
-  msgpack::sbuffer sbuf;
-  const auto msg = std::make_tuple(msg_type, method, params);
-  msgpack::pack(sbuf, msg);
-  try
-  {
-    auto written = stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
-    Q_UNUSED(written);
-    assert(written);
-  }
-  catch (const std::exception& e)
-  {
-    std::cout << "Exception occurred: " << e.what() << '\n';
-  }
-}
 
 void Nvim::resize(const int new_width, const int new_height)
 {
@@ -149,9 +141,9 @@ void Nvim::read_output_sync()
   constexpr int buffer_maxsize = 1024 * 1024;
   auto buffer = std::make_unique<char[]>(buffer_maxsize);
   char* buf = buffer.get();
-  while(!closed && running())
+  while(!is_closed())
   {
-    int msg_size = stdout_pipe.read(buf, buffer_maxsize);
+    int msg_size = read(buf, buffer_maxsize);
     if (msg_size > buffer_maxsize)
     {
       using fmt::format;
@@ -331,11 +323,10 @@ void Nvim::read_error_sync()
   // 500KB should be enough for stderr (not receving any huge input)
   constexpr int buffer_maxsize = 512 * 1024;
   auto buffer = std::make_unique<char[]>(buffer_maxsize);
-  std::uint32_t bytes_read;
   bp::pipe& err_pipe = error.pipe();
-  while(!closed && running())
+  while(!is_closed())
   {
-    bytes_read = err_pipe.read(buffer.get(), buffer_maxsize);
+    int bytes_read = err_pipe.read(buffer.get(), buffer_maxsize);
     if (bytes_read)
     {
       std::string s(buffer.get(), bytes_read);
@@ -358,7 +349,13 @@ int Nvim::exit_code()
 
 bool Nvim::running()
 {
-  return nvim.running();
+  switch(connection_mode)
+  {
+    case ConnectionMode::Local:
+      return nvim.running();
+    case ConnectionMode::Tcp:
+      return socket.is_open();
+  }
 }
 
 template<typename T>
@@ -427,18 +424,6 @@ void Nvim::on_exit(std::function<void ()> handler)
   on_exit_handler = std::move(handler);
 }
 
-template<typename T>
-void Nvim::send_request_cb(
-  const std::string& method,
-  const T& params,
-  response_cb cb
-)
-{
-  std::unique_lock<std::mutex> lock {response_cb_mutex};
-  singleshot_callbacks[current_msgid] = std::move(cb);
-  send_request(method, params, false);
-}
-
 void Nvim::resize_cb(const int width, const int height, response_cb cb)
 {
   send_request_cb("nvim_ui_try_resize", std::make_tuple(width, height), std::move(cb));
@@ -480,32 +465,45 @@ void Nvim::input_mouse(
   });
 }
 
+void Nvim::write(const char* str, std::size_t size)
+{
+  switch(connection_mode)
+  {
+    case ConnectionMode::Local:
+      stdin_pipe.write(str, static_cast<int>(size));
+      break;
+    case ConnectionMode::Tcp:
+      socket.write_some(ba::buffer(str, size));
+      break;
+  }
+}
 
-void Nvim::send_response(
-  std::uint64_t msgid,
-  msgpack::object res,
-  msgpack::object err
+int Nvim::read(char* str, std::size_t max_size)
+{
+  switch(connection_mode)
+  {
+    case ConnectionMode::Local:
+      return stdout_pipe.read(str, static_cast<int>(max_size));
+      break;
+    case ConnectionMode::Tcp:
+      return static_cast<int>(socket.read_some(ba::buffer(str, max_size)));
+      break;
+  }
+}
+
+void Nvim::set_client_info(
+  ClientInfo client_info
 )
 {
-  Lock lock {input_mutex};
-  const std::uint64_t type = Type::Response;
-  auto&& msg = std::tuple {type, msgid, err, res};
-  msgpack::sbuffer sbuf;
-  msgpack::pack(sbuf, msg);
-  try
-  {
-    stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
-  }
-  catch(...)
-  {
-    fmt::print("Could not send response. Msgid: {}\n", msgid);
-  }
+  send_notification("nvim_set_client_info", client_info);
 }
 
 Nvim::~Nvim()
 {
   // Close I/O Pipes and terminate process
   closed = true;
+  socket.close();
+  ios.stop();
   nvim.terminate();
   error.pipe().close();
   stdout_pipe.close();

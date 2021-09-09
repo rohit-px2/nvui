@@ -53,3 +53,10 @@ and <code>:h NvuiCaretExtendBottom</code>)
 
 ## Documentation
 <code>:h nvui</code> (vim/doc/nvui.txt)
+
+## Build Instructions
+See [the wiki](https://github.com/rohit-px2/nvui/wiki#build-instructions)
+
+## Configuration (Command Line Arguments / Vim Configuration)
+See [the wiki](https://github.com/rohit-px2/nvui/wiki#configuration-options)
+and `:h nvui` for Vim command documentation.

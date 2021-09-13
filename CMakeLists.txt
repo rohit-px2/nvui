@@ -70,8 +70,6 @@ if (WIN32)
     src/platform/windows/*.hpp
   )
   list(APPEND SOURCES ${WINONLYSOURCES})
-elseif(APPLE)
-  set(VCPKG_OSX_DEPLOYMENT_TARGET "10.13")
 endif()
 find_package(Boost COMPONENTS filesystem thread REQUIRED)
 list(APPEND SOURCES "src/main.cpp")

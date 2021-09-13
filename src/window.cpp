@@ -91,7 +91,7 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
 : QMainWindow(parent),
   semaphore(1),
   resizing(false),
-  title_bar(nullptr),
+  title_bar(std::make_unique<TitleBar>("nvui", this)),
   hl_state(),
   nvim(nv.get()),
   editor_area(nullptr, &hl_state, nvim)
@@ -100,11 +100,10 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   setMouseTracking(true);
   QObject::connect(this, &Window::resize_done, &editor_area, &decltype(editor_area)::resized);
   prev_state = windowState();
-  setWindowFlags(Qt::FramelessWindowHint);
   const auto font_dims = editor_area.font_dimensions();
   resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
   emit resize_done(size());
-  title_bar = std::make_unique<TitleBar>("nvui", this);
+  title_bar->hide();
   QObject::connect(title_bar.get(), &TitleBar::resize_move, this, &Window::resize_or_move);
   setWindowIcon(QIcon(constants::appicon()));
   title_bar->set_separator(" • ");
@@ -114,9 +113,6 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   QObject::connect(this, &Window::default_colors_changed, [this] { update_titlebar_colors(); });
   QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
   QObject::connect(this, &Window::win_state_changed, title_bar.get(), &TitleBar::win_state_changed);
-#ifdef Q_OS_WIN
-  windows_setup_frameless((HWND) winId());
-#endif
 }
 
 void Window::handle_redraw(object_handle* redraw_args)

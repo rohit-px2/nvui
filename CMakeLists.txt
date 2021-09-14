@@ -98,6 +98,9 @@ if(WIN32)
     d3d11.lib
     dwrite.lib
   )
+  if(USE_QPAINTER)
+    target_compile_definitions(nvui PRIVATE USE_QPAINTER)
+  endif()
 endif()
 if (Boost_FOUND)
   target_include_directories(nvui PRIVATE ${Boost_INCLUDE_DIR})

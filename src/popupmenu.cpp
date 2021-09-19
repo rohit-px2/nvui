@@ -48,7 +48,12 @@ static std::pair<QColor, QColor> find_or_default(
 QPixmap PopupMenuIconManager::load_icon(const QString& iname, int width)
 {
   auto&& [fg, bg] = find_or_default(colors, iname, default_fg, default_bg);
-  auto&& px = pixmap_from_svg(constants::picon_fp() % iname % ".svg", fg, bg, width, width);
+  auto&& px = pixmap_from_svg(
+    constants::picon_fp() % iname % ".svg",
+    fg,
+    Qt::transparent,
+    width, width
+  );
   return px.value_or(QPixmap());
 }
 
@@ -118,7 +123,7 @@ void PopupMenuInfo::paintEvent(QPaintEvent* event)
   r.adjust(offset, offset, -offset, -offset);
   p.drawRect(r);
   QRect inner_rect = rect().adjusted(b_width, b_width, -b_width, -b_width);
-  auto fg = current_attr.fg().value_or(0).qcolor();
+  auto fg = current_attr.fg().value_or(uint32(0)).qcolor();
   p.setPen(fg);
   p.drawText(inner_rect, Qt::TextWordWrap, current_text);
 }
@@ -137,26 +142,25 @@ PopupMenu::PopupMenu(const HLState* state, QWidget* parent)
   hide();
 }
 
-void PopupMenu::pum_show(const msgpack::object* obj, std::uint32_t size)
+void PopupMenu::pum_show(std::span<Object> objs)
 {
   is_hidden = false;
   completion_items.clear();
   using std::tuple;
   using std::vector;
   using std::string;
-  for(std::uint32_t i = 0; i < size; ++i)
+  for(std::size_t i = 0; i < objs.size(); ++i)
   {
-    const msgpack::object& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const msgpack::object_array& arr = o.via.array;
-    assert(arr.size == 5);
-    assert(arr.ptr[0].type == msgpack::type::ARRAY);
-    const msgpack::object_array& items = arr.ptr[0].via.array;
-    add_items(items);
-    cur_selected = arr.ptr[1].as<int>();
-    row = arr.ptr[2].as<int>();
-    col = arr.ptr[3].as<int>();
-    grid_num = arr.ptr[4].as<int>();
+    auto& obj = objs[i];
+    auto* arr = obj.array();
+    assert(arr && arr->size() >= 5);
+    auto* items = arr->at(0).array();
+    cur_selected = arr->at(1);
+    row = arr->at(2);
+    col = arr->at(3);
+    grid_num = arr->at(4);
+    assert(items);
+    add_items(*items);
     if (cur_selected >= 0 && cur_selected < int(completion_items.size()))
     {
       completion_items[i].selected = true;
@@ -166,47 +170,41 @@ void PopupMenu::pum_show(const msgpack::object* obj, std::uint32_t size)
   resize(available_rect().size());
 }
 
-void PopupMenu::pum_sel(const msgpack::object* obj, std::uint32_t size)
+void PopupMenu::pum_sel(std::span<Object> objs)
 {
-  Q_UNUSED(size);
-  assert(obj->type == msgpack::type::ARRAY);
-  const msgpack::object_array& arr = obj->via.array;
-  assert(arr.size == 1);
+  if (objs.empty()) return;
+  const auto& obj = objs.back();
+  auto* arr = obj.array();
+  assert(arr && arr->size() >= 1);
   if (cur_selected >= 0) completion_items[cur_selected].selected = false;
-  cur_selected = arr.ptr[0].as<int>();
+  cur_selected = static_cast<int>(arr->at(0));
   if (cur_selected >= 0) completion_items[cur_selected].selected = true;
   paint();
 }
 
-void PopupMenu::pum_hide(const msgpack::object* obj, std::uint32_t size)
+void PopupMenu::pum_hide(std::span<Object> objs)
 {
-  Q_UNUSED(obj);
-  Q_UNUSED(size);
+  Q_UNUSED(objs);
   is_hidden = true;
   setVisible(false);
   info_widget.hide();
 }
 
-void PopupMenu::add_items(const msgpack::object_array& items)
+void PopupMenu::add_items(ObjectArray& items)
 {
-  for(std::uint32_t i = 0; i < items.size; ++i)
+  for(auto& item : items)
   {
-    const msgpack::object& item = items.ptr[i];
-    assert(item.type == msgpack::type::ARRAY);
-    const msgpack::object_array& wkmi = item.via.array;
-    assert(wkmi.size == 4);
-    assert(wkmi.ptr[0].type == msgpack::type::STR);
-    assert(wkmi.ptr[1].type == msgpack::type::STR);
-    assert(wkmi.ptr[2].type == msgpack::type::STR);
-    assert(wkmi.ptr[3].type == msgpack::type::STR);
-    QString word = wkmi.ptr[0].as<QString>();
-    QString kind = wkmi.ptr[1].as<QString>();
-    QString menu = wkmi.ptr[2].as<QString>();
-    QString info = wkmi.ptr[3].as<QString>();
+    auto* arr = item.array();
+    assert(arr && arr->size() >= 4);
+    auto* word = arr->at(0).string();
+    auto* kind = arr->at(1).string();
+    auto* menu = arr->at(2).string();
+    auto* info = arr->at(3).string();
+    assert(word && kind && menu && info);
     completion_items.push_back({
       false,
-      std::move(word), std::move(kind),
-      std::move(menu),std::move(info)
+      std::move(*word), std::move(*kind),
+      std::move(*menu),std::move(*info)
     });
   }
 }
@@ -279,6 +277,7 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   pmenu_font.setUnderline(attr.font_opts & FontOpts::Underline);
   p.setFont(pmenu_font);
   const QPixmap* icon_ptr = icon_manager.icon_for_kind(item.kind);
+  const QColor* icon_bg = icon_manager.bg_for_kind(item.kind);
   int start_x = std::ceil(border_width);
   // int end_y = y + cell_height;
   int end_x = pixmap.width() - border_width;
@@ -286,10 +285,11 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   p.fillRect(QRect(start_x, y, end_x, cell_height), QColor(bg.r, bg.g, bg.b));
   QPoint text_start = {start_x, int(y + offset)};
   p.setPen(QColor(fg.r, fg.g, fg.b));
-  if (icon_ptr && icons_enabled)
+  if (icon_ptr && icon_bg && icons_enabled)
   {
     if (icons_on_right)
     {
+      p.fillRect(QRect(start_x, y, cell_height, cell_height), *icon_bg);
       p.drawPixmap(
         {end_x - icon_ptr->width(), y - icon_size_offset / 2,
         icon_ptr->width(), icon_ptr->height()},

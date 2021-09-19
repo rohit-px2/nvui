@@ -6,9 +6,8 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include "object.hpp"
 
-using obj = msgpack::object;
-using obj_handle = msgpack::object_handle;
 using namespace std::chrono_literals;
 
 TEST_CASE("nvim_eval callbacks work", "[eval_cb]")
@@ -18,10 +17,10 @@ TEST_CASE("nvim_eval callbacks work", "[eval_cb]")
   SECTION("Evaluating math")
   {
     std::atomic<bool> done = false;
-    nvim.eval_cb("1 + 2", [&](obj res, obj err) {
-      REQUIRE(err.is_nil());
-      REQUIRE(res.type == msgpack::type::POSITIVE_INTEGER);
-      REQUIRE(res.as<int>() == 3);
+    nvim.eval_cb("1 + 2", [&](Object res, Object err) {
+      REQUIRE(err.is_null());
+      REQUIRE(res.get_as<int>());
+      REQUIRE(*res.get_as<int>() == 3);
       done = true;
     });
     wait_for_value(done, true);
@@ -29,9 +28,9 @@ TEST_CASE("nvim_eval callbacks work", "[eval_cb]")
   SECTION("Can evaluate variables")
   {
     std::atomic<bool> done = false;
-    nvim.eval_cb("stdpath('config')", [&](obj res, obj err) {
-      REQUIRE(err.is_nil());
-      REQUIRE(res.type == msgpack::type::STR);
+    nvim.eval_cb("stdpath('config')", [&](Object res, Object err) {
+      REQUIRE(err.is_null());
+      REQUIRE(res.string());
       done = true;
     });
     wait_for_value(done, true);
@@ -39,9 +38,9 @@ TEST_CASE("nvim_eval callbacks work", "[eval_cb]")
   SECTION("Will send errors in the 'err' parameter")
   {
     std::atomic<bool> done = false;
-    nvim.eval_cb("stdpath", [&](obj res, obj err) {
-      REQUIRE(res.is_nil());
-      REQUIRE(!err.is_nil());
+    nvim.eval_cb("stdpath", [&](Object res, Object err) {
+      REQUIRE(res.is_null());
+      REQUIRE(!err.is_null());
       done = true;
     });
     wait_for_value(done, true);

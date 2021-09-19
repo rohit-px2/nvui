@@ -56,9 +56,6 @@ vector<string> get_args(int argc, char** argv)
   return vector<string>(argv + 1, argv + argc);
 }
 
-Q_DECLARE_METATYPE(msgpack::object)
-Q_DECLARE_METATYPE(msgpack::object_handle*)
-
 const std::string geometry_opt = "--geometry=";
 int main(int argc, char** argv)
 {
@@ -103,8 +100,6 @@ int main(int argc, char** argv)
   int width = 100;
   int height = 50;
   std::ios_base::sync_with_stdio(false);
-  qRegisterMetaType<msgpack::object>();
-  qRegisterMetaType<msgpack::object_handle*>();
   // Get "size" option
   on_argument(args, geometry_opt, [&](std::string size_opt) {
     std::size_t pos = size_opt.find("x");

@@ -44,7 +44,7 @@ static void set_relative_font_size(
   const QFont& target,
   QFont& modified,
   const double tolerance,
-  const u32 max_iterations
+  const std::size_t max_iterations
 )
 { 
   constexpr auto width = [](const QFontMetricsF& m) {
@@ -108,7 +108,7 @@ void EditorArea::set_text(
   bool is_dbl_width
 )
 {
-  u32 ucs;
+  std::uint32_t ucs;
   if (c.isEmpty()) ucs = 0;
   else
   {
@@ -130,20 +130,17 @@ void EditorArea::set_text(
   }
 }
 
-void EditorArea::grid_resize(const msgpack::object *obj, u32 size)
+void EditorArea::grid_resize(std::span<NeovimObj> objs)
 {
   // Should only run once
-  for(u32 i = 0; i < size; ++i)
+  for(const auto& obj : objs)
   {
-    const msgpack::object& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const auto& arr = o.via.array;
-    assert(arr.size == 3);
-    std::uint16_t grid_num = arr.ptr[0].as<std::uint16_t>();
-    //std::cout << "Resize grid " << grid_num << "\n";
+    auto* arr = obj.array();
+    assert(arr && arr->size() >= 3);
+    auto grid_num = arr->at(0).get<u64>();
+    auto width = arr->at(1).get<u64>();
+    auto height = arr->at(2).get<u64>();
     assert(grid_num != 0);
-    std::uint16_t width = arr.ptr[1].as<std::uint16_t>();
-    std::uint16_t height = arr.ptr[2].as<std::uint16_t>();
     GridBase* grid = find_grid(grid_num);
     if (grid)
     {
@@ -163,39 +160,33 @@ void EditorArea::grid_resize(const msgpack::object *obj, u32 size)
   }
 }
 
-void EditorArea::grid_line(NeovimObj obj, u32 size)
+void EditorArea::grid_line(std::span<NeovimObj> objs)
 {
   QFontMetrics fm {font};
   std::uint16_t hl_id = 0;
   //std::cout << "Received grid line.\nNum params: " << size << '\n';
-  for(u32 i = 0; i < size; ++i)
+  for(auto& grid_cmd : objs)
   {
-    const msgpack::object& grid_cmd = obj[i];
-    assert(grid_cmd.type == msgpack::type::ARRAY);
-    const auto& grid = grid_cmd.via.array;
-    assert(grid.size == 4);
-    const std::uint16_t grid_num = grid.ptr[0].as<std::uint16_t>();
-    //std::cout << "Grid line on grid " << grid_num << '\n';
-    // Get associated grid
+    auto* arr = grid_cmd.array();
+    assert(arr && arr->size() >= 4);
+    const auto grid_num = arr->at(0).get<u64>();
     GridBase* grid_ptr = find_grid(grid_num);
-    assert(grid_ptr);
+    if (!grid_ptr) continue;
     GridBase& g = *grid_ptr;
-    const std::uint16_t start_row = grid.ptr[1].as<std::uint16_t>();
-    const std::uint16_t start_col = grid.ptr[2].as<std::uint16_t>();
+    int start_row = arr->at(1);
+    int start_col = arr->at(2);
     int col = start_col;
-    const msgpack::object& cells_obj = grid.ptr[3];
-    assert(cells_obj.type == msgpack::type::ARRAY);
-    const auto& cells = cells_obj.via.array;
-    for(u32 j = 0; j < cells.size; ++j)
+    auto cells = arr->at(3).array();
+    assert(cells);
+    for(auto& cell : *cells)
     {
+      assert(cell.has<ObjectArray>());
+      auto& cell_arr = cell.get<ObjectArray>();
+      assert(cell_arr.size() >= 1 && cell_arr.size() <= 3);
       // [text, (hl_id, repeat)]
-      const msgpack::object& o = cells.ptr[j];
-      assert(o.type == msgpack::type::ARRAY);
-      const auto& seq = o.via.array;
-      assert(seq.size >= 1 && seq.size <= 3);
       int repeat = 1;
-      assert(seq.ptr[0].type == msgpack::type::STR);
-      grid_char text = seq.ptr[0].as<decltype(text)>();
+      assert(cell_arr.at(0).has<QString>());
+      grid_char text = std::move(cell_arr[0].get<QString>());
       // If the previous char was a double-width char,
       // the current char is an empty string.
       bool prev_was_dbl = text.isEmpty();
@@ -206,23 +197,15 @@ void EditorArea::grid_line(NeovimObj obj, u32 size)
         grid_ptr->area[start_row * grid_ptr->cols + col - 1].double_width = true;
       }
       //ss << text.size() << ' ';
-      switch(seq.size)
+      switch(cell_arr.size())
       {
-        case 1:
-        {
-          break;
-        }
         case 2:
-        {
-          hl_id = seq.ptr[1].as<std::uint16_t>();
+          hl_id = cell_arr.at(1);
           break;
-        }
         case 3:
-        {
-          hl_id = seq.ptr[1].as<std::uint16_t>();
-          repeat = seq.ptr[2].as<u32>();
+          hl_id = cell_arr.at(1);
+          repeat = cell_arr.at(2);
           break;
-        }
       }
       //std::cout << "Code point: " << c << "\n";
       g.set_text(std::move(text), start_row, col, hl_id, repeat, is_dbl);
@@ -237,15 +220,15 @@ void EditorArea::grid_line(NeovimObj obj, u32 size)
   //update();
 }
 
-void EditorArea::grid_cursor_goto(const msgpack::object* obj, u32 size)
+void EditorArea::grid_cursor_goto(std::span<NeovimObj> objs)
 {
-  Q_UNUSED(size);
-  assert(obj->type == msgpack::type::ARRAY);
-  const auto& arr = obj->via.array;
-  assert(arr.size == 3);
-  std::uint16_t grid_num = arr.ptr[0].as<std::uint16_t>();
-  int row = arr.ptr[1].as<int>();
-  int col = arr.ptr[2].as<int>();
+  if (objs.empty()) return;
+  auto& obj = objs.back();
+  auto* arr = obj.array();
+  assert(arr && arr->size() >= 3);
+  std::uint16_t grid_num = arr->at(0);
+  int row = arr->at(1);
+  int col = arr->at(2);
   GridBase* grid = find_grid(grid_num);
   if (!grid) return;
   neovim_cursor.go_to({grid_num, grid->x, grid->y, row, col});
@@ -258,9 +241,9 @@ void EditorArea::grid_cursor_goto(const msgpack::object* obj, u32 size)
   //update();
 }
 
-void EditorArea::option_set(const msgpack::object* obj, u32 size)
+void EditorArea::option_set(std::span<NeovimObj> objs)
 {
-  static const auto extension_for = [&](const std::string& s) -> bool* {
+  static const auto extension_for = [&](const auto& s) -> bool* {
     if (s == "ext_linegrid") return &capabilities.linegrid;
     else if (s == "ext_popupmenu") return &capabilities.popupmenu;
     else if (s == "ext_cmdline") return &capabilities.cmdline;
@@ -269,26 +252,29 @@ void EditorArea::option_set(const msgpack::object* obj, u32 size)
     else if (s == "ext_messages") return &capabilities.messages;
     else return nullptr;
   };
-  for(u32 i = 0; i < size; ++i)
+  for(const auto& obj : objs)
   {
-    const msgpack::object& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const auto& options = o.via.array;
-    assert(options.size == 2);
-    assert(options.ptr[0].type == msgpack::type::STR);
-    std::string opt = options.ptr[0].as<std::string>();
+    auto* arr = obj.array();
+    assert(arr && arr->size() >= 2);
+    auto* opt_ptr = arr->at(0).string();
+    assert(opt_ptr);
+    auto& opt = *opt_ptr;
     if (bool* capability = extension_for(opt); capability)
     {
-      *capability = options.ptr[1].as<bool>();
+      auto* bool_ptr = arr->at(1).boolean();
+      assert(bool_ptr);
+      *capability = *bool_ptr;
     }
     else if (opt == "guifont")
     {
-      set_guifont(options.ptr[1].as<QString>());
+      set_guifont(arr->at(1).get<QString>());
       font.setHintingPreference(QFont::PreferFullHinting);
     }
     else if (opt == "linespace")
     {
-      linespace = options.ptr[1].as<int>();
+      auto int_opt = arr->at(1).get_as<int>();
+      assert(int_opt);
+      linespace = *int_opt;
       update_font_metrics();
       resized(this->size());
     }
@@ -308,82 +294,83 @@ void EditorArea::flush()
   update();
 }
 
-void EditorArea::win_pos(NeovimObj obj, u32 size)
+void EditorArea::win_pos(std::span<NeovimObj> objs)
 {
-  using u16 = std::uint16_t;
-  for(u32 i = 0; i < size; ++i)
+  for(const auto& obj : objs)
   {
-    const auto& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const msgpack::object_array& arr = o.via.array;
-    assert(arr.size == 6);
-    const u16 grid_num = arr.ptr[0].as<u16>();
-    const u16 sr = arr.ptr[2].as<u16>();
-    const u16 sc = arr.ptr[3].as<u16>();
-    const u16 width = arr.ptr[4].as<u16>();
-    const u16 height = arr.ptr[5].as<u16>();
-    GridBase* grid = find_grid(grid_num);
+    auto* arr = obj.array();
+    assert(arr && arr->size() >= 6);
+    const auto* grid_num = arr->at(0).u64();
+    const auto* sr = arr->at(2).u64();
+    const auto* sc = arr->at(3).u64();
+    const auto* width = arr->at(4).u64();
+    const auto* height = arr->at(5).u64();
+    assert(grid_num && sr && sc && width && height);
+    GridBase* grid = find_grid(*grid_num);
     if (!grid)
     {
-      fmt::print("No grid #{} found.\n", grid_num);
+      fmt::print("No grid #{} found.\n", *grid_num);
       continue;
     }
     shift_z(grid->z_index);
     grid->hidden = false;
-    grid->set_pos(sc, sr);
-    grid->set_size(width, height);
+    grid->set_pos(*sc, *sr);
+    grid->set_size(*width, *height);
     grid->z_index = grids.size() - 1;
     QRect r(0, 0, grid->cols, grid->rows);
   }
   send_redraw();
 }
 
-void EditorArea::win_hide(NeovimObj obj, u32 size)
+void EditorArea::win_hide(std::span<NeovimObj> objs)
 {
-  for(u32 i = 0; i < size; ++i)
+  for(const auto& obj : objs)
   {
-    const auto& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const auto& arr = o.via.array;
-    assert(arr.size >= 2);
-    auto grid_num = arr.ptr[0].as<u16>();
-    if (GridBase* grid = find_grid(grid_num); grid) grid->hidden = true;
+    auto* arr = obj.array();
+    assert(arr && arr->size() >= 2);
+    auto grid_num = arr->at(0).u64();
+    if (!grid_num) continue;
+    if (GridBase* grid = find_grid(*grid_num)) grid->hidden = true;
   }
 }
 
-void EditorArea::win_float_pos(NeovimObj obj, u32 size)
+void EditorArea::win_float_pos(std::span<NeovimObj> objs)
 {
-  for(u32 i = 0; i < size; ++i)
+  for(const auto& obj : objs)
   {
-    const auto& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const auto& arr = o.via.array;
-    assert(arr.size >= 7);
-    auto grid_num = arr.ptr[0].as<u16>();
-    auto anchor_dir = arr.ptr[2].as<std::string>();
-    auto anchor_grid_num = arr.ptr[3].as<u16>();
-    // NOTE: I have absolutely no idea why these are
-    // float types, but they are.
-    int anchor_row = arr.ptr[4].as<double>();
-    int anchor_col = arr.ptr[5].as<double>();
+    auto* arr = obj.array();
+    if (!(arr && arr->size() >= 7)) continue;
+    auto grid_num = arr->at(0).u64();
+    // auto win = arr->at(1).ext();
+    auto anchor_dir = arr->at(2).string();
+    auto anchor_grid_num = arr->at(3).u64();
+    auto anchor_row_f = arr->at(4).f64();
+    auto anchor_col_f = arr->at(5).f64();
+    assert(
+      grid_num && anchor_dir
+      && anchor_grid_num && anchor_row_f
+      && anchor_col_f
+    );
+    int anchor_row = *anchor_row_f;
+    int anchor_col = *anchor_col_f;
     QPoint anchor_rel = {anchor_col, anchor_row};
     //bool focusable = arr.ptr[6].as<bool>();
-    GridBase* grid = find_grid(grid_num);
-    GridBase* anchor_grid = find_grid(anchor_grid_num);
-    if (!grid || !anchor_grid) return;
+    GridBase* grid = find_grid(*grid_num);
+    GridBase* anchor_grid = find_grid(*anchor_grid_num);
+    if (!grid || !anchor_grid) continue;
     // Anchor dir is "NW", "SW", "SE", "NE"
     // The anchor direction indicates which corner of the grid
     // should be at the position given.
     QPoint anchor_pos = anchor_grid->top_left() + anchor_rel;
-    if (anchor_dir == "SW")
+    if (*anchor_dir == "SW")
     {
       anchor_pos -= QPoint(0, grid->rows);
     }
-    else if (anchor_dir == "SE")
+    else if (*anchor_dir == "SE")
     {
       anchor_pos -= QPoint(grid->cols, grid->rows);
     }
-    else if (anchor_dir == "NE")
+    else if (*anchor_dir == "NE")
     {
       anchor_pos -= QPoint(grid->cols, 0);
     }
@@ -400,33 +387,31 @@ void EditorArea::win_float_pos(NeovimObj obj, u32 size)
   }
 }
 
-void EditorArea::win_close(NeovimObj obj, u32 size)
+void EditorArea::win_close(std::span<NeovimObj> objs)
 {
-  for(u32 i = 0; i < size; ++i)
+  for(const auto& obj : objs)
   {
-    const auto& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const auto& arr = o.via.array;
-    assert(arr.size >= 1);
-    auto grid_num = arr.ptr[0].as<u16>();
-    destroy_grid(grid_num);
+    auto* arr = obj.array();
+    if (!(arr && arr->size() >= 1)) continue;
+    auto grid_num = arr->at(0).u64();
+    if (!grid_num) continue;
+    destroy_grid(*grid_num);
   }
   send_redraw();
 }
 
-void EditorArea::win_viewport(NeovimObj obj, u32 size)
+void EditorArea::win_viewport(std::span<NeovimObj> objs)
 {
-  for(u32 i = 0; i < size; ++i)
+  for(const auto& obj : objs)
   {
-    const auto& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const auto& arr = o.via.array;
-    assert(arr.size >= 6);
-    auto grid_num = arr.ptr[0].as<u16>();
-    auto topline = arr.ptr[2].as<u32>();
-    auto botline = arr.ptr[3].as<u32>();
-    auto curline = arr.ptr[4].as<u32>();
-    auto curcol = arr.ptr[5].as<u32>();
+    auto* arr = obj.array();
+    assert(arr && arr->size() >= 6);
+    auto grid_num = arr->at(0).get<u64>();
+    // auto ext = arr->at(1).get<NeovimExt>();
+    u32 topline = arr->at(2);
+    u32 botline = arr->at(3);
+    u32 curline = arr->at(4);
+    u32 curcol = arr->at(5);
     Viewport vp = {topline, botline, curline, curcol};
     auto* grid = find_grid(grid_num);
     if (!grid) continue;
@@ -434,33 +419,29 @@ void EditorArea::win_viewport(NeovimObj obj, u32 size)
   }
 }
 
-void EditorArea::grid_destroy(NeovimObj obj, u32 size)
+void EditorArea::grid_destroy(std::span<NeovimObj> objs)
 {
-  for(u32 i = 0; i < size; ++i)
+  for(const auto& obj : objs)
   {
-    const auto& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const auto& arr = o.via.array;
-    assert(arr.size >= 1);
-    auto grid_num = arr.ptr[0].as<u16>();
+    auto& arr = obj.get<ObjectArray>();
+    assert(arr.size() >= 1);
+    auto grid_num = arr.at(0).get<u64>();
     destroy_grid(grid_num);
   }
   send_redraw();
 }
 
-void EditorArea::msg_set_pos(NeovimObj obj, u32 size)
+void EditorArea::msg_set_pos(std::span<NeovimObj> objs)
 {
-  for(u32 i = 0; i < size; ++i)
+  for(const auto& obj : objs)
   {
-    const auto& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const auto& arr = o.via.array;
-    assert(arr.size >= 4);
-    auto grid_num = arr.ptr[0].as<u16>();
-    auto row = arr.ptr[1].as<u16>();
+    auto* arr = obj.array();
+    assert(arr && arr->size() >= 4);
+    auto grid_num = *arr->at(0).u64();
+    auto row = *arr->at(1).u64();
     //auto scrolled = arr.ptr[2].as<bool>();
     //auto sep_char = arr.ptr[3].as<QString>();
-    if (GridBase* grid = find_grid(grid_num); grid)
+    if (GridBase* grid = find_grid(grid_num))
     {
       shift_z(grid->z_index);
       grid->set_pos(grid->x, row);
@@ -680,7 +661,7 @@ void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect&
   };
   QFont cur_font = font;
   const auto draw_buf = [&](QString& text, const HLAttr& attr, const HLAttr& def_clrs,
-      const QPointF& start, const QPointF& end, u32 font_idx) {
+      const QPointF& start, const QPointF& end, std::size_t font_idx) {
     if (!text.isEmpty())
     {
       cur_font = fonts[font_idx].font();
@@ -692,7 +673,7 @@ void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect&
   {
     QPointF start = {(double) grid.x * font_width, (double) (grid.y + y) * font_height};
     std::uint16_t prev_hl_id = UINT16_MAX;
-    u32 cur_font_idx = 0;
+    std::size_t cur_font_idx = 0;
     for(int x = 0; x < grid.cols; ++x)
     {
       const auto& gc = grid.area[y * grid.cols + x];
@@ -749,61 +730,63 @@ void EditorArea::ignore_next_paint_event()
   should_ignore_pevent = true;
 }
 
-void EditorArea::grid_clear(const msgpack::object *obj, u32 size)
+void EditorArea::grid_clear(std::span<NeovimObj> objs)
 {
-  Q_UNUSED(size);
-  assert(obj->type == msgpack::type::ARRAY);
-  const auto& arr = obj->via.array;
-  assert(arr.size == 1);
-  const auto grid_num = arr.ptr[0].as<std::uint16_t>();
-  GridBase* grid = find_grid(grid_num);
-  for(auto& gc : grid->area)
+  for(const auto& obj : objs)
   {
-    gc = {0, " ", false, QChar(' ').unicode()};
+    auto* arr = obj.array();
+    assert(arr && arr->size() >= 1);
+    const auto grid_num = arr->at(0).u64();
+    assert(grid_num);
+    auto* grid = find_grid(*grid_num);
+    for(auto& gc : grid->area)
+    {
+      gc = {0, " ", false, QChar(' ').unicode()};
+    }
+    QRect&& r = {grid->x, grid->y, grid->cols, grid->rows};
+    send_clear(*grid_num, r);
   }
-  QRect&& r = {grid->x, grid->y, grid->cols, grid->rows};
-  send_clear(grid_num, r);
 }
 
-void EditorArea::grid_scroll(const msgpack::object* obj, u32 size)
+void EditorArea::grid_scroll(std::span<NeovimObj> objs)
 {
-  Q_UNUSED(size);
-  using u16 = std::uint16_t;
-  assert(obj->type == msgpack::type::ARRAY);
-  const msgpack::object_array& arr = obj->via.array;
-  assert(arr.size == 7);
-  const u16 grid_num = arr.ptr[0].as<u16>();
-  const u16 top = arr.ptr[1].as<u16>();
-  const u16 bot = arr.ptr[2].as<u16>();
-  const u16 left = arr.ptr[3].as<u16>();
-  const u16 right = arr.ptr[4].as<u16>();
-  const int rows = arr.ptr[5].as<int>();
-  // const int cols = arr.ptr[6].as<int>();
-  GridBase* grid = find_grid(grid_num);
-  if (!grid) return;
-  assert(grid);
-  if (rows > 0)
+  for(const auto& obj : objs)
   {
-    for(int y = top; y < (bot - rows); ++y)
+    auto* arr = obj.array();
+    assert(arr && arr->size() >= 7);
+    const u16 grid_num = arr->at(0);
+    const u16 top = arr->at(1);
+    const u16 bot = arr->at(2);
+    const u16 left = arr->at(3);
+    const u16 right = arr->at(4);
+    const int rows = arr->at(5);
+    // const int cols = arr->at(6);
+    GridBase* grid = find_grid(grid_num);
+    if (!grid) return;
+    assert(grid);
+    if (rows > 0)
     {
-      for(int x = left; x < right && x < grid->cols; ++x)
+      for(int y = top; y < (bot - rows); ++y)
       {
-        grid->area[y * grid->cols + x] = std::move(grid->area[(y + rows) * grid->cols + x]);
+        for(int x = left; x < right && x < grid->cols; ++x)
+        {
+          grid->area[y * grid->cols + x] = std::move(grid->area[(y + rows) * grid->cols + x]);
+        }
       }
     }
-  }
-  else if (rows < 0)
-  {
-    for(int y = (bot-1); y >= (top - rows); --y)
+    else if (rows < 0)
     {
-      for(int x = left; x <= right && x < grid->cols; ++x)
+      for(int y = (bot-1); y >= (top - rows); --y)
       {
-        grid->area[y * grid->cols + x] = std::move(grid->area[(y + rows) * grid->cols + x]);
+        for(int x = left; x <= right && x < grid->cols; ++x)
+        {
+          grid->area[y * grid->cols + x] = std::move(grid->area[(y + rows) * grid->cols + x]);
+        }
       }
     }
+    auto rect = QRect(left, top, (right - left), (bot - top));
+    send_draw(grid_num, rect);
   }
-  auto rect = QRect(left, top, (right - left), (bot - top));
-  send_draw(grid_num, rect);
 }
 
 static std::string mouse_button_to_string(Qt::MouseButtons btn)
@@ -969,14 +952,14 @@ void EditorArea::default_colors_changed(QColor fg, QColor bg)
   send_redraw();
 }
 
-void EditorArea::mode_info_set(const msgpack::object* obj, u32 size)
+void EditorArea::mode_info_set(std::span<NeovimObj> objs)
 {
-  neovim_cursor.mode_info_set(obj, size);
+  neovim_cursor.mode_info_set(objs);
 }
 
-void EditorArea::mode_change(const msgpack::object* obj, u32 size)
+void EditorArea::mode_change(std::span<NeovimObj> objs)
 {
-  neovim_cursor.mode_change(obj, size);
+  neovim_cursor.mode_change(objs);
 }
 
 void EditorArea::draw_text_and_bg(

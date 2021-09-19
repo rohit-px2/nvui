@@ -1,93 +1,71 @@
 #include "hlstate.hpp"
+#include "utils.hpp"
 #include <cassert>
 #include <iostream>
 #include <sstream>
 namespace hl
 {
-  HLAttr hl_attr_from_object(const msgpack::object& obj)
+  HLAttr hl_attr_from_object(const Object& obj)
   {
-    assert(obj.type == msgpack::type::ARRAY);
-    const msgpack::object_array& arr = obj.via.array;
-    assert(arr.size == 4);
-    const int id = arr.ptr[0].as<int>();
-    assert(arr.ptr[1].type == msgpack::type::MAP);
-    const msgpack::object_map& opts = arr.ptr[1].via.map;
-    // We ignore arr.ptr[2] since that's the cterm_attr,
-    // we only use rgb_attr
+    using u32 = std::uint32_t;
+    const auto* arr = obj.array();
+    assert(arr && arr->size() >= 4);
+    const int id = static_cast<int>(*arr->at(0).u64());
+    auto* map_ptr = arr->at(1).map();
+    if (!map_ptr) return {};
+    const ObjectMap& map = *map_ptr;
     HLAttr attr {id};
-    // Add options
-    for(std::uint32_t i = 0; i < opts.size; ++i)
+    if (map.contains("foreground"))
     {
-      const auto& kv = opts.ptr[i];
-      // Keys are strings, vals could be bools or ints
-      assert(kv.key.type == msgpack::type::STR);
-      const std::string k = kv.key.as<std::string>();
-      if (k == "foreground")
-      {
-        attr.foreground = Color(kv.val.as<std::uint32_t>());
-      }
-      else if (k == "background")
-      {
-        attr.background = Color(kv.val.as<std::uint32_t>());
-      }
-      else if (k == "reverse")
-      {
-        attr.reverse = true;
-      }
-      else if (k == "special")
-      {
-        attr.special = Color(kv.val.as<std::uint32_t>());
-      }
-      else if (k == "italic")
-      {
-        attr.font_opts |= FontOpts::Italic * kv.val.as<bool>();
-      } 
-      else if (k == "bold")
-      {
-        attr.font_opts |= FontOpts::Bold * kv.val.as<bool>();
-      }
-      else if (k == "underline")
-      {
-        attr.font_opts |= FontOpts::Underline * kv.val.as<bool>();
-      }
-      else if (k == "strikethrough")
-      {
-        attr.font_opts |= FontOpts::Strikethrough * kv.val.as<bool>();
-      }
-      else if (k == "undercurl")
-      {
-        attr.font_opts |= FontOpts::Undercurl;
-      }
+      attr.foreground = static_cast<u32>(*map.at("foreground").u64());
     }
-    // Add info
-    assert(arr.ptr[3].type == msgpack::type::ARRAY);
-    const msgpack::object_array& info_arr = arr.ptr[3].via.array;
-    for(std::uint32_t i = 0; i < info_arr.size; ++i)
+    if (map.contains("background"))
+    {
+      attr.background = static_cast<u32>(*map.at("background").u64());
+    }
+    if (map.contains("reverse")) attr.reverse = true;
+    if (map.contains("special"))
+    {
+      attr.special = static_cast<u32>(*map.at("special").u64());
+    }
+    if (map.contains("italic")) attr.font_opts |= FontOpts::Italic;
+    if (map.contains("bold")) attr.font_opts |= FontOpts::Bold;
+    if (map.contains("underline")) attr.font_opts |= FontOpts::Underline;
+    if (map.contains("strikethrough"))
+    {
+      attr.font_opts |= FontOpts::Strikethrough;
+    }
+    if (map.contains("undercurl")) attr.font_opts |= FontOpts::Undercurl;
+    auto* info_arr = arr->at(3).array();
+    if (!arr) return attr;
+    for(const auto& o : *info_arr)
     {
       AttrState state;
-      assert(info_arr.ptr[i].type == msgpack::type::MAP);
-      const msgpack::object_map& mp = info_arr.ptr[i].via.map;
-      for(std::uint32_t j = 0; j < mp.size; ++j)
+      auto* state_map = o.map();
+      if (!state_map) continue;
+      if (state_map->contains("hi_name"))
       {
-        const msgpack::object_kv& kv = mp.ptr[j];
-        assert(kv.key.type == msgpack::type::STR);
-        const std::string k = kv.key.as<std::string>();
-        if (k == "kind")
-        {
-          state.kind = kv.val.as<std::string>() == "syntax" ? Kind::Syntax : Kind::UI;
-        }
-        else if (k == "hi_name")
-        {
-          state.hi_name = kv.val.as<decltype(state.hi_name)>();
-        }
-        else if (k == "ui_name")
-        {
-          state.ui_name = kv.val.as<decltype(state.ui_name)>();
-        }
-        else if (k == "id")
-        {
-          state.id = kv.val.as<decltype(state.id)>();
-        }
+        auto* hi_name_qstr = state_map->at("hi_name").string();
+        assert(hi_name_qstr);
+        state.hi_name = hi_name_qstr->toStdString();
+      }
+      if (state_map->contains("ui_name"))
+      {
+        auto* qstr = state_map->at("ui_name").string();
+        assert(qstr);
+        state.ui_name = qstr->toStdString();
+      }
+      if (state_map->contains("kind"))
+      {
+        state.hi_name = *state_map->at("kind").string() == "syntax"
+          ? Kind::Syntax
+          : Kind::UI;
+      }
+      if (state_map->contains("id"))
+      {
+        auto* id_ptr = state_map->at("id").u64();
+        assert(id_ptr);
+        state.id = *id_ptr;
       }
       attr.state.push_back(std::move(state));
     }
@@ -173,16 +151,19 @@ void HLState::set_id_attr(int id, HLAttr attr)
 }
 
 
-void HLState::default_colors_set(const msgpack::object& obj)
+void HLState::default_colors_set(Object& obj)
 {
   // We only look at the first three values (the others are ctermfg
   // and ctermbg, which we don't care about)
-  assert(obj.type == msgpack::type::ARRAY);
-  const msgpack::object_array& params = obj.via.array;
-  assert(params.size >= 3);
-  default_colors.foreground = params.ptr[0].as<std::uint32_t>();
-  default_colors.background = params.ptr[1].as<std::uint32_t>();
-  default_colors.special = params.ptr[2].as<std::uint32_t>();
+  auto* arr = obj.array();
+  if (!arr || arr->size() < 3) return;
+  auto fg = arr->at(0).get_as<uint32>();
+  auto bg = arr->at(1).get_as<uint32>();
+  auto sp = arr->at(2).get_as<uint32>();
+  assert(fg && bg && sp);
+  default_colors.foreground = *fg;
+  default_colors.background = *bg;
+  default_colors.special = *sp;
 }
 
 
@@ -192,7 +173,7 @@ const HLAttr& HLState::default_colors_get() const
 }
 
 
-void HLState::define(const msgpack::object& obj)
+void HLState::define(Object& obj)
 {
   HLAttr attr = hl::hl_attr_from_object(obj);
   int id = attr.hl_id;
@@ -207,18 +188,18 @@ void HLState::define(const msgpack::object& obj)
       set_name_id(s.ui_name, id);
     }
   }
-  id_to_attr[id] = attr;
+  id_to_attr[id] = std::move(attr);
 }
 
 
-void HLState::group_set(const msgpack::object &obj)
+void HLState::group_set(Object& obj)
 {
-  assert(obj.type == msgpack::type::ARRAY);
-  const auto& arr = obj.via.array;
-  assert(arr.size == 2);
-  assert(arr.ptr[0].type == msgpack::type::STR);
-  assert(arr.ptr[1].type == msgpack::type::POSITIVE_INTEGER);
-  std::string hl_name = arr.ptr[0].as<std::string>();
-  int hl_id = arr.ptr[1].as<int>();
-  set_name_id(hl_name, hl_id);
+  auto* arr = obj.array();
+  assert(arr && arr->size() >= 2);
+  auto* name = arr->at(0).string();
+  auto* id = arr->at(1).u64();
+  if (!name || !id) return;
+  auto hl_name = name->toStdString();
+  auto hl_id = static_cast<int>(*id);
+  set_name_id(std::move(hl_name), hl_id);
 }

@@ -146,4 +146,14 @@ void wait_for_value(std::atomic<T>& v, T val)
   while(v != val) {}
 }
 
+
+// find or default for map containers
+template<typename Map, typename K, typename V>
+V find_or_default(const Map& m, const K& k, const V& v)
+{
+  auto it = m.find(k);
+  if (it == m.end()) return v;
+  return it->second;
+}
+
 #endif // NVUI_UTILS_HPP

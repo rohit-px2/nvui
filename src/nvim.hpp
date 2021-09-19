@@ -10,6 +10,7 @@
 #include <msgpack.hpp>
 #include <atomic>
 #include <optional>
+#include "object.hpp"
 
 enum Type : std::uint64_t {
   Request = 0,
@@ -18,14 +19,14 @@ enum Type : std::uint64_t {
 };
 enum Notifications : std::uint8_t;
 enum Request : std::uint8_t;
-using msgpack_callback = std::function<void (msgpack::object_handle*)>;
+using msgpack_callback = std::function<void (Object)>;
 /// The Nvim class contains an embedded Neovim instance and
 /// some useful functions to receive output and send input
 /// using the msgpack-rpc protocol.
 class Nvim
 {
 private:
-  using response_cb = std::function<void (msgpack::object, msgpack::object)>;
+  using response_cb = std::function<void (Object, Object)>;
 public:
   ~Nvim();
   /**

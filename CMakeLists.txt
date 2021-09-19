@@ -67,6 +67,8 @@ file(GLOB SOURCES
   src/font.hpp
   src/grid.cpp
   src/grid.hpp
+  src/object.hpp
+  src/object.cpp
   src/decide_renderer.hpp
 )
 if (WIN32)
@@ -134,6 +136,8 @@ file(GLOB TEST_SOURCES
   src/font.hpp
   src/grid.cpp
   src/grid.hpp
+  src/object.hpp
+  src/object.cpp
   src/decide_renderer.hpp
 )
 if (WIN32)

@@ -1,9 +1,12 @@
 #include <catch2/catch.hpp>
 #include <sstream>
 #include "hlstate.hpp"
+#include "object.hpp"
+#include <unordered_map>
 
 TEST_CASE("default_colors are set properly", "[default_colors_set]")
 {
+  using namespace std::string_literals;
   HLState hl_state;
   // Params of "default_colors_set"
   SECTION("default_colors_set: Test #1")
@@ -18,7 +21,8 @@ TEST_CASE("default_colors are set properly", "[default_colors_set]")
     packer.pack(0); // cterm bg
     const auto oh = msgpack::unpack(ss.str().data(), ss.str().size());
     const msgpack::object& obj = oh.get();
-    hl_state.default_colors_set(obj);
+    auto parsed = Object::parse(obj);
+    hl_state.default_colors_set(parsed);
     const auto& def = hl_state.default_colors_get();
     REQUIRE(def.fg());
     REQUIRE(def.bg());

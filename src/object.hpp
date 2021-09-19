@@ -11,7 +11,8 @@
 #include <QByteArray>
 #include <QString>
 #include <string_view>
-#include <boost/container/small_vector.hpp>
+#include <boost/container/vector.hpp>
+#include <boost/container/flat_map.hpp>
 
 struct NeovimExt
 {
@@ -21,8 +22,8 @@ struct NeovimExt
 
 struct Object;
 /// Neovim's Dictionary type only uses strings as keys.
-using ObjectMap = std::unordered_map<std::string, Object>;
-using ObjectArray = std::vector<Object>;
+using ObjectMap = boost::container::flat_map<std::string, Object>;
+using ObjectArray = boost::container::vector<Object>;
 using variant_type = std::variant<
   std::monostate,
   int64_t,

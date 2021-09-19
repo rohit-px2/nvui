@@ -41,7 +41,13 @@ class Window : public QMainWindow
       std::tuple<std::optional<R>, std::optional<E>>
       (const msgpack::object_array&)>;
 public:
-  Window(QWidget* parent = nullptr, std::shared_ptr<Nvim> nv = nullptr, int width = 0, int height = 0);
+  Window(
+    QWidget* parent = nullptr,
+    Nvim* nv = nullptr,
+    int width = 0,
+    int height = 0,
+    bool custom_titlebar = false
+  );
   /**
    * Registers all of the relevant gui event handlers
    * for handling Neovim redraw events, as well as a Neovim

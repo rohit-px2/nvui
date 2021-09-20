@@ -139,6 +139,7 @@ jobs:
       - name: Mac - Build nvui and nvui_test using vcpkg
         if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg && matrix.macosver
         run: |
+          /bin/bash -c "sudo xcode-select -s /Applications/Xcode_12.app/Contents/Developer"
           brew install make
           cmake -B build . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -DVCPKG_OSX_DEPLOYMENT_TARGET=${{ matrix.macosver }}
       - name: Build nvui and nvui_test using vcpkg

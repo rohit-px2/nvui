@@ -156,4 +156,15 @@ V find_or_default(const Map& m, const K& k, const V& v)
   return it->second;
 }
 
+template<std::size_t idx = 0, typename... Types, typename Func>
+void for_each_in_tuple(std::tuple<Types...>& t, Func&& f)
+{
+  constexpr auto s = std::integral_constant<std::size_t, idx> {};
+  f(std::get<s>(t));
+  if constexpr(idx != sizeof...(Types) - 1)
+  {
+    for_each_in_tuple<idx + 1>(t, std::forward<Func>(f));
+  }
+}
+
 #endif // NVUI_UTILS_HPP

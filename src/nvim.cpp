@@ -153,12 +153,9 @@ void Nvim::read_output_sync()
     if (!msg_size) continue;
     std::string_view sv {buf, msg_size};
     std::size_t offset = 0;
-    //using Clock = std::chrono::high_resolution_clock;
-    //using dur = std::chrono::duration<double, std::milli>;
     while(offset < msg_size)
     {
       auto parsed = Object::from_msgpack(sv, offset);
-      //fmt::print("{}\n", parsed.to_string());
       auto* arr = parsed.array();
       if (!(arr && (arr->size() == 3 || arr->size() == 4))) continue;
       const auto msg_type = arr->at(0).u64();

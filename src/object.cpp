@@ -96,14 +96,8 @@ void Object::to_stream(std::stringstream& ss) const
     },
     [&](const bool& b) { ss << b; },
     [&](const double& d) { ss << d; },
-    [&](const QByteArray& ba) {
-      ss << '[';
-      for(int i = 0; i < ba.size() - 1; ++i)
-      {
-        ss << static_cast<std::uint8_t>(ba.at(i));
-      }
-      if (!ba.isEmpty()) ss << static_cast<std::uint8_t>(ba.back());
-      ss << ']';
+    [&](const Error& err) {
+      ss << "Error: " << err.msg << '\n';
     }
   }, *this);
 }
@@ -116,7 +110,12 @@ std::string Object::to_string() const
   return ss.str();
 }
 
-
+/// Visitor that satisfies msgpack's visitor requirements
+/// that parses messagepack data to an Object.
+/// The final object is stored in "result".
+/// To check if an error occurred during parsing,
+/// check the 'error' variable. If no error occurred,
+/// the error has value MsgpackVisitor::Error::None.
 struct MsgpackVisitor
 {
   enum Error
@@ -125,9 +124,11 @@ struct MsgpackVisitor
     InsufficentBytes,
     Parse
   };
+  MsgpackVisitor(Object& o): result(o), stack() {}
+  Object& result;
   Error error = Error::None;
+  bool in_map = false;
   bool map_key_ended = false;
-  Object result {};
   Object* current = nullptr;
   std::stack<Object*, std::vector<Object*>> stack;
   const std::string* cur_key = nullptr;
@@ -150,10 +151,11 @@ struct MsgpackVisitor
     obj->get<ObjectMap>().reserve(len);
     current = obj;
     map_key_ended = false; // Key goes in 1st
+    in_map = true;
     return true;
   }
 
-  bool end_map() { pop_stack(); return true; }
+  bool end_map() { pop_stack(); in_map = false; return true; }
   bool end_array() { pop_stack(); return true; }
   bool start_array_item() { return true; }
   bool end_array_item() { return true; }
@@ -211,10 +213,9 @@ struct MsgpackVisitor
     return true;
   }
 
-
   bool visit_str(const char* v, std::uint32_t len)
   {
-    if (current && current->has<ObjectMap>() && !map_key_ended)
+    if (in_map && !map_key_ended)
     {
       place(std::string(v, len));
       return true;
@@ -243,7 +244,7 @@ private:
     current = stack.top();
     stack.pop();
   }
-  
+
   /// Place the arg where it should go and return a pointer to
   /// it (most of the time).
   template<typename T>
@@ -285,18 +286,18 @@ private:
 
 Object Object::from_msgpack(std::string_view sv, std::size_t& offset)
 {
-  MsgpackVisitor v;
+  Object obj;
+  MsgpackVisitor v {obj};
   msgpack::parse(sv.data(), sv.size(), offset, v);
-  if (v.error != MsgpackVisitor::Error::None)
+  switch(v.error)
   {
-    fmt::print(
-      "Error occurred while parsing messagepack string: "
-      "{}\n",
-      v.error == MsgpackVisitor::Error::InsufficentBytes
-        ? "Insufficient Bytes" : "Parse error"
-    );
-    return Object();
+    case MsgpackVisitor::Error::None:
+      return obj;
+    case MsgpackVisitor::Error::InsufficentBytes:
+      return Error {"Insufficient Bytes"};
+    case MsgpackVisitor::Error::Parse:
+      return Error {"Parse error"};
+    default:
+      return Error {""};
   }
-  Object o = std::move(v.result);
-  return o;
 }

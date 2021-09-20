@@ -13,11 +13,17 @@
 #include <string_view>
 #include <boost/container/vector.hpp>
 #include <boost/container/flat_map.hpp>
+#include "utils.hpp"
 
 struct NeovimExt
 {
   std::int8_t type;
   std::string data; // Preserve byte layout
+};
+
+struct Error
+{
+  std::string_view msg; // Constant message
 };
 
 struct Object;
@@ -34,8 +40,8 @@ using variant_type = std::variant<
   bool,
   NeovimExt,
   std::string,
-  QByteArray,
-  double
+  double,
+  Error
 >;
 
 struct Object : public variant_type
@@ -59,6 +65,7 @@ struct Object : public variant_type
   auto* boolean() { return get_if<bool>(this); }
   auto* f64() { return get_if<double>(this); }
   auto* ext() { return get_if<NeovimExt>(this); }
+  auto* err() { return get_if<Error>(this); }
   // Const versions
   auto* array() const { return get_if<ObjectArray>(this); }
   auto* string() const { return get_if<QString>(this); }
@@ -68,7 +75,9 @@ struct Object : public variant_type
   auto* boolean() const { return get_if<bool>(this); }
   auto* f64() const { return get_if<double>(this); }
   auto* ext() const { return get_if<NeovimExt>(this); }
-  bool is_null() const { return std::holds_alternative<std::monostate>(*this); }
+  auto* err() const { return get_if<Error>(this); }
+  bool is_null() const { return has<std::monostate>(); }
+  bool has_err() const { return has<Error>(); }
   template<typename T>
   bool has() const
   {
@@ -86,6 +95,22 @@ struct Object : public variant_type
       {
         throw std::bad_variant_access();
       }
+    }, *this);
+  }
+
+  template<typename T>
+  bool convertible() const
+  {
+    return std::visit([](const auto& val) -> bool {
+      return std::is_convertible_v<decltype(val), T>;
+    }, *this);
+  }
+
+  template<typename T>
+  bool is_convertible() const
+  {
+    return std::visit([](const auto& v) {
+      return std::is_convertible_v<decltype(v), T>;
     }, *this);
   }
 
@@ -112,6 +137,31 @@ struct Object : public variant_type
       }
       return std::nullopt;
     }, *this);
+  }
+
+  /// Decompose an Object to multiple values.
+  /// The Object you call this on must be an ObjectArray.
+  /// If type conversion fails for any value, std::nullopt
+  /// is returned.
+  template<typename... T>
+  std::optional<std::tuple<T...>> decompose() const
+  {
+    assert(has<ObjectArray>());
+    //using opt_tuple_type = std::optional<std::tuple<T...>>;
+    const auto& arr = get<ObjectArray>();
+    std::tuple<T...> t;
+    std::size_t idx = 0;
+    bool valid = true;
+    if (sizeof...(T) > arr.size()) return {};
+    for_each_in_tuple(t, [&](auto& elem) {
+      using elem_type = std::remove_reference_t<decltype(elem)>;
+      auto v = arr.at(idx).get_as<elem_type>();
+      if (!v) { valid = false; }
+      else elem = *v;
+      ++idx;
+    });
+    if (valid) return t;
+    return {};
   }
 
 public:

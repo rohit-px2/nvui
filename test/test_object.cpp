@@ -4,7 +4,7 @@
 #include <iostream>
 
 template<typename T>
-msgpack::object_handle pack(const T& t)
+msgpack::object_handle pack_unpack(const T& t)
 {
   std::stringstream ss;
   msgpack::pack(ss, t);
@@ -30,7 +30,7 @@ TEST_CASE("Object parsing works", "[Object]")
     test_primitive(true, msgpack::type::BOOLEAN);
     test_primitive(double(42.3), msgpack::type::FLOAT64);
     std::string s = "hello";
-    auto oh = pack(s);
+    msgpack::object_handle oh = pack_unpack(s);
     const auto& o = oh.get();
     auto parsed = Object::parse(o);
     REQUIRE(std::holds_alternative<QString>(parsed));
@@ -40,9 +40,7 @@ TEST_CASE("Object parsing works", "[Object]")
   {
     {
       std::vector<int64_t> v {-1, -2, -3, -4};
-      std::stringstream ss;
-      msgpack::pack(ss, v);
-      auto oh = msgpack::unpack(ss.str().data(), ss.str().size());
+      auto oh = pack_unpack(v);
       const auto& o = oh.get();
       REQUIRE(o.type == msgpack::type::ARRAY);
       REQUIRE(o.via.array.size == v.size());

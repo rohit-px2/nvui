@@ -48,17 +48,6 @@ static void windows_setup_frameless(HWND hwnd)
 
 using u32 = std::uint32_t;
 
-template<std::size_t idx = 0, typename... Types, typename Func>
-void for_each_in_tuple(std::tuple<Types...>& t, Func&& f)
-{
-  constexpr auto s = std::integral_constant<std::size_t, idx> {};
-  f(std::get<s>(t));
-  if constexpr(idx != sizeof...(Types) - 1)
-  {
-    for_each_in_tuple<idx + 1>(t, std::forward<Func>(f));
-  }
-}
-
 /**
  * Automatically unpack ObjectArray into the desired parameters,
  * or exit if it doesn't match.
@@ -114,8 +103,6 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
 
 void Window::handle_redraw(Object redraw_args)
 {
-  //fmt::print("{}\n", redraw_args.to_string());
-  //std::stringstream ss;
   auto* arr = redraw_args.array();
   assert(arr && arr->size() >= 3);
   auto* args = arr->at(2).array();
@@ -127,7 +114,6 @@ void Window::handle_redraw(Object redraw_args)
     auto* task_qstr = task->at(0).string();
     if (!task_qstr) continue;
     auto task_name = task_qstr->toStdString();
-    //fmt::print("Current task: {}\n", task_name);
     const auto func_it = handlers.find(task_name);
     if (func_it != handlers.end())
     {

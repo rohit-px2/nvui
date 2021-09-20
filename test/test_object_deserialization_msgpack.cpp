@@ -24,4 +24,18 @@ TEST_CASE("Object correctly deserialies from msgpack")
       REQUIRE(*opt == x[i]);
     }
   }
+  SECTION("Error parsing")
+  {
+    msgpack::sbuffer sbuf;
+    std::vector<std::uint64_t> x {1, 2, 3, 4, 5, 6};
+    msgpack::pack(sbuf, x);
+    // Reducing the size of the string view by 1
+    // causes it to not read the "array end" message,
+    // causing an error (it tries to read more elements).
+    std::string_view sv(sbuf.data(), sbuf.size() - 1);
+    std::size_t offset = 0;
+    Object o = Object::from_msgpack(sv, offset);
+    REQUIRE(o.has_err());
+    REQUIRE(o.get<Error>().msg == "Insufficient Bytes");
+  }
 }

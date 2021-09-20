@@ -135,11 +135,10 @@ void EditorArea::grid_resize(std::span<NeovimObj> objs)
   // Should only run once
   for(const auto& obj : objs)
   {
-    auto* arr = obj.array();
-    assert(arr && arr->size() >= 3);
-    auto grid_num = arr->at(0).get<u64>();
-    auto width = arr->at(1).get<u64>();
-    auto height = arr->at(2).get<u64>();
+    assert(obj.array() && obj.array()->size() >= 3);
+    auto vars = obj.decompose<u64, u64, u64>();
+    if (!vars) continue;
+    auto [grid_num, width, height] = *vars;
     assert(grid_num != 0);
     GridBase* grid = find_grid(grid_num);
     if (grid)
@@ -151,7 +150,6 @@ void EditorArea::grid_resize(std::span<NeovimObj> objs)
       create_grid(0, 0, width, height, grid_num);
       grid = find_grid(grid_num);
       // Created grid appears above all others
-      grid->z_index = grids.size() - 1;
     }
     if (grid)
     {
@@ -223,12 +221,13 @@ void EditorArea::grid_line(std::span<NeovimObj> objs)
 void EditorArea::grid_cursor_goto(std::span<NeovimObj> objs)
 {
   if (objs.empty()) return;
-  auto& obj = objs.back();
+  const auto& obj = objs.back();
   auto* arr = obj.array();
+  Q_UNUSED(arr);
   assert(arr && arr->size() >= 3);
-  std::uint16_t grid_num = arr->at(0);
-  int row = arr->at(1);
-  int col = arr->at(2);
+  auto vars = obj.decompose<u16, int, int>();
+  if (!vars) return;
+  auto [grid_num, row, col] = *vars;
   GridBase* grid = find_grid(grid_num);
   if (!grid) return;
   neovim_cursor.go_to({grid_num, grid->x, grid->y, row, col});
@@ -299,24 +298,21 @@ void EditorArea::win_pos(std::span<NeovimObj> objs)
   for(const auto& obj : objs)
   {
     auto* arr = obj.array();
+    Q_UNUSED(arr);
     assert(arr && arr->size() >= 6);
-    const auto* grid_num = arr->at(0).u64();
-    const auto* sr = arr->at(2).u64();
-    const auto* sc = arr->at(3).u64();
-    const auto* width = arr->at(4).u64();
-    const auto* height = arr->at(5).u64();
-    assert(grid_num && sr && sc && width && height);
-    GridBase* grid = find_grid(*grid_num);
+    auto vars = obj.decompose<u64, NeovimExt, u64, u64, u64, u64>();
+    if (!vars) continue;
+    auto [grid_num, ext, sr, sc, width, height] = *vars;
+    GridBase* grid = find_grid(grid_num);
     if (!grid)
     {
-      fmt::print("No grid #{} found.\n", *grid_num);
+      fmt::print("No grid #{} found.\n", grid_num);
       continue;
     }
-    shift_z(grid->z_index);
     grid->hidden = false;
-    grid->set_pos(*sc, *sr);
-    grid->set_size(*width, *height);
-    grid->z_index = grids.size() - 1;
+    grid->set_pos(sc, sr);
+    grid->set_size(width, height);
+    grid->winid = get_win(ext);
     QRect r(0, 0, grid->cols, grid->rows);
   }
   send_redraw();
@@ -340,37 +336,27 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
   {
     auto* arr = obj.array();
     if (!(arr && arr->size() >= 7)) continue;
-    auto grid_num = arr->at(0).u64();
-    // auto win = arr->at(1).ext();
-    auto anchor_dir = arr->at(2).string();
-    auto anchor_grid_num = arr->at(3).u64();
-    auto anchor_row_f = arr->at(4).f64();
-    auto anchor_col_f = arr->at(5).f64();
-    assert(
-      grid_num && anchor_dir
-      && anchor_grid_num && anchor_row_f
-      && anchor_col_f
-    );
-    int anchor_row = *anchor_row_f;
-    int anchor_col = *anchor_col_f;
+    auto vars = obj.decompose<u64, NeovimExt, QString, u64, int, int>();
+    if (!vars) continue;
+    auto [grid_num, win, anchor_dir, anchor_grid_num, anchor_row, anchor_col] = *vars;
     QPoint anchor_rel = {anchor_col, anchor_row};
     //bool focusable = arr.ptr[6].as<bool>();
-    GridBase* grid = find_grid(*grid_num);
-    GridBase* anchor_grid = find_grid(*anchor_grid_num);
+    GridBase* grid = find_grid(grid_num);
+    GridBase* anchor_grid = find_grid(anchor_grid_num);
     if (!grid || !anchor_grid) continue;
     // Anchor dir is "NW", "SW", "SE", "NE"
     // The anchor direction indicates which corner of the grid
     // should be at the position given.
     QPoint anchor_pos = anchor_grid->top_left() + anchor_rel;
-    if (*anchor_dir == "SW")
+    if (anchor_dir == "SW")
     {
       anchor_pos -= QPoint(0, grid->rows);
     }
-    else if (*anchor_dir == "SE")
+    else if (anchor_dir == "SE")
     {
       anchor_pos -= QPoint(grid->cols, grid->rows);
     }
-    else if (*anchor_dir == "NE")
+    else if (anchor_dir == "NE")
     {
       anchor_pos -= QPoint(grid->cols, 0);
     }
@@ -378,11 +364,10 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
     {
       // NW, no need to do anything
     }
-    shift_z(grid->z_index);
     bool were_animations_enabled = animations_enabled();
     set_animations_enabled(false);
     grid->set_pos(anchor_pos);
-    grid->z_index = grids.size() - 1;
+    grid->winid = get_win(win);
     set_animations_enabled(were_animations_enabled);
   }
 }
@@ -404,14 +389,11 @@ void EditorArea::win_viewport(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto* arr = obj.array();
-    assert(arr && arr->size() >= 6);
-    auto grid_num = arr->at(0).get<u64>();
-    // auto ext = arr->at(1).get<NeovimExt>();
-    u32 topline = arr->at(2);
-    u32 botline = arr->at(3);
-    u32 curline = arr->at(4);
-    u32 curcol = arr->at(5);
+    //auto* arr = obj.array();
+    assert(obj.array());
+    auto vars = obj.decompose<u64, NeovimExt, u32, u32, u32, u32>();
+    if (!vars) continue;
+    auto [grid_num, ext, topline, botline, curline, curcol] = *vars;
     Viewport vp = {topline, botline, curline, curcol};
     auto* grid = find_grid(grid_num);
     if (!grid) continue;
@@ -436,16 +418,16 @@ void EditorArea::msg_set_pos(std::span<NeovimObj> objs)
   for(const auto& obj : objs)
   {
     auto* arr = obj.array();
+    Q_UNUSED(arr);
     assert(arr && arr->size() >= 4);
-    auto grid_num = *arr->at(0).u64();
-    auto row = *arr->at(1).u64();
+    auto vars = obj.decompose<u64, u64>();
+    if (!vars) continue;
+    auto [grid_num, row] = *vars;
     //auto scrolled = arr.ptr[2].as<bool>();
     //auto sep_char = arr.ptr[3].as<QString>();
     if (GridBase* grid = find_grid(grid_num))
     {
-      shift_z(grid->z_index);
       grid->set_pos(grid->x, row);
-      grid->z_index = grids.size() - 1;
     }
   }
   send_redraw();
@@ -753,13 +735,11 @@ void EditorArea::grid_scroll(std::span<NeovimObj> objs)
   for(const auto& obj : objs)
   {
     auto* arr = obj.array();
+    Q_UNUSED(arr);
     assert(arr && arr->size() >= 7);
-    const u16 grid_num = arr->at(0);
-    const u16 top = arr->at(1);
-    const u16 bot = arr->at(2);
-    const u16 left = arr->at(3);
-    const u16 right = arr->at(4);
-    const int rows = arr->at(5);
+    auto vars = obj.decompose<u16, u16, u16, u16, u16, int>();
+    if (!vars) continue;
+    const auto [grid_num, top, bot, left, right, rows] = *vars;
     // const int cols = arr->at(6);
     GridBase* grid = find_grid(grid_num);
     if (!grid) return;

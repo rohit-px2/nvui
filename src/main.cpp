@@ -76,7 +76,7 @@ bool is_executable(std::string_view path)
   return file_info.exists() && file_info.isExecutable();
 }
 
-Q_DECLARE_METATYPE(msgpack::object);
+Q_DECLARE_METATYPE(msgpack::object)
 Q_DECLARE_METATYPE(msgpack::object_handle*)
 
 int main(int argc, char** argv)

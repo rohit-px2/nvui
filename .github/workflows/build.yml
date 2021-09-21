@@ -2,22 +2,43 @@ name: build-and-test
 on: [push, pull_request]
 
 jobs:
-  linux:
-    runs-on: ubuntu-latest
+  unix:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - buildtype: 'Debug'
+          - os: ubuntu-latest
+            buildtype: 'Debug'
             cc: clang-12
             cxx: clang++-12
             test: true
             upload: false
-          - buildtype: 'Release'
+
+          - os: ubuntu-latest
+            buildtype: 'Release'
             cc: clang-12
             cxx: clang++-12
             test: false
             upload: true
+            use_vcpkg: true
+
+          - os: macos-latest
+            macosver: '10.15.7'
+            buildtype: 'Debug'
+            cc: clang
+            cxx: clang++
+            test: true
+            upload: false
+
+          - os: macos-latest
+            buildtype: 'Release'
+            macosver: '10.15.7'
+            cc: clang
+            cxx: clang++
+            test: false
+            upload: true
+            use_vcpkg: true
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 500
     env:
       CC: ${{ matrix.cc }}
@@ -26,52 +47,140 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
-      - name: Update
+      - name: Ubuntu - Update
+        if: startsWith(matrix.os, 'ubuntu')
         run: sudo apt update
-      - name: Install Snap (to install Neovim nightly)
-        if: matrix.test
+
+      - name: Ubuntu - Install Snap (to install Neovim nightly)
+        if: matrix.test && startsWith(matrix.os, 'ubuntu')
         run: sudo apt install snapd
-      - name: Install Neovim Nightly
-        if: matrix.test
+
+      - name: Ubuntu - Install Neovim Nightly
+        if: matrix.test && startsWith(matrix.os, 'ubuntu')
         run: sudo snap install --edge nvim --classic
-      - name: Add Neovim to PATH
-        if: matrix.test
+
+      - name: Mac - Install Neovim Nightly
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          curl -LO https://github.com/neovim/neovim/releases/download/v0.5.0/nvim-macos.tar.gz
+          tar xzvf nvim-macos.tar.gz
+          echo "$(cd nvim-osx64/bin; pwd)" >> $GITHUB_PATH
+
+      - name: Ubuntu - Add Neovim to PATH
+        if: matrix.test && startsWith(matrix.os, 'ubuntu')
         run: echo "/snap/bin" >> $GITHUB_PATH
         shell: bash
-      - name: Install dependencies for vcpkg packages
+
+      - name: Ubuntu - Install vcpkg dependencies
+        if: startsWith(matrix.os, 'ubuntu') && matrix.use_vcpkg
         run: >
           sudo apt-get install gperf autoconf build-essential libtool
           libgl1-mesa-dev libxi-dev libx11-dev libxext-dev
           libxkbcommon-x11-dev libglu1-mesa-dev libx11-xcb-dev
           '^libxcb.*-dev' libxrender-dev ninja-build curl
           zip unzip tar autopoint python
-      - name: Restore deps
+
+      - name: Mac - Install vcpkg dependencies
+        if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg
+        run: |
+          brew install automake
+
+      - name: Restore vcpkg packages
+        if: matrix.use_vcpkg
         uses: actions/cache@v2
         with:
           path: |
             build/vcpkg_installed
-          key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
-      - name: Build nvui and nvui_test in Debug mode
-        if: matrix.buildtype == 'Debug'
+          key: ${{ matrix.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
+
+      - name: Ubuntu - Install dependencies from system package manager
+        if: ${{ startsWith(matrix.os, 'ubuntu') && !matrix.use_vcpkg }}
+        run: >
+          sudo apt-get install libmsgpack-dev libfmt-dev libboost-all-dev
+          mesa-common-dev libglu1-mesa-dev
+
+      - name: Ubuntu - Install Catch2
+        if: ${{ startsWith(matrix.os, 'ubuntu') && !matrix.use_vcpkg }}
         run: |
-          chmod +x ./scripts/linux/build-debug.sh
-          ./scripts/linux/build-debug.sh
+          git clone https://github.com/catchorg/Catch2.git
+          cd Catch2
+          git checkout v2.x
+          cmake -B build -H. -DBUILD_TESTING=OFF
+          cd build
+          sudo make install
+
+      - name: Ubuntu - Install msgpack
+        if: ${{ startsWith(matrix.os, 'ubuntu') && !matrix.use_vcpkg }}
+        run: |
+          git clone https://github.com/msgpack/msgpack-c msgpack
+          cd msgpack
+          git checkout cpp_master
+          cmake .
+          sudo make install
+
+      - name: Ubuntu - Install Qt and set Qt5_DIR
+        if: ${{ startsWith(matrix.os, 'ubuntu') && !matrix.use_vcpkg }}
+        run: |
+          python3 -m pip install aqtinstall
+          python3 -m aqt install -O ./Qt 5.15.2 linux desktop -m qtsvg
+          echo "Qt5_DIR=$(cd Qt/5.15.2/gcc_64/lib/cmake/Qt5; pwd)" >> $GITHUB_ENV
+
+      - name: Mac - Install dependencies
+        if: ${{ startsWith(matrix.os, 'macos') && !matrix.use_vcpkg }}
+        run: |
+          brew install fmt boost qt@5 msgpack-cxx catch2
+          sudo ln -s /usr/local/Cellar/qt@5/5.15.2/plugins /usr/local/plugins
+
+      - name: Mac - Set environment variables
+        if: ${{ startsWith(matrix.os, 'macos') && !matrix.use_vcpkg }}
+        run: |
+          echo "Qt5_DIR=/usr/local/Cellar/qt@5/5.15.2/lib/cmake/Qt5" >> $GITHUB_ENV
+          echo "fmt_DIR=/usr/local/Cellar/fmt/8.0.1" >> $GITHUB_ENV
+      
+      - name: Mac - Build nvui and nvui_test using vcpkg
+        if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg && matrix.macosver
+        run: |
+          /bin/bash -c "sudo xcode-select -s /Applications/Xcode_12.app/Contents/Developer"
+          brew install make
+          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -DVCPKG_OSX_DEPLOYMENT_TARGET=${{ matrix.macosver }}
+      - name: Build nvui and nvui_test using vcpkg
+        if: matrix.use_vcpkg
+        run: |
+          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
+          cmake --build build --config ${{ matrix.buildtype }}
+
+      - name: Build nvui and nvui_test
+        if: ${{ !matrix.use_vcpkg }}
+        run: |
+          cmake -B build . -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
+          cmake --build build --config ${{ matrix.buildtype }}
       - name: Run tests
         if: matrix.test
         run: ./build/nvui_test
-      - name: Copy executable and assets into a folder
+
+      - name: Package (Ubuntu & Mac)
         if: matrix.upload
         run: |
+          ls build
           chmod +x ./scripts/linux/package.sh
-          chmod +x ./scripts/linux/build-release.sh
           ./scripts/linux/package.sh
-      - name: Upload artifact
+
+      - name: Ubuntu - Upload artifact
         uses: actions/upload-artifact@v2
-        if: matrix.upload
+        if: matrix.upload && startsWith(matrix.os, 'ubuntu')
         with:
           name: nvui-linux-x64
           if-no-files-found: ignore
           path: build/packaged
+
+      - name: Mac - Upload artifact
+        uses: actions/upload-artifact@v2
+        if: matrix.upload && startsWith(matrix.os, 'macos')
+        with:
+          name: nvui-macos-x64
+          if-no-files-found: ignore
+          path: build/packaged
+
       - name: Prepare release zip
         if: matrix.upload && startsWith(github.ref, 'refs/tags/')
         run: |

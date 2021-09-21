@@ -19,8 +19,8 @@ TEST_CASE("Object parsing works", "[Object]")
     REQUIRE(o.type == type);
     auto parsed = Object::parse(o);
     using prim_type = std::remove_reference_t<decltype(prim)>;
-    REQUIRE(std::holds_alternative<prim_type>(parsed));
-    REQUIRE(std::get<decltype(prim)>(parsed) == prim);
+    REQUIRE(parsed.has<prim_type>());
+    REQUIRE(parsed.get<decltype(prim)>() == prim);
   };
   SECTION("Primitives")
   {
@@ -33,8 +33,8 @@ TEST_CASE("Object parsing works", "[Object]")
     msgpack::object_handle oh = pack_unpack(s);
     const auto& o = oh.get();
     auto parsed = Object::parse(o);
-    REQUIRE(std::holds_alternative<QString>(parsed));
-    REQUIRE(std::get<QString>(parsed) == s.c_str());
+    REQUIRE(parsed.has<QString>());
+    REQUIRE(parsed.get<QString>() == s.c_str());
   }
   SECTION("Arrays")
   {
@@ -45,13 +45,13 @@ TEST_CASE("Object parsing works", "[Object]")
       REQUIRE(o.type == msgpack::type::ARRAY);
       REQUIRE(o.via.array.size == v.size());
       auto parsed = Object::parse(o);
-      REQUIRE(std::holds_alternative<ObjectArray>(parsed));
-      const auto& omap = std::get<ObjectArray>(parsed);
+      REQUIRE(parsed.has<ObjectArray>());
+      const auto& omap = parsed.get<ObjectArray>();
       for(std::size_t i = 0; i < omap.size(); ++i)
       {
         using val_type = decltype(v)::value_type;
-        REQUIRE(std::holds_alternative<val_type>(omap.at(i)));
-        REQUIRE(std::get<val_type>(omap.at(i)) == v.at(i));
+        REQUIRE(omap.at(i).has<val_type>());
+        REQUIRE(omap.at(i).get<val_type>() == v.at(i));
       }
     }
     {
@@ -63,13 +63,13 @@ TEST_CASE("Object parsing works", "[Object]")
       REQUIRE(o.type == msgpack::type::ARRAY);
       REQUIRE(o.via.array.size == v.size());
       auto parsed = Object::parse(o);
-      REQUIRE(std::holds_alternative<ObjectArray>(parsed));
-      const auto& omap = std::get<ObjectArray>(parsed);
+      REQUIRE(parsed.has<ObjectArray>());
+      const auto& omap = parsed.get<ObjectArray>();
       for(std::size_t i = 0; i < omap.size(); ++i)
       {
         using val_type = QString;
-        REQUIRE(std::holds_alternative<val_type>(omap.at(i)));
-        REQUIRE(std::get<val_type>(omap.at(i)) == QString::fromStdString(v.at(i)));
+        REQUIRE(omap.at(i).has<val_type>());
+        REQUIRE(omap.at(i).get<val_type>() == QString::fromStdString(v.at(i)));
       }
     }
   }
@@ -87,14 +87,14 @@ TEST_CASE("Object parsing works", "[Object]")
     REQUIRE(o.type == msgpack::type::MAP);
     REQUIRE(o.via.map.size == static_cast<uint32_t>(mp.size()));
     auto parsed = Object::parse(o);
-    REQUIRE(std::holds_alternative<ObjectMap>(parsed));
-    const auto& omap = std::get<ObjectMap>(parsed);
+    REQUIRE(parsed.has<ObjectMap>());
+    const auto& omap = parsed.get<ObjectMap>();
     REQUIRE(omap.size() == static_cast<uint32_t>(mp.size()));
     for(const auto& [key, val] : omap)
     {
       REQUIRE(mp.contains(key));
       // string type gets parsed to QString
-      REQUIRE(std::holds_alternative<QString>(val));
+      REQUIRE(val.has<QString>());
     }
   }
 }

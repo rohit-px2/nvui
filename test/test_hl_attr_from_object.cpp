@@ -29,6 +29,6 @@ TEST_CASE("hl_attr_from_object works", "[hl_attr_from_object]")
     REQUIRE(resulting_attr.hl_id == 107);
     REQUIRE(!resulting_attr.bg().has_value());
     REQUIRE(resulting_attr.fg().has_value());
-    REQUIRE(resulting_attr.fg().value() == Color(rgb));
+    REQUIRE(resulting_attr.fg().value().to_uint32() == rgb);
   }
 }

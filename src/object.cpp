@@ -99,7 +99,7 @@ void Object::to_stream(std::stringstream& ss) const
     [&](const Error& err) {
       ss << "Error: " << err.msg << '\n';
     }
-  }, *this);
+  }, v);
 }
 
 std::string Object::to_string() const

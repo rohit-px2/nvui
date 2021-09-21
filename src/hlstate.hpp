@@ -61,7 +61,7 @@ struct AttrState
   Kind kind;
   std::string hi_name;
   std::string ui_name;
-  uint16 id;
+  int id;
 };
 
 enum FontOpts : std::uint8_t
@@ -90,10 +90,10 @@ public:
   float opacity = 1;
   HLAttr();
   HLAttr(int id);
-  HLAttr(const HLAttr& other);
-  HLAttr(HLAttr&& other);
+  HLAttr(const HLAttr& other) = default;
+  HLAttr(HLAttr&& other) = default;
   HLAttr& operator=(const HLAttr&) = default;
-  HLAttr& operator=(HLAttr&&);
+  HLAttr& operator=(HLAttr&&) = default;
   std::optional<Color> fg() const { return foreground; }
   std::optional<Color> bg() const { return background; }
   std::optional<Color> sp() const { return special; }

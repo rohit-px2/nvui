@@ -11,7 +11,7 @@ TEST_CASE("hl_attr_from_object works", "[hl_attr_from_object]")
   {
     uint64 rgb = 16753826;
     Object o = ObjectArray {
-      107,
+      uint64(107),
       ObjectMap {
         {"italic", true},
         {"foreground", rgb}
@@ -21,7 +21,7 @@ TEST_CASE("hl_attr_from_object works", "[hl_attr_from_object]")
         ObjectMap {
           {"kind", QString("syntax")},
           {"hi_name", QString("TSParameter")},
-          {"id", 107}
+          {"id", uint64(107)}
         }
       }
     };

@@ -111,14 +111,6 @@ struct Object
   }
 
   template<typename T>
-  bool is_convertible() const
-  {
-    return std::visit([](const auto& v) {
-      return std::is_convertible_v<decltype(v), T>;
-    }, v);
-  }
-
-  template<typename T>
   T& get()
   {
     return std::get<T>(v);

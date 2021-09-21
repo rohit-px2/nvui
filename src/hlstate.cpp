@@ -10,23 +10,27 @@ namespace hl
     using u32 = std::uint32_t;
     const auto* arr = obj.array();
     assert(arr && arr->size() >= 4);
-    const int id = static_cast<int>(*arr->at(0).u64());
+    assert(arr->at(0).convertible<int>());
+    const int id = arr->at(0);
     auto* map_ptr = arr->at(1).map();
     if (!map_ptr) return {};
     const ObjectMap& map = *map_ptr;
     HLAttr attr {id};
     if (map.contains("foreground"))
     {
-      attr.foreground = static_cast<u32>(*map.at("foreground").u64());
+      assert(map.at("foreground").convertible<u32>());
+      attr.foreground = (u32) map.at("foreground");
     }
     if (map.contains("background"))
     {
-      attr.background = static_cast<u32>(*map.at("background").u64());
+      assert(map.at("background").convertible<u32>());
+      attr.background = map.at("background");
     }
     if (map.contains("reverse")) attr.reverse = true;
     if (map.contains("special"))
     {
-      attr.special = static_cast<u32>(*map.at("special").u64());
+      assert(map.at("special").convertible<u32>());
+      attr.special = (u32) map.at("special");
     }
     if (map.contains("italic")) attr.font_opts |= FontOpts::Italic;
     if (map.contains("bold")) attr.font_opts |= FontOpts::Bold;
@@ -57,15 +61,15 @@ namespace hl
       }
       if (state_map->contains("kind"))
       {
+        assert(state_map->at("kind").string());
         state.hi_name = *state_map->at("kind").string() == "syntax"
           ? Kind::Syntax
           : Kind::UI;
       }
       if (state_map->contains("id"))
       {
-        auto* id_ptr = state_map->at("id").u64();
-        assert(id_ptr);
-        state.id = *id_ptr;
+        auto id = state_map->at("id").get_as<int>();
+        if (id) state.id = *id;
       }
       attr.state.push_back(std::move(state));
     }
@@ -83,35 +87,6 @@ HLAttr::HLAttr()
 HLAttr::HLAttr(int id)
 : hl_id(id) {}
 
-HLAttr::HLAttr(const HLAttr& other)
-: hl_id(other.hl_id),
-  reverse(other.reverse),
-  special(other.special),
-  foreground(other.foreground),
-  background(other.background),
-  state(other.state),
-  opacity(other.opacity) {}
-
-HLAttr::HLAttr(HLAttr&& other)
-: hl_id(other.hl_id),
-  reverse(other.reverse),
-  special(other.special),
-  foreground(other.foreground),
-  background(other.background),
-  state(std::move(other.state)),
-  opacity(other.opacity) {}
-
-HLAttr& HLAttr::operator=(HLAttr&& other)
-{
-  hl_id = other.hl_id;
-  foreground = other.foreground;
-  background = other.background;
-  special = other.special;
-  reverse = other.reverse;
-  state = std::move(other.state);
-  opacity = other.opacity;
-  return *this;
-}
 /*
    HLState Implementation
 */

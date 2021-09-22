@@ -920,11 +920,32 @@ std::string event_to_string(QKeyEvent* event, bool* special)
   }
 }
 
+/// Returns the modifier for the C- key
+static constexpr auto c_modifier()
+{
+#ifdef Q_OS_MAC
+  return Qt::MetaModifier;
+#else
+  return Qt::ControlModifier;
+#endif // Q_OS_MAC
+}
+
+/// Returns the modifier for the D- key
+static constexpr auto d_modifier()
+{
+#ifdef Q_OS_MAC
+  return Qt::ControlModifier;
+#else
+  return Qt::MetaModifier;
+#endif // Q_OS_MAC
+}
+
 void EditorArea::keyPressEvent(QKeyEvent* event)
 {
   event->accept();
   const auto modifiers = event->modifiers();
-  bool ctrl = modifiers & Qt::ControlModifier;
+  bool ctrl = modifiers & c_modifier();
+  bool meta = modifiers & d_modifier();
   bool shift = modifiers & Qt::ShiftModifier;
   bool alt = modifiers & Qt::AltModifier;
 #ifdef Q_OS_WIN
@@ -937,17 +958,17 @@ void EditorArea::keyPressEvent(QKeyEvent* event)
   std::string key = event_to_string(event, &is_special);
   if (text.isEmpty() || text.at(0).isSpace())
   {
-    nvim->send_input(ctrl, shift, alt, std::move(key), is_special);
+    nvim->send_input(ctrl, shift, alt, meta, std::move(key), is_special);
   }
   // Qt already factors in Shift+Ctrl into a lot of keys.
   // For the number keys, it doesn't factor in Ctrl though.
   else if (text.at(0).isNumber())
   {
-    nvim->send_input(ctrl, false, alt, std::move(key), is_special);
+    nvim->send_input(ctrl, false, alt, meta, std::move(key), is_special);
   }
   else
   {
-    nvim->send_input(false, false, alt, std::move(key), is_special);
+    nvim->send_input(false, false, alt, meta, std::move(key), is_special);
   }
 }
 

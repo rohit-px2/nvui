@@ -57,7 +57,14 @@ public:
    * If the key is a "Special" key, then it's given the angle brackets, even if
    * there are no modifiers attached. This is needed for things like <LT>, <Space>, <Tab> etc.
    */
-  void send_input(const bool ctrl, const bool shift, const bool alt, const std::string& key, bool is_special = false);
+  void send_input(
+    const bool c,
+    const bool s,
+    const bool a,
+    const bool d,
+    const std::string& key,
+    bool is_special = false
+  );
   /**
    * Sends the nvim_input message directly to Nvim with no processing,
    * which means you should have done the processing on your end.

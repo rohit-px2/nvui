@@ -355,15 +355,24 @@ msgpack::object_handle Nvim::get_api_info()
   return send_request_sync("nvim_get_api_info", std::array<int, 0> {});
 }
 
-void Nvim::send_input(const bool ctrl, const bool shift, const bool alt, const std::string& key, bool is_special)
+void Nvim::send_input(
+  const bool c,
+  const bool s,
+  const bool a,
+  const bool d,
+  const std::string& key,
+  bool is_special
+)
 {
   std::string input_string;
-  if (ctrl || shift || alt || is_special)
+  if (c || s || a || d || is_special)
   {
-    const std::string first = ctrl ? "C-" : "";
-    const std::string second = shift ? "S-" : "";
-    const std::string third = alt ? "M-" : "";
-    input_string = fmt::format("<{}{}{}{}>", first, second, third, key);
+    using fmt::format;
+    const std::string_view first = c ? "C-" : "";
+    const std::string_view second = s ? "S-" : "";
+    const std::string_view third = a ? "M-" : "";
+    const std::string_view fourth = d ? "D-" : "";
+    input_string = format("<{}{}{}{}{}>", first, second, third, fourth, key);
   }
   else
   {

@@ -25,9 +25,9 @@
 using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 
-static int get_offset(const QFont& font, const int linespacing)
+static float get_offset(const QFont& font, const float linespacing)
 {
-  QFontMetrics fm {font};
+  QFontMetricsF fm {font};
   return fm.ascent() + (linespacing / 2);
 }
 
@@ -575,21 +575,27 @@ QRect EditorArea::to_pixels(
   const std::uint16_t height
 )
 {
-  return {
+  return QRect(
     x * font_width, y * font_height, width * font_width, height * font_height
-  };
+  );
 }
 
 void EditorArea::update_font_metrics(bool)
 {
   QFontMetricsF metrics {font};
   float combined_height = std::max(metrics.height(), metrics.lineSpacing());
-  font_height = std::ceil(combined_height) + linespace;
+  font_height = combined_height + linespace;
   // NOTE: This will only work for monospace fonts since we're basing every char's
   // spocing off a single char.
   constexpr QChar any_char = 'a';
-  font_width = std::round(metrics.horizontalAdvance(any_char) + charspace);
+  font_width = metrics.horizontalAdvance(any_char) + charspace;
   font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
+  for(auto& f : fonts)
+  {
+    QFont old_font = f.font();
+    old_font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
+    f = old_font;
+  }
   popup_menu.font_changed(font, font_width, font_height, linespace);
 }
 
@@ -670,7 +676,7 @@ void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect&
   const int end_y = rect.bottom();
   const HLAttr& def_clrs = state->default_colors_get();
   const QFontMetrics metrics {font};
-  const int offset = get_offset(font, linespace);
+  const float offset = get_offset(font, linespace);
   const auto get_pos = [&](int x, int y, int num_chars) {
     float left = x * font_width;
     float top = y * font_height;
@@ -690,7 +696,7 @@ void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect&
   };
   for(int y = start_y; y <= end_y && y < grid.rows; ++y)
   {
-    QPointF start = {(double) grid.x * font_width, (double) (grid.y + y) * font_height};
+    QPointF start(grid.x * font_width, (grid.y + y) * font_height);
     std::uint16_t prev_hl_id = UINT16_MAX;
     u32 cur_font_idx = 0;
     for(int x = 0; x < grid.cols; ++x)
@@ -1007,7 +1013,7 @@ void EditorArea::draw_text_and_bg(
   const HLAttr& def_clrs,
   const QPointF& start,
   const QPointF& end,
-  const int offset,
+  const float offset,
   QFont font
 )
 {
@@ -1041,7 +1047,7 @@ void EditorArea::draw_cursor(QPainter& painter)
   if (gc.double_width) scale_factor = 2.0f;
   auto rect = neovim_cursor.rect(font_width, font_height, scale_factor).value();
   QFontMetrics fm {font};
-  const int offset = get_offset(font, linespace);
+  const float offset = get_offset(font, linespace);
   const auto pos = neovim_cursor.pos().value();
   const HLAttr& def_clrs = state->default_colors_get();
   const HLAttr& attr = state->attr_for_id(rect.hl_id);
@@ -1049,7 +1055,9 @@ void EditorArea::draw_cursor(QPainter& painter)
   painter.fillRect(rect.rect, QColor(bg.r, bg.g, bg.b));
   if (rect.should_draw_text)
   {
-    const QPoint bot_left = { (grid->x + pos.col) * font_width, (grid->y + pos.row) * font_height + offset};
+    float left = (grid->x + pos.col) * font_width;
+    float top = (grid->y + pos.row) * font_height + offset;
+    const QPointF bot_left {left, top};
     const Color fgc = rect.hl_id == 0
       ? *def_clrs.bg()
       : (attr.reverse
@@ -1079,7 +1087,7 @@ void EditorArea::draw_popup_menu()
   else
   {
     GridBase* grid = find_grid(grid_num);
-    assert(grid);
+    if (!grid) return;
     start_x = (grid->x + col) * font_width;
     start_y = (grid->y + row + 1) * font_height;
     // int p_width = popup_rect.width();

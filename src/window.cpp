@@ -382,7 +382,7 @@ void Window::register_handlers()
     if (is_frameless()) disable_frameless_window();
     else enable_frameless_window();
   });
-  listen_for_notification("NVUI_CHARSPACE", paramify<std::uint16_t>([this](std::uint16_t space) {
+  listen_for_notification("NVUI_CHARSPACE", paramify<float>([this](float space) {
     editor_area.set_charspace(space);
   }));
   listen_for_notification("NVUI_CARET_EXTEND", paramify<float, float>([this](float top, float bot) {

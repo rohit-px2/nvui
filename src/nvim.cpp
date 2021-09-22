@@ -82,50 +82,6 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   //++file_num;
 //}
 
-template<typename T>
-void Nvim::send_request(const std::string& method, const T& params, bool blocking)
-{
-  is_blocking.push_back(blocking);
-  Lock lock {input_mutex};
-  const std::uint64_t msg_type = Type::Request;
-  msgpack::sbuffer sbuf;
-  const auto msg = std::make_tuple(msg_type, current_msgid, method, params);
-  msgpack::pack(sbuf, msg);
-  // Potential for an exception when calling below code
-  try
-  {
-    auto written = stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
-    Q_UNUSED(written);
-    assert(written);
-    ++current_msgid;
-  }
-  catch (const std::exception& e)
-  {
-    std::cout << "Exception occurred: " << e.what() << '\n';
-  }
-}
-
-template<typename T>
-void Nvim::send_notification(const std::string& method, const T& params)
-{
-  // Same deal as Nvim::send_request, but for a notification this time
-  Lock lock {input_mutex};
-  const std::uint64_t msg_type = Type::Notification;
-  msgpack::sbuffer sbuf;
-  const auto msg = std::make_tuple(msg_type, method, params);
-  msgpack::pack(sbuf, msg);
-  try
-  {
-    auto written = stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
-    Q_UNUSED(written);
-    assert(written);
-  }
-  catch (const std::exception& e)
-  {
-    std::cout << "Exception occurred: " << e.what() << '\n';
-  }
-}
-
 void Nvim::resize(const int new_width, const int new_height)
 {
   send_notification("nvim_ui_try_resize", std::make_tuple(new_width, new_height));
@@ -427,18 +383,6 @@ void Nvim::on_exit(std::function<void ()> handler)
   on_exit_handler = std::move(handler);
 }
 
-template<typename T>
-void Nvim::send_request_cb(
-  const std::string& method,
-  const T& params,
-  response_cb cb
-)
-{
-  std::unique_lock<std::mutex> lock {response_cb_mutex};
-  singleshot_callbacks[current_msgid] = std::move(cb);
-  send_request(method, params, false);
-}
-
 void Nvim::resize_cb(const int width, const int height, response_cb cb)
 {
   send_request_cb("nvim_ui_try_resize", std::make_tuple(width, height), std::move(cb));
@@ -480,27 +424,6 @@ void Nvim::input_mouse(
   });
 }
 
-
-void Nvim::send_response(
-  std::uint64_t msgid,
-  msgpack::object res,
-  msgpack::object err
-)
-{
-  Lock lock {input_mutex};
-  const std::uint64_t type = Type::Response;
-  auto&& msg = std::tuple {type, msgid, err, res};
-  msgpack::sbuffer sbuf;
-  msgpack::pack(sbuf, msg);
-  try
-  {
-    stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
-  }
-  catch(...)
-  {
-    fmt::print("Could not send response. Msgid: {}\n", msgid);
-  }
-}
 
 Nvim::~Nvim()
 {

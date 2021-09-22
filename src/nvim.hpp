@@ -3,15 +3,19 @@
 
 #include <boost/process/pipe.hpp>
 #include <boost/process.hpp>
+#include <atomic>
+#include <functional>
+#include <iostream>
+#include <optional>
+#include <thread>
 #include <unordered_map>
 #include <vector>
-#include <functional>
-#include <thread>
 #include <msgpack.hpp>
-#include <atomic>
-#include <optional>
+#include <fmt/format.h>
+#include <fmt/core.h>
 
-enum Type : std::uint64_t {
+enum Type : std::uint64_t
+{
   Request = 0,
   Response = 1,
   Notification = 2
@@ -180,10 +184,11 @@ public:
    * Send the response to Neovim for the given msgid,
    * with the given error and result objects.
    */
+  template<typename Res, typename Err>
   void send_response(
     std::uint64_t msgid,
-    msgpack::object res,
-    msgpack::object err
+    const Res& res,
+    const Err& err
   );
 private:
   std::function<void ()> on_exit_handler = [](){};
@@ -221,5 +226,79 @@ private:
   template<typename T>
   msgpack::object_handle send_request_sync(const std::string& method, const T& params);
 };
+
+template<typename T>
+void Nvim::send_request(const std::string& method, const T& params, bool blocking)
+{
+  is_blocking.push_back(blocking);
+  std::unique_lock<std::mutex> lock {input_mutex};
+  const std::uint64_t msg_type = Type::Request;
+  msgpack::sbuffer sbuf;
+  const auto msg = std::make_tuple(msg_type, current_msgid, method, params);
+  msgpack::pack(sbuf, msg);
+  // Potential for an exception when calling below code
+  try
+  {
+    stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
+    ++current_msgid;
+  }
+  catch (const std::exception& e)
+  {
+    fmt::print("Exception occurred: {}\n", e.what());
+  }
+}
+
+template<typename T>
+void Nvim::send_notification(const std::string& method, const T& params)
+{
+  // Same deal as Nvim::send_request, but for a notification this time
+  std::unique_lock<std::mutex> lock {input_mutex};
+  const std::uint64_t msg_type = Type::Notification;
+  msgpack::sbuffer sbuf;
+  const auto msg = std::make_tuple(msg_type, method, params);
+  msgpack::pack(sbuf, msg);
+  try
+  {
+    stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
+  }
+  catch (const std::exception& e)
+  {
+    fmt::print("Exception occurred: {}\n", e.what());
+  }
+}
+
+template<typename Res, typename Err>
+void Nvim::send_response(
+  std::uint64_t msgid,
+  const Res& res,
+  const Err& err
+)
+{
+  std::unique_lock<std::mutex> lock {input_mutex};
+  const std::uint64_t type = Type::Response;
+  const auto msg = std::tuple {type, msgid, err, res};
+  msgpack::sbuffer sbuf;
+  msgpack::pack(sbuf, msg);
+  try
+  {
+    stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
+  }
+  catch(...)
+  {
+    fmt::print("Could not send response. Msgid: {}\n", msgid);
+  }
+}
+
+template<typename T>
+void Nvim::send_request_cb(
+  const std::string& method,
+  const T& params,
+  response_cb cb
+)
+{
+  std::unique_lock<std::mutex> lock {response_cb_mutex};
+  singleshot_callbacks[current_msgid] = std::move(cb);
+  send_request(method, params, false);
+}
 
 #endif

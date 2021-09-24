@@ -77,18 +77,22 @@ public:
     map.reserve(static_cast<int>(max_size));
   }
 
-  void put(K k, V v)
+  V* put(K k, V v)
   {
+    V* ptr = nullptr;
     auto it = map.find(k);
     if (it != map.end())
     {
       it->first = std::move(v);
+      ptr = &it->first;
       move_to_front(it->second);
     }
     else
     {
       keys.push_front(k);
-      map[k] = {v, keys.begin()};
+      auto& pair_ref = map[k];
+      pair_ref = {v, keys.begin()};
+      ptr = &pair_ref.first;
     }
     if (keys.size() > max_size)
     {
@@ -98,6 +102,7 @@ public:
       map.erase(erase_it);
       keys.pop_back();
     }
+    return ptr;
   }
 
   const V* get(const K& k)

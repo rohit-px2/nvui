@@ -609,10 +609,6 @@ QSize EditorArea::to_rc(const QSize& pixel_size)
 void EditorArea::paintEvent(QPaintEvent* event)
 {
   Q_UNUSED(event);
-#ifndef NDEBUG
-  using Clock = std::chrono::high_resolution_clock;
-  const auto start = Clock::now();
-#endif
   QPainter p(this);
   p.fillRect(rect(), default_bg());
   QRectF grid_clip_rect(0, 0, cols * font_width, rows * font_height);
@@ -638,10 +634,6 @@ void EditorArea::paintEvent(QPaintEvent* event)
   {
     draw_popup_menu();
   } else popup_menu.setVisible(false);
-#ifndef NDEBUG
-  const auto end = Clock::now();
-  std::cout << "Grid draw took " << std::chrono::duration<double, std::milli>(end - start).count() << "ms.\n";
-#endif
 }
 
 std::tuple<float, float> EditorArea::font_dimensions() const

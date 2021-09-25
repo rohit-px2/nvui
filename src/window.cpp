@@ -128,12 +128,6 @@ Window::Window(QWidget* parent, Nvim* nv, int width, int height, bool custom_tit
 
 void Window::handle_redraw(object_handle* redraw_args)
 {
-  //std::stringstream ss;
-  using std::cout;
-#ifndef NDEBUG
-  using Clock = std::chrono::high_resolution_clock;
-  const auto start = Clock::now();
-#endif
   const auto oh = safe_copy(redraw_args);
   const object& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
@@ -150,32 +144,15 @@ void Window::handle_redraw(object_handle* redraw_args)
     std::string task_name = task.ptr[0].as<std::string>();
     // Get corresponding handler
     const auto func_it = handlers.find(task_name);
-    //static const std::set<std::string> interesting {
-      //"win_hide", "win_close", "grid_line", "grid_resize",
-        //"grid_cursor_goto", "grid_destroy", "win_pos",
-        //"win_viewport", "msg_set_pos", "option_set", "win_float_pos"
-    //};
-    //if (interesting.contains(task_name))
-    //{
-      //ss << o << '\n';
-    //}
     if (func_it != handlers.end())
     {
       func_it->second(task.ptr + 1, task.size - 1);
-      //for(std::uint32_t j = 1; j < task.size; ++j)
-      //{
-        //func_it->second(this, arr.ptr[j]);
-      //}
     }
     else
     {
       //fmt::print("No handler found for task {}\n", std::move(task_name));
     }
   }
-#ifndef NDEBUG
-  const auto end = Clock::now();
-  std::cout << "Took " << std::chrono::duration<double, std::milli>(end - start).count() << " ms.\n";
-#endif
 }
 
 void Window::handle_bufenter(object_handle* bufe_args)

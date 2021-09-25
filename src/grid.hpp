@@ -258,14 +258,13 @@ public:
       }
       else ucs = c.at(0).unicode();
     }
-    //std::cout << "Set " << repeat << " texts at (" << row << ", " << col << ").\n";
     // Neovim should make sure this isn't out-of-bounds
     assert(col + repeat <= cols);
     for(std::uint16_t i = 0; i < repeat; ++i)
     {
-      // row * cols - get current row
-      assert(static_cast<std::size_t>(row * cols + col + i) < area.size());
-      area[row * cols + col + i] = {hl_id, c, is_dbl_width, ucs};
+      std::size_t idx = row * cols + col + i;
+      if (idx >= area.size()) return;
+      area[idx] = {hl_id, c, is_dbl_width, ucs};
     }
   }
 

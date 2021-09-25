@@ -178,7 +178,7 @@ void EditorArea::grid_line(NeovimObj obj, u32 size)
     //std::cout << "Grid line on grid " << grid_num << '\n';
     // Get associated grid
     GridBase* grid_ptr = find_grid(grid_num);
-    assert(grid_ptr);
+    if (!grid_ptr) return;
     GridBase& g = *grid_ptr;
     const std::uint16_t start_row = grid.ptr[1].as<std::uint16_t>();
     const std::uint16_t start_col = grid.ptr[2].as<std::uint16_t>();
@@ -203,7 +203,11 @@ void EditorArea::grid_line(NeovimObj obj, u32 size)
       bool is_dbl = false;
       if (prev_was_dbl)
       {
-        grid_ptr->area[start_row * grid_ptr->cols + col - 1].double_width = true;
+        std::size_t idx = start_row * grid_ptr->cols + col - 1;
+        if (idx < grid_ptr->area.size())
+        {
+          grid_ptr->area[idx].double_width = true;
+        }
       }
       //ss << text.size() << ' ';
       switch(seq.size)
@@ -918,32 +922,30 @@ std::string event_to_string(QKeyEvent* event, bool* special)
   }
 }
 
-/// Returns the modifier for the C- key
-static constexpr auto c_modifier()
+static bool is_modifier(int key)
 {
-#ifdef Q_OS_MAC
-  return Qt::MetaModifier;
-#else
-  return Qt::ControlModifier;
-#endif // Q_OS_MAC
-}
-
-/// Returns the modifier for the D- key
-static constexpr auto d_modifier()
-{
-#ifdef Q_OS_MAC
-  return Qt::ControlModifier;
-#else
-  return Qt::MetaModifier;
-#endif // Q_OS_MAC
+  switch(key)
+  {
+    case Qt::Key_Meta:
+    case Qt::Key_Control:
+    case Qt::Key_Alt:
+    case Qt::Key_AltGr:
+    case Qt::Key_Shift:
+    case Qt::Key_Super_L:
+    case Qt::Key_Super_R:
+      return true;
+    default:
+      return false;
+  }
+  return false;
 }
 
 void EditorArea::keyPressEvent(QKeyEvent* event)
 {
   event->accept();
   const auto modifiers = event->modifiers();
-  bool ctrl = modifiers & c_modifier();
-  bool meta = modifiers & d_modifier();
+  bool ctrl = modifiers & Qt::ControlModifier;
+  bool meta = modifiers & Qt::MetaModifier;
   bool shift = modifiers & Qt::ShiftModifier;
   bool alt = modifiers & Qt::AltModifier;
 #ifdef Q_OS_WIN
@@ -954,6 +956,14 @@ void EditorArea::keyPressEvent(QKeyEvent* event)
   bool is_special = false;
   const QString& text = event->text();
   std::string key = event_to_string(event, &is_special);
+  /// On Mac, QKeyEvent::text() with some modifiers returns an empty string
+  /// so we need to grab the key from QKeyEvent::key.
+  /// However if the underlying key is a modifier the text is non-empty
+  /// which causes some problems when sending it as input to Neovim.
+  if (!is_special && !is_modifier(event->key()) && key.empty())
+  {
+    key = QKeySequence(event->key()).toString().toStdString();
+  }
   if (text.isEmpty() || text.at(0).isSpace())
   {
     nvim->send_input(ctrl, shift, alt, meta, std::move(key), is_special);
@@ -966,7 +976,11 @@ void EditorArea::keyPressEvent(QKeyEvent* event)
   }
   else
   {
+#ifndef Q_OS_MAC
     nvim->send_input(false, false, alt, meta, std::move(key), is_special);
+#else
+    nvim->send_input(ctrl, false, alt, meta, std::move(key), is_special);
+#endif
   }
 }
 

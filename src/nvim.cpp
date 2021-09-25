@@ -108,127 +108,109 @@ void Nvim::read_output_sync()
   while(!closed && running())
   {
     int msg_size = stdout_pipe.read(buf, buffer_maxsize);
-    if (msg_size > buffer_maxsize)
+    msgpack::unpacker unpacker;
+    unpacker.reserve_buffer(msg_size);
+    memcpy(unpacker.buffer(), buf, msg_size);
+    unpacker.buffer_consumed(msg_size);
+    // There can be multiple messages inside of the buffer
+    //std::size_t offset = 0;
+    msgpack::object_handle oh;
+    while(unpacker.next(oh))
     {
-      using fmt::format;
-      throw std::runtime_error(format(
-        "Message of size {} could not fit in buffer of size {}\n",
-        msg_size, buffer_maxsize
-      ));
-    }
-    if (msg_size > 0)
-    {
-      msgpack::unpacker unpacker;
-      unpacker.reserve_buffer(msg_size);
-      memcpy(unpacker.buffer(), buf, msg_size);
-      unpacker.buffer_consumed(msg_size);
-      // There can be multiple messages inside of the buffer
-      //std::size_t offset = 0;
-      msgpack::object_handle oh;
-      while(unpacker.next(oh))
+      //oh = msgpack::unpack(buf, msg_size, offset);
+      const msgpack::object& obj = oh.get();
+      // According to msgpack-rpc spec, this must be an array
+      assert(obj.type == msgpack::type::ARRAY);
+      const msgpack::object_array& arr = obj.via.array;
+      // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
+      assert(arr.size == 3 || arr.size == 4);
+      const std::uint32_t type = arr.ptr[0].as<std::uint32_t>();
+      // The type should only ever be one of Request, Notification, or Response.
+      assert(type == Type::Notification || type == Type::Response || type == Type::Request);
+      switch(type)
       {
-        //oh = msgpack::unpack(buf, msg_size, offset);
-        const msgpack::object& obj = oh.get();
-        // According to msgpack-rpc spec, this must be an array
-        assert(obj.type == msgpack::type::ARRAY);
-        const msgpack::object_array& arr = obj.via.array;
-        // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
-        assert(arr.size == 3 || arr.size == 4);
-        const std::uint32_t type = arr.ptr[0].as<std::uint32_t>();
-        // The type should only ever be one of Request, Notification, or Response.
-        assert(type == Type::Notification || type == Type::Response || type == Type::Request);
-        switch(type)
+        case Type::Request:
         {
-          case Type::Request:
+          assert(arr.size == 4);
+          const std::string method = arr.ptr[2].as<std::string>();
+          // Lock while reading
+          Lock read_lock {request_handlers_mutex};
+          const auto func_it = request_handlers.find(method);
+          if (func_it != request_handlers.end())
           {
-            assert(arr.size == 4);
-            const std::string method = arr.ptr[2].as<std::string>();
-            // Lock while reading
-            Lock read_lock {request_handlers_mutex};
-            const auto func_it = request_handlers.find(method);
-            if (func_it != request_handlers.end())
-            {
-              // Params is the last element in the 4-long array
-              func_it->second(&oh);
-            }
-            break;
+            // Params is the last element in the 4-long array
+            func_it->second(&oh);
           }
-          case Type::Notification:
+          break;
+        }
+        case Type::Notification:
+        {
+          assert(arr.size == 3);
+          const std::string method = arr.ptr[1].as<std::string>();
+          // Lock while reading
+          Lock read_lock {notification_handlers_mutex};
+          const auto func_it = notification_handlers.find(method);
+          if (func_it != notification_handlers.end())
           {
-            assert(arr.size == 3);
-            const std::string method = arr.ptr[1].as<std::string>();
-            // Lock while reading
-            Lock read_lock {notification_handlers_mutex};
-            const auto func_it = notification_handlers.find(method);
-            if (func_it != notification_handlers.end())
-            {
-              // Call handler on the 3rd object (params)
-              func_it->second(&oh);
-            }
-            break;
+            // Call handler on the 3rd object (params)
+            func_it->second(&oh);
           }
-          case Type::Response:
+          break;
+        }
+        case Type::Response:
+        {
+          assert(arr.size == 4);
+          const std::uint32_t msgid = arr.ptr[1].as<std::uint32_t>();
+          //cout << "Message id: " << msgid << '\n';
+          assert(msgid < is_blocking.size());
+          // If it's a blocking request, the other thread is waiting for
+          // response_received
+          if (is_blocking[msgid])
           {
-            assert(arr.size == 4);
-            const std::uint32_t msgid = arr.ptr[1].as<std::uint32_t>();
-            //cout << "Message id: " << msgid << '\n';
-            assert(msgid < is_blocking.size());
-            // If it's a blocking request, the other thread is waiting for
-            // response_received
-            if (is_blocking[msgid])
+            // We'll lock just to be safe.
+            // I think if we set response_received = true after
+            // setting the data, it might allow for thread-safe behaviour
+            // without locking, but we'll t(h)read on the safe side for now
+            Lock lock {response_mutex};
+            // Check if we got an error
+            response_received = true;
+            if (!arr.ptr[2].is_nil())
             {
-              // We'll lock just to be safe.
-              // I think if we set response_received = true after
-              // setting the data, it might allow for thread-safe behaviour
-              // without locking, but we'll t(h)read on the safe side for now
-              Lock lock {response_mutex};
-              // Check if we got an error
-              response_received = true;
-              if (!arr.ptr[2].is_nil())
-              {
-                cout << "There was an error\n";
-                last_response = arr.ptr[2];
-              }
-              else
-              {
-                cout << "No error!\n";
-                last_response = arr.ptr[3];
-              }
+              cout << "There was an error\n";
+              last_response = arr.ptr[2];
             }
             else
             {
-              Lock lock {response_cb_mutex};
-              if (singleshot_callbacks.contains(msgid))
-              {
-                const auto& cb = singleshot_callbacks.at(msgid);
-                if (!arr.ptr[2].is_nil())
-                {
-                  cb(msgpack::object(), arr.ptr[2]);
-                }
-                else
-                {
-                  cb(arr.ptr[3], msgpack::object());
-                }
-                singleshot_callbacks.erase(msgid);
-              }
+              cout << "No error!\n";
+              last_response = arr.ptr[3];
             }
-            break;
           }
-          default:
+          else
           {
-            // Should never happen
-            assert(!"Message was not a valid msgpack-rpc message");
-            fmt::print("Message was not a valid msgpack-rpc message\n");
+            Lock lock {response_cb_mutex};
+            if (singleshot_callbacks.contains(msgid))
+            {
+              const auto& cb = singleshot_callbacks.at(msgid);
+              if (!arr.ptr[2].is_nil())
+              {
+                cb(msgpack::object(), arr.ptr[2]);
+              }
+              else
+              {
+                cb(arr.ptr[3], msgpack::object());
+              }
+              singleshot_callbacks.erase(msgid);
+            }
           }
+          break;
+        }
+        default:
+        {
+          // Should never happen
+          assert(!"Message was not a valid msgpack-rpc message");
+          fmt::print("Message was not a valid msgpack-rpc message\n");
         }
       }
-      //dump_to_file(oh.get());
-    }
-    else
-    {
-      // No bytes were read / ReadFile failed, wait for a bit before trying again.
-      // (Should also help prevent super high CPU usage when idle)
-      //sleep_for(std::chrono::microseconds(100));
     }
   }
   // Exiting. When Nvim closes both the error and output pipe close,
@@ -249,39 +231,6 @@ void Nvim::attach_ui(const int rows, const int cols, std::unordered_map<std::str
 {
   send_notification("nvim_ui_attach", std::make_tuple(rows, cols, std::move(capabilities)));
 }
-
-template<typename T>
-msgpack::object_handle Nvim::send_request_sync(const std::string& method, const T& params)
-{
-  int count = 0;
-  send_request(method, params, true);
-  while(true)
-  {
-    ++count;
-    // Locking and unlocking is expensive, checking an atomic is relatively cheaper.
-    if (response_received)
-    {
-      // To prevent references becoming invalid, copy the data of the object to another
-      // place.
-      msgpack::object_handle new_obj;
-      Lock resp_lock {response_mutex};
-      // Copy last_response into new_obj
-      new_obj = msgpack::clone(last_response);
-      response_received = false;
-      return new_obj;
-    }
-  }
-  std::cout << "Didnt get the result\n";
-  // This shouldn't ever activate since we'll just block forever
-  // if we don't receive
-  throw std::runtime_error("Message not received");
-}
-
-msgpack::object_handle Nvim::eval(const std::string& expr)
-{
-  return send_request_sync("nvim_eval", std::make_tuple(expr));
-}
-
 void Nvim::read_error_sync()
 {
   // 500KB should be enough for stderr (not receving any huge input)
@@ -348,11 +297,6 @@ void Nvim::set_request_handler(
 void Nvim::command(const std::string& cmd)
 {
   send_request("nvim_command", std::make_tuple(cmd));
-}
-
-msgpack::object_handle Nvim::get_api_info()
-{
-  return send_request_sync("nvim_get_api_info", std::array<int, 0> {});
 }
 
 void Nvim::send_input(

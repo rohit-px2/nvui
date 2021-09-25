@@ -83,18 +83,6 @@ public:
    */
   void attach_ui(const int rows, const int cols, std::unordered_map<std::string, bool> capabilities);
   /**
-   * Evaluates expr as a VimL expression and returns the result as a msgpack
-   * object handle. The underlying msgpack object can be obtained using
-   * msgpack::object_handle::get(), and can then be converted into the
-   * desired type using msgpack::object::as<T>() (if it is possible to convert
-   * it, otherwise it will throw an exception).
-   * NOTE: You should either immediately convert the result to a different type,
-   * or keep it as msgpack::object_handle. If you call get() immediately,
-   * the msgpack::object_handle will have no references and will thus destroy
-   * the object data.
-   */
-  msgpack::object_handle eval(const std::string& expr);
-  /**
    * Sends an "nvim_set_var" message, setting a global variable (g:var)
    * with the value val.
    * Note: Only defined for values of type std::string and int.
@@ -132,10 +120,6 @@ public:
    * This can be used to set autocommands, among other things.
    */
   void command(const std::string& cmd);
-  /**
-   * Returns the api info of the attached Neovim instance.
-   */
-  msgpack::object_handle get_api_info();
   /**
    * Attach a function which is called when Neovim exits.
    */
@@ -230,8 +214,6 @@ private:
   void send_notification(const std::string& method, const T& params);
   void read_output_sync();
   void read_error_sync();
-  template<typename T>
-  msgpack::object_handle send_request_sync(const std::string& method, const T& params);
 };
 
 template<typename T>

@@ -203,8 +203,8 @@ private:
   QColor border_color = "black";
   // Color of the inner part of the command line
   // (background and foreground)
-  QColor inner_fg = "white";
-  QColor inner_bg = "black";
+  std::optional<QColor> inner_fg;
+  std::optional<QColor> inner_bg;
   QPixmap pixmap {1, 1};
   std::optional<QString> first_char;
   std::vector<line> lines;

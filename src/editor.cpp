@@ -544,7 +544,19 @@ void EditorArea::set_guifont(QString new_font)
   // No need for complicated stuff if there's only one font to deal with
   if (lst.size() == 0) return;
   auto [font_name, font_size, font_opts] = parse_guifont(lst.at(0));
-  font.setFamily(font_name);
+  QFontDatabase font_db;
+  const auto set_font_if_contains = [&](QFont& f, const QString& family) {
+    if (font_db.hasFamily(family)) f.setFamily(family);
+    else
+    {
+      nvim->err_write(fmt::format(
+        "Could not find font for family \"{}\".\n",
+        family.toStdString()
+      ));
+      f.setFamily(default_font_family());
+    }
+  };
+  set_font_if_contains(font, font_name);
   if (font_size > 0)
   {
     font.setPointSizeF(font_size);
@@ -556,7 +568,7 @@ void EditorArea::set_guifont(QString new_font)
   {
     std::tie(font_name, font_size, font_opts) = parse_guifont(lst[i]);
     QFont f;
-    f.setFamily(font_name);
+    set_font_if_contains(f, font_name);
     set_relative_font_size(font, f, 0.0001, 1000);
     // The widths at the same point size can be different,
     // normalize the widths

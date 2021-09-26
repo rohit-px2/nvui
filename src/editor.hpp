@@ -359,7 +359,6 @@ public:
   QRect popupmenu_rect();
 protected:
   std::queue<PaintEventItem> events;
-  QFontDatabase font_db;
   float charspace = 0;
   float linespace = 0;
   HLState* state;

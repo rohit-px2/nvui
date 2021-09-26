@@ -181,6 +181,27 @@ public:
     const Res& res,
     const Err& err
   );
+
+  /**
+   * Write the string to Neovim's output i.e.
+   * you'll see this message in the editor.
+   * Note: This is buffered. If you want the message to display
+   * add a '\n' at the end of the string.
+   */
+  void out_write(std::string_view str)
+  {
+    send_notification("nvim_out_write", std::tuple {str});
+  }
+  /**
+   * Write the string as an error to Neovim.
+   * Same as out_write but with an error.
+   * Note: This is buffered. If you want the message to display
+   * add a '\n' at the end of the string.
+   */
+  void err_write(std::string_view str)
+  {
+    send_notification("nvim_err_write", std::tuple {str});
+  }
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;

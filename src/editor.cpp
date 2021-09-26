@@ -1172,8 +1172,9 @@ EditorArea::grid_pos_for(const QPoint& pos)
   const auto font_dims = font_dimensions();
   const auto font_width = std::get<0>(font_dims);
   const auto font_height = std::get<1>(font_dims);
-  for(const auto& grid : grids)
+  for(auto it = grids.rbegin(); it != grids.rend(); ++it)
   {
+    const auto& grid = *it;
     const auto start_y = grid->y * font_height;
     const auto start_x = grid->x * font_width;
     const auto height = grid->rows * font_height;

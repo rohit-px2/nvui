@@ -135,7 +135,6 @@ void EditorArea::grid_resize(std::span<NeovimObj> objs)
   // Should only run once
   for(const auto& obj : objs)
   {
-    assert(obj.array() && obj.array()->size() >= 3);
     auto vars = obj.decompose<u64, u64, u64>();
     if (!vars) continue;
     auto [grid_num, width, height] = *vars;
@@ -222,9 +221,6 @@ void EditorArea::grid_cursor_goto(std::span<NeovimObj> objs)
 {
   if (objs.empty()) return;
   const auto& obj = objs.back();
-  auto* arr = obj.array();
-  Q_UNUSED(arr);
-  assert(arr && arr->size() >= 3);
   auto vars = obj.decompose<u16, int, int>();
   if (!vars) return;
   auto [grid_num, row, col] = *vars;
@@ -297,9 +293,6 @@ void EditorArea::win_pos(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto* arr = obj.array();
-    Q_UNUSED(arr);
-    assert(arr && arr->size() >= 6);
     auto vars = obj.decompose<u64, NeovimExt, u64, u64, u64, u64>();
     if (!vars) continue;
     auto [grid_num, ext, sr, sc, width, height] = *vars;
@@ -334,8 +327,6 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto* arr = obj.array();
-    if (!(arr && arr->size() >= 7)) continue;
     auto vars = obj.decompose<u64, NeovimExt, QString, u64, int, int>();
     if (!vars) continue;
     auto [grid_num, win, anchor_dir, anchor_grid_num, anchor_row, anchor_col] = *vars;
@@ -389,8 +380,6 @@ void EditorArea::win_viewport(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    //auto* arr = obj.array();
-    assert(obj.array());
     auto vars = obj.decompose<u64, NeovimExt, u32, u32, u32, u32>();
     if (!vars) continue;
     auto [grid_num, ext, topline, botline, curline, curcol] = *vars;
@@ -417,9 +406,6 @@ void EditorArea::msg_set_pos(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto* arr = obj.array();
-    Q_UNUSED(arr);
-    assert(arr && arr->size() >= 4);
     auto vars = obj.decompose<u64, u64>();
     if (!vars) continue;
     auto [grid_num, row] = *vars;
@@ -734,9 +720,6 @@ void EditorArea::grid_scroll(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto* arr = obj.array();
-    Q_UNUSED(arr);
-    assert(arr && arr->size() >= 7);
     auto vars = obj.decompose<u16, u16, u16, u16, u16, int>();
     if (!vars) continue;
     const auto [grid_num, top, bot, left, right, rows] = *vars;

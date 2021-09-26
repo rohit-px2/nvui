@@ -136,13 +136,14 @@ struct Object
   }
 
   /// Decompose an Object to multiple values.
-  /// The Object you call this on must be an Array.
+  /// The Object you call this on should be an array,
+  /// otherwise std::nullopt will always be returned.
   /// If type conversion fails for any value, std::nullopt
   /// is returned.
   template<typename... T>
   std::optional<std::tuple<T...>> decompose() const
   {
-    assert(has<Array>());
+    if (!has<Array>()) return std::nullopt;
     //using opt_tuple_type = std::optional<std::tuple<T...>>;
     const auto& arr = get<Array>();
     std::tuple<T...> t;

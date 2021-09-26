@@ -706,7 +706,7 @@ void Window::resize_or_move(const QPointF& p)
 
 void Window::mousePressEvent(QMouseEvent* event)
 {
-  if (frameless_window)
+  if (is_frameless())
   {
     resize_or_move(event->localPos());
   }
@@ -728,13 +728,14 @@ void Window::mouseMoveEvent(QMouseEvent* event)
     // No resizing
     return;
   }
-  if (frameless_window)
+  if (is_frameless())
   {
     const ResizeType type = should_resize(rect(), tolerance, event);
     setCursor(Qt::CursorShape(type));
   }
   else
   {
+    setCursor(Qt::ArrowCursor);
     QMainWindow::mouseMoveEvent(event);
   }
 }

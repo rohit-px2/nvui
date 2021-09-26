@@ -395,6 +395,12 @@ void EditorArea::win_float_pos(NeovimObj obj, u32 size)
     {
       // NW, no need to do anything
     }
+    if (!popup_menu.hidden())
+    {
+      QPoint pum_tr = popupmenu_rect().topRight();
+      // Don't let the grid get clipped by the popup menu
+      anchor_pos = QPoint(pum_tr.x() / font_width, pum_tr.y() / font_height);
+    }
     shift_z(grid->z_index);
     bool were_animations_enabled = animations_enabled();
     set_animations_enabled(false);
@@ -1077,7 +1083,7 @@ void EditorArea::draw_cursor(QPainter& painter)
   }
 }
 
-void EditorArea::draw_popup_menu()
+QRect EditorArea::popupmenu_rect()
 {
   QRect popup_rect = popup_menu.available_rect();
   auto&& [grid_num, row, col] = popup_menu.position();
@@ -1093,7 +1099,7 @@ void EditorArea::draw_popup_menu()
   else
   {
     GridBase* grid = find_grid(grid_num);
-    if (!grid) return;
+    if (!grid) return {};
     start_x = (grid->x + col) * font_width;
     start_y = (grid->y + row + 1) * font_height;
     // int p_width = popup_rect.width();
@@ -1103,10 +1109,19 @@ void EditorArea::draw_popup_menu()
       start_y -= (p_height + font_height);
     }
   }
-  popup_menu.move({start_x, start_y});
+  return {start_x, start_y, popup_rect.width(), popup_rect.height()};
+}
+
+void EditorArea::draw_popup_menu()
+{
+  QRect pum_rect = popupmenu_rect();
+  auto start_x = pum_rect.x();
+  auto start_y = pum_rect.y();
+  popup_menu.move(start_x, start_y);
   popup_menu.setVisible(true);
   QPoint info_pos = {start_x + popup_menu.width(), start_y};
-  popup_menu.info_display().move(info_pos);
+  auto& pum_info_widget = popup_menu.info_display();
+  if (!pum_info_widget.isHidden()) pum_info_widget.move(info_pos);
 }
 
 static bool is_image(const QString& file)

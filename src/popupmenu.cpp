@@ -324,8 +324,6 @@ void PopupMenu::paintEvent(QPaintEvent* event)
   int offset = std::ceil(float(border_width) / 2.f);
   draw_rect.adjust(0, 0, -offset, -offset);
   p.drawRect(draw_rect);
-  if (cur_selected == -1) info_widget.hide();
-  else info_widget.show();
 }
 
 void PopupMenu::set_max_items(std::size_t new_max)
@@ -352,5 +350,6 @@ void PopupMenu::update_dimensions()
 
 void PopupMenu::draw_info(QPainter& p, const HLAttr& attr, const QString& info)
 {
-  info_widget.draw(p, attr, info);
+  Q_UNUSED(p); Q_UNUSED(attr); Q_UNUSED(info);
+  //info_widget.draw(p, attr, info);
 }

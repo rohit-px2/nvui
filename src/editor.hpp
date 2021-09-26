@@ -355,6 +355,8 @@ public:
   }
   /// For input methods
   virtual QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
+  /// Returns the rectangle the popup menu will appear at on the screen.
+  QRect popupmenu_rect();
 protected:
   std::queue<PaintEventItem> events;
   QFontDatabase font_db;

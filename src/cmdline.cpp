@@ -7,7 +7,7 @@
 
 static auto get_font_dimensions_for(const QFont& font)
 {
-  QFontMetrics fm {font};
+  QFontMetricsF fm {font};
   return std::make_tuple(fm.averageCharWidth(), fm.height());
 }
 
@@ -44,8 +44,8 @@ void CmdLine::font_changed(const QFont& new_font)
 
 void CmdLine::update_metrics()
 {
-  reg_metrics = QFontMetrics(font);
-  big_metrics = QFontMetrics(big_font);
+  reg_metrics = QFontMetricsF(font);
+  big_metrics = QFontMetricsF(big_font);
   std::tie(font_width, font_height) = get_font_dimensions_for(font);
   std::tie(big_font_width, big_font_height) = get_font_dimensions_for(big_font);
 }

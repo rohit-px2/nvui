@@ -196,7 +196,6 @@ private:
     const int start_y = rect.y();
     const int end_x = is_root_grid ? rect.right() : grid.cols - 1;
     const int end_y = rect.bottom();
-    const QFontMetrics metrics {font};
     const HLAttr& def_clrs = state->default_colors_get();
     const auto get_pos = [&](int x, int y, int num_chars) {
       using D2D1::Point2F;

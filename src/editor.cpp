@@ -166,7 +166,6 @@ void EditorArea::grid_resize(const msgpack::object *obj, u32 size)
 
 void EditorArea::grid_line(NeovimObj obj, u32 size)
 {
-  QFontMetrics fm {font};
   std::uint16_t hl_id = 0;
   //std::cout << "Received grid line.\nNum params: " << size << '\n';
   for(u32 i = 0; i < size; ++i)
@@ -495,12 +494,12 @@ static std::tuple<QString, double, std::uint8_t> parse_guifont(const QString& st
     {
       // Substr excluding the first char ('h')
       // to get the number
-      const QStringRef size_str {&list.at(1), 1, list.at(1).size() - 1};
+      const QStringView size_str {list.at(1).utf16() + 1, list[1].size() - 1};
       return std::make_tuple(list.at(0), size_str.toDouble(), FontOpts::Normal);
     }
     default:
     {
-      const QStringRef size_str {&list.at(1), 1, list.at(1).size() - 1};
+      const QStringView size_str {list.at(1).utf16() + 1, list[1].size() - 1};
       std::uint8_t font_opts = FontOpts::Normal;
       assert(list.size() <= 255);
       for(std::uint8_t i = 0; i < list.size(); ++i)
@@ -692,7 +691,6 @@ void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect&
   // const int end_x = rect.right();
   const int end_y = rect.bottom();
   const HLAttr& def_clrs = state->default_colors_get();
-  const QFontMetrics metrics {font};
   const float offset = get_offset(font, linespace);
   const auto get_pos = [&](int x, int y, int num_chars) {
     float left = x * font_width;

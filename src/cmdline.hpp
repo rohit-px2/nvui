@@ -224,8 +224,8 @@ private:
   float big_font_height = 0.f;
   float big_font_width = 0.f;
   QGraphicsDropShadowEffect shadow_effect;
-  QFontMetrics reg_metrics;
-  QFontMetrics big_metrics;
+  QFontMetricsF reg_metrics;
+  QFontMetricsF big_metrics;
   std::optional<int> cursor_pos;
 protected:
   void paintEvent(QPaintEvent* event) override;

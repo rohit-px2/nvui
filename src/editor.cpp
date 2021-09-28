@@ -1,4 +1,5 @@
 #include "editor.hpp"
+#include "input.hpp"
 #include "msgpack_overrides.hpp"
 #include "utils.hpp"
 #include <chrono>
@@ -399,7 +400,9 @@ void EditorArea::win_float_pos(NeovimObj obj, u32 size)
     {
       QPoint pum_tr = popupmenu_rect().topRight();
       // Don't let the grid get clipped by the popup menu
-      anchor_pos = QPoint(pum_tr.x() / font_width, pum_tr.y() / font_height);
+      float pum_rx = std::round(pum_tr.x() / font_width);
+      float pum_ty = std::ceil(pum_tr.y() / font_height);
+      anchor_pos = QPoint(pum_rx, pum_ty);
     }
     shift_z(grid->z_index);
     bool were_animations_enabled = animations_enabled();
@@ -855,151 +858,10 @@ void EditorArea::set_resizing(bool is_resizing)
   resizing = is_resizing;
 }
 
-std::string event_to_string(QKeyEvent* event, bool* special)
-{
-  *special = true;
-  switch(event->key())
-  {
-    case Qt::Key_Enter:
-      return "CR";
-    case Qt::Key_Return:
-      return "CR";
-    case Qt::Key_Backspace:
-      return "BS";
-    case Qt::Key_Tab:
-      return "Tab";
-    case Qt::Key_Down:
-      return "Down";
-    case Qt::Key_Up:
-      return "Up";
-    case Qt::Key_Left:
-      return "Left";
-    case Qt::Key_Right:
-      return "Right";
-    case Qt::Key_Escape:
-      return "Esc";
-    case Qt::Key_Home:
-      return "Home";
-    case Qt::Key_End:
-      return "End";
-    case Qt::Key_Insert:
-      return "Insert";
-    case Qt::Key_Delete:
-      return "Del";
-    case Qt::Key_PageUp:
-      return "PageUp";
-    case Qt::Key_PageDown:
-      return "PageDown";
-    case Qt::Key_Less:
-      return "LT";
-    case Qt::Key_Space:
-      return "Space";
-    case Qt::Key_F1:
-      return "F1";
-    case Qt::Key_F2:
-      return "F2";
-    case Qt::Key_F3:
-      return "F3";
-    case Qt::Key_F4:
-      return "F4";
-    case Qt::Key_F5:
-      return "F5";
-    case Qt::Key_F6:
-      return "F6";
-    case Qt::Key_F7:
-      return "F7";
-    case Qt::Key_F8:
-      return "F8";
-    case Qt::Key_F9:
-      return "F9";
-    case Qt::Key_F10:
-      return "F10";
-    case Qt::Key_F11:
-      return "F11";
-    case Qt::Key_F12:
-      return "F12";
-    case Qt::Key_F13:
-      return "F13";
-    case Qt::Key_F14:
-      return "F14";
-    case Qt::Key_F15:
-      return "F15";
-    case Qt::Key_F16:
-      return "F16";
-    case Qt::Key_F17:
-      return "F17";
-    case Qt::Key_F18:
-      return "F18";
-    case Qt::Key_F19:
-      return "F19";
-    case Qt::Key_F20:
-      return "F20";
-    default:
-      *special = false;
-      return event->text().toStdString();
-  }
-}
-
-static bool is_modifier(int key)
-{
-  switch(key)
-  {
-    case Qt::Key_Meta:
-    case Qt::Key_Control:
-    case Qt::Key_Alt:
-    case Qt::Key_AltGr:
-    case Qt::Key_Shift:
-    case Qt::Key_Super_L:
-    case Qt::Key_Super_R:
-      return true;
-    default:
-      return false;
-  }
-  return false;
-}
-
 void EditorArea::keyPressEvent(QKeyEvent* event)
 {
   event->accept();
-  const auto modifiers = event->modifiers();
-  bool ctrl = modifiers & Qt::ControlModifier;
-  bool meta = modifiers & Qt::MetaModifier;
-  bool shift = modifiers & Qt::ShiftModifier;
-  bool alt = modifiers & Qt::AltModifier;
-#ifdef Q_OS_WIN
-  // Windows: Ctrl+Alt (AltGr) is used for alternate characters
-  // don't send modifiers with text
-  if (ctrl && alt) { ctrl = false; alt = false; }
-#endif
-  bool is_special = false;
-  const QString& text = event->text();
-  std::string key = event_to_string(event, &is_special);
-  /// On Mac, QKeyEvent::text() with some modifiers returns an empty string
-  /// so we need to grab the key from QKeyEvent::key.
-  /// However if the underlying key is a modifier the text is non-empty
-  /// which causes some problems when sending it as input to Neovim.
-  if (!is_special && !is_modifier(event->key()) && key.empty())
-  {
-    key = QKeySequence(event->key()).toString().toStdString();
-  }
-  if (text.isEmpty() || text.at(0).isSpace())
-  {
-    nvim->send_input(ctrl, shift, alt, meta, std::move(key), is_special);
-  }
-  // Qt already factors in Shift+Ctrl into a lot of keys.
-  // For the number keys, it doesn't factor in Ctrl though.
-  else if (text.at(0).isNumber())
-  {
-    nvim->send_input(ctrl, false, alt, meta, std::move(key), is_special);
-  }
-  else
-  {
-#ifndef Q_OS_MAC
-    nvim->send_input(false, false, alt, meta, std::move(key), is_special);
-#else
-    nvim->send_input(ctrl, false, alt, meta, std::move(key), is_special);
-#endif
-  }
+  nvim->send_input(convert_key(*event));
 }
 
 bool EditorArea::focusNextPrevChild(bool /* is_next */)

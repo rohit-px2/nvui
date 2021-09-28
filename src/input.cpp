@@ -1,6 +1,12 @@
 #include "input.hpp"
 #include <fmt/format.h>
 #include <fmt/core.h>
+#include <unordered_map>
+#include <string>
+#include <string_view>
+#include <QEvent>
+#include <QKeyEvent>
+#include <QString>
 
 std::string event_to_string(const QKeyEvent* event, bool* special)
 {

@@ -1,9 +1,7 @@
 #ifndef NVUI_INPUT_HPP
 #define NVUI_INPUT_HPP
 
-#include <QEvent>
 #include <QKeyEvent>
-#include <QString>
 #include <string>
 
 /// Converts a key event to Neovim input string.

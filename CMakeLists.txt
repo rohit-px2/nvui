@@ -65,6 +65,8 @@ file(GLOB SOURCES
   src/grid.cpp
   src/grid.hpp
   src/decide_renderer.hpp
+  src/input.cpp
+  src/input.hpp
 )
 if (WIN32)
   message("Windows detected.")
@@ -83,7 +85,6 @@ if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
 else()
   add_executable(nvui ${SOURCES})
 endif()
-target_link_libraries(nvui PRIVATE msgpackc-cxx)
 target_link_libraries(nvui PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_link_libraries(nvui PRIVATE fmt::fmt)
 target_include_directories(nvui PRIVATE
@@ -132,6 +133,8 @@ file(GLOB TEST_SOURCES
   src/grid.cpp
   src/grid.hpp
   src/decide_renderer.hpp
+  src/input.cpp
+  src/input.hpp
 )
 if (WIN32)
   file(GLOB WINONLYTESTSOURCES
@@ -143,7 +146,6 @@ if (WIN32)
   list(APPEND TEST_SOURCES ${WINONLYTESTSOURCES})
 endif()
 add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
-target_link_libraries(nvui_test PRIVATE msgpackc-cxx)
 target_link_libraries(nvui_test PRIVATE Catch2::Catch2)
 target_link_libraries(nvui_test PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_link_libraries(nvui_test PRIVATE fmt::fmt)

@@ -29,6 +29,7 @@ std::optional<std::string_view> get_arg(
 {
   for(const auto& arg : args)
   {
+    if (arg == "--") return {};
     if (arg.rfind(prefix, 0) == 0)
     {
       return std::string_view(arg).substr(prefix.size());

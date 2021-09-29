@@ -142,9 +142,10 @@ public:
    * Set the character spacing (space between individual characters)
    to space.
    */
-  inline void set_charspace(std::uint16_t space)
+  inline void set_charspace(float space)
   {
     charspace = space;
+    emit font_changed();
     update_font_metrics();
     resized(size());
   }
@@ -354,19 +355,20 @@ public:
   }
   /// For input methods
   virtual QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
+  /// Returns the rectangle the popup menu will appear at on the screen.
+  QRect popupmenu_rect();
 protected:
   std::queue<PaintEventItem> events;
-  QFontDatabase font_db;
-  std::uint16_t charspace = 0;
-  std::int16_t linespace = 0;
+  float charspace = 0;
+  float linespace = 0;
   HLState* state;
   bool should_ignore_pevent = false;
   std::vector<std::unique_ptr<GridBase>> grids;
   bool bold = false;
   // For font fallback, not used if a single font is set.
   std::vector<Font> fonts;
-  std::uint16_t font_width;
-  std::uint16_t font_height;
+  float font_width;
+  float font_height;
   QFont font;
   Nvim* nvim;
   QPixmap pixmap;
@@ -472,7 +474,7 @@ protected:
     const HLAttr& def_clrs,
     const QPointF& start,
     const QPointF& end,
-    const int offset,
+    const float offset,
     QFont font
   );
   /**

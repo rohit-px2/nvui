@@ -120,10 +120,11 @@ void resize_1d_vector(
 }
 
 template<typename T>
-msgpack::object pack(const T& obj)
+msgpack::object_handle pack(const T& obj)
 {
-  msgpack::zone z;
-  return msgpack::object(obj, z);
+  msgpack::sbuffer sbuf;
+  msgpack::pack(sbuf, obj);
+  return msgpack::unpack(sbuf.data(), sbuf.size());
 }
 
 /// Thanks Neovim-Qt

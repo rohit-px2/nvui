@@ -77,18 +77,22 @@ public:
     map.reserve(static_cast<int>(max_size));
   }
 
-  void put(K k, V v)
+  V* put(K k, V v)
   {
+    V* ptr = nullptr;
     auto it = map.find(k);
     if (it != map.end())
     {
       it->first = std::move(v);
+      ptr = &it->first;
       move_to_front(it->second);
     }
     else
     {
       keys.push_front(k);
-      map[k] = {v, keys.begin()};
+      auto& pair_ref = map[k];
+      pair_ref = {v, keys.begin()};
+      ptr = &pair_ref.first;
     }
     if (keys.size() > max_size)
     {
@@ -98,6 +102,7 @@ public:
       map.erase(erase_it);
       keys.pop_back();
     }
+    return ptr;
   }
 
   const V* get(const K& k)
@@ -253,14 +258,13 @@ public:
       }
       else ucs = c.at(0).unicode();
     }
-    //std::cout << "Set " << repeat << " texts at (" << row << ", " << col << ").\n";
     // Neovim should make sure this isn't out-of-bounds
     assert(col + repeat <= cols);
     for(std::uint16_t i = 0; i < repeat; ++i)
     {
-      // row * cols - get current row
-      assert(static_cast<std::size_t>(row * cols + col + i) < area.size());
-      area[row * cols + col + i] = {hl_id, c, is_dbl_width, ucs};
+      std::size_t idx = row * cols + col + i;
+      if (idx >= area.size()) return;
+      area[idx] = {hl_id, c, is_dbl_width, ucs};
     }
   }
 

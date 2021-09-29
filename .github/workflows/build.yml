@@ -136,20 +136,20 @@ jobs:
         run: |
           echo "Qt5_DIR=/usr/local/Cellar/qt@5/5.15.2/lib/cmake/Qt5" >> $GITHUB_ENV
           echo "fmt_DIR=/usr/local/Cellar/fmt/8.0.1" >> $GITHUB_ENV
-      
-      - name: Mac - Build nvui and nvui_test using vcpkg
+ 
+      - name: Mac - Pre-build configuration 
         if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg && matrix.macosver
         run: |
           /bin/bash -c "sudo xcode-select -s /Applications/Xcode_12.app/Contents/Developer"
           brew install make
-          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -DVCPKG_OSX_DEPLOYMENT_TARGET=${{ matrix.macosver }}
+
       - name: Build nvui and nvui_test using vcpkg
         if: matrix.use_vcpkg
         run: |
           cmake -B build . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
           cmake --build build --config ${{ matrix.buildtype }}
 
-      - name: Build nvui and nvui_test
+      - name: Ubuntu - Build nvui and nvui_test
         if: ${{ !matrix.use_vcpkg }}
         run: |
           cmake -B build . -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
@@ -187,12 +187,22 @@ jobs:
           cd build/packaged
           zip -r nvui-linux-x64.zip assets bin vim
           mv nvui-linux-x64.zip ../..
-      - name: Upload release asset
-        if: matrix.upload && startsWith(github.ref, 'refs/tags/')
+      - name: Ubuntu - Upload release asset
+        if: startsWith(matrix.os, 'ubuntu') && matrix.upload && startsWith(github.ref, 'refs/tags/')
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: nvui-linux-x64.zip
+          tag: ${{ github.ref }}
+          overwrite: false
+          body: "Automated release by Github Actions."
+
+      - name: Mac - Upload release asset
+        if: startsWith(matrix.os, 'macos') && matrix.upload && startsWith(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: nvui-macos-x64.zip
           tag: ${{ github.ref }}
           overwrite: false
           body: "Automated release by Github Actions."

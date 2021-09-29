@@ -398,7 +398,7 @@ void EditorArea::win_float_pos(NeovimObj obj, u32 size)
     {
       // NW, no need to do anything
     }
-    if (!popup_menu.hidden())
+    if (!popup_menu.hidden() && popup_menu.selected_idx() != -1)
     {
       QPoint pum_tr = popupmenu_rect().topRight();
       // Don't let the grid get clipped by the popup menu
@@ -862,7 +862,9 @@ void EditorArea::set_resizing(bool is_resizing)
 void EditorArea::keyPressEvent(QKeyEvent* event)
 {
   event->accept();
-  nvim->send_input(convert_key(*event));
+  auto text = convert_key(*event);
+  if (text.empty()) return;
+  nvim->send_input(std::move(text));
 }
 
 bool EditorArea::focusNextPrevChild(bool /* is_next */)

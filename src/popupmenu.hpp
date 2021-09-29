@@ -347,6 +347,8 @@ public:
   }
 
   auto& info_display() { return info_widget; }
+
+  auto selected_idx() { return cur_selected; }
 private:
   void update_dimensions();
   /**

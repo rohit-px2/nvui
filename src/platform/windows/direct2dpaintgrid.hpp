@@ -48,7 +48,8 @@ public:
   using d2rect = D2D1_RECT_F;
   using d2color = D2D1::ColorF;
 public:
-  D2DPaintGrid(WinEditorArea* wea, auto... args)
+  template<typename... GridBaseArgs>
+  D2DPaintGrid(WinEditorArea* wea, GridBaseArgs... args)
     : GridBase(args...),
       editor_area(wea),
       layout_cache(2000)

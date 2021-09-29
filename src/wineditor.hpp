@@ -21,6 +21,7 @@
 #include <d2d1_1.h>
 #include <fmt/format.h>
 #include <fmt/core.h>
+#include <winuser.h>
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dwrite.lib")
 #include "platform/windows/direct2dpaintgrid.hpp"
@@ -111,6 +112,7 @@ class WinEditorArea : public EditorArea
     {"grayscale", D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE},
     {"force_dword", D2D1_TEXT_ANTIALIAS_MODE_FORCE_DWORD}
   }};
+  static constexpr float default_dpi = 96.0f;
 public:
   WinEditorArea(
     QWidget* parent = nullptr,
@@ -135,6 +137,15 @@ public:
     device_context->SetTextAntialiasMode(text_antialias_mode);
     device_context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
     nvim->set_var("nvui_d2d", 1);
+    device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_ENABLE_MULTITHREADED_OPTIMIZATIONS, &mtd_context);
+    device_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+    device_context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    // Setting a higher dpi causes it to stretch the text, the workaround is just to ignore the
+    // system dpi. However the font size changes based on the dpi.
+    device_context->SetDpi(default_dpi, default_dpi);
+    create_default_bitmap(mtd_context, &dc_bitmap, sz);
+    mtd_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+    mtd_context->SetTarget(dc_bitmap);
   }
 
   ~WinEditorArea()
@@ -186,6 +197,7 @@ public:
     SafeRelease(bitmap);
     create_default_bitmap(*context, bitmap, {width, height});
     (*context)->SetTarget(*bitmap);
+    (*context)->SetDpi(default_dpi, default_dpi);
   }
   /// Resizes bitmap to the new width and height.
   /// *bitmap is modified to point to the newly-created bitmap.
@@ -257,6 +269,7 @@ private:
     = D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC;
   D2D1_TEXT_ANTIALIAS_MODE text_antialias_mode
     = D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE;
+  float x_dpi = default_dpi;
 
   // Override EditorArea draw_grid
   // We can use native Windows stuff here
@@ -276,7 +289,6 @@ private:
     const int start_y = rect.y();
     const int end_x = is_root_grid ? rect.right() : grid.cols - 1;
     const int end_y = rect.bottom();
-    const QFontMetrics metrics {font};
     const HLAttr& def_clrs = state->default_colors_get();
     const auto get_pos = [&](int x, int y, int num_chars) {
       using D2D1::Point2F;
@@ -452,7 +464,7 @@ private:
     const auto& gc = grid->area[idx];
     float scale_factor = 1.0f;
     if (gc.double_width) scale_factor = 2.0f;
-    const CursorRect rect = neovim_cursor.rect(font_width_f, font_height_f, scale_factor).value();
+    const CursorRect rect = *neovim_cursor.rect(font_width_f, font_height_f, scale_factor);
     ID2D1SolidColorBrush* bg_brush = nullptr;
     const HLAttr& def_clrs = state->default_colors_get();
     HLAttr attr = state->attr_for_id(rect.hl_id);
@@ -499,17 +511,18 @@ private:
 protected:
   void update_font_metrics(bool update_fonts) override
   {
+    x_dpi = static_cast<float>(logicalDpiX());
     // Create a text format from a QFont, modifies *tf to hold the new text format
     // If *tf contained a text format before it should be released before calling this
     constexpr auto create_format = 
-      [](DWriteFactory* factory, const QFont& f, IDWriteTextFormat** tf) {
+      [](DWriteFactory* factory, const QFont& f, IDWriteTextFormat** tf, float dpi = default_dpi) {
         HRESULT hr = factory->CreateTextFormat(
           (LPCWSTR) f.family().utf16(),
           NULL,
           DWRITE_FONT_WEIGHT_NORMAL,
           DWRITE_FONT_STYLE_NORMAL,
           DWRITE_FONT_STRETCH_NORMAL,
-          f.pointSizeF() * (96.0f / 72.0f),
+          f.pointSizeF() * (dpi / 72.0f),
           L"en-us",
           tf
         );
@@ -525,7 +538,7 @@ protected:
       for(std::size_t i = 0; i < fonts.size(); ++i)
       {
         const QFont& idx_font = fonts[i].font();
-        hr = create_format(factory, idx_font, &text_formats[i]);
+        hr = create_format(factory, idx_font, &text_formats[i], x_dpi);
         if (FAILED(hr))
         {
           fmt::print("Create format failed for family {}\n", idx_font.family().toStdString());
@@ -534,7 +547,7 @@ protected:
       }
     }
     SafeRelease(&text_format);
-    create_format(factory, font, &text_format);
+    create_format(factory, font, &text_format, x_dpi);
     constexpr const wchar_t* text = L"W";
     constexpr std::uint32_t len = 1;
     IDWriteTextLayout* text_layout = nullptr;
@@ -546,7 +559,7 @@ protected:
       DWRITE_HIT_TEST_METRICS ht_metrics;
       float ignore;
       text_layout->HitTestTextPosition(0, 0, &ignore, &ignore, &ht_metrics);
-      font_width_f = ht_metrics.width + charspace;
+      font_width_f = (ht_metrics.width + charspace);
       font_height_f = std::ceilf(ht_metrics.height + float(linespace));
     }
     SafeRelease(&text_layout);

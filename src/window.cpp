@@ -87,24 +87,34 @@ static std::function<void (const object_array&)> paramify(Func f)
   };
 }
 
-Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
+Window::Window(QWidget* parent, Nvim* nv, int width, int height, bool custom_titlebar)
 : QMainWindow(parent),
   semaphore(1),
   resizing(false),
-  title_bar(nullptr),
+  title_bar(std::make_unique<TitleBar>("nvui", this)),
   hl_state(),
-  nvim(nv.get()),
+  nvim(nv),
   editor_area(nullptr, &hl_state, nvim)
 {
+  assert(nv);
   assert(width > 0 && height > 0);
   setMouseTracking(true);
-  QObject::connect(this, &Window::resize_done, &editor_area, &decltype(editor_area)::resized);
+  QObject::connect(this, &Window::resize_done, &editor_area, &EditorArea::resized);
   prev_state = windowState();
-  setWindowFlags(Qt::FramelessWindowHint);
   const auto font_dims = editor_area.font_dimensions();
   resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
   emit resize_done(size());
-  title_bar = std::make_unique<TitleBar>("nvui", this);
+  if (custom_titlebar)
+  {
+    setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
+#ifdef Q_OS_WIN
+    windows_setup_frameless((HWND) winId());
+#endif // Q_OS_WIN
+  }
+  else
+  {
+    title_bar->hide();
+  }
   QObject::connect(title_bar.get(), &TitleBar::resize_move, this, &Window::resize_or_move);
   setWindowIcon(QIcon(constants::appicon()));
   title_bar->set_separator(" • ");
@@ -114,19 +124,10 @@ Window::Window(QWidget* parent, std::shared_ptr<Nvim> nv, int width, int height)
   QObject::connect(this, &Window::default_colors_changed, [this] { update_titlebar_colors(); });
   QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
   QObject::connect(this, &Window::win_state_changed, title_bar.get(), &TitleBar::win_state_changed);
-#ifdef Q_OS_WIN
-  windows_setup_frameless((HWND) winId());
-#endif
 }
 
 void Window::handle_redraw(object_handle* redraw_args)
 {
-  //std::stringstream ss;
-  using std::cout;
-#ifndef NDEBUG
-  using Clock = std::chrono::high_resolution_clock;
-  const auto start = Clock::now();
-#endif
   const auto oh = safe_copy(redraw_args);
   const object& obj = oh.get();
   assert(obj.type == msgpack::type::ARRAY);
@@ -143,32 +144,15 @@ void Window::handle_redraw(object_handle* redraw_args)
     std::string task_name = task.ptr[0].as<std::string>();
     // Get corresponding handler
     const auto func_it = handlers.find(task_name);
-    //static const std::set<std::string> interesting {
-      //"win_hide", "win_close", "grid_line", "grid_resize",
-        //"grid_cursor_goto", "grid_destroy", "win_pos",
-        //"win_viewport", "msg_set_pos", "option_set", "win_float_pos"
-    //};
-    //if (interesting.contains(task_name))
-    //{
-      //ss << o << '\n';
-    //}
     if (func_it != handlers.end())
     {
       func_it->second(task.ptr + 1, task.size - 1);
-      //for(std::uint32_t j = 1; j < task.size; ++j)
-      //{
-        //func_it->second(this, arr.ptr[j]);
-      //}
     }
     else
     {
       //fmt::print("No handler found for task {}\n", std::move(task_name));
     }
   }
-#ifndef NDEBUG
-  const auto end = Clock::now();
-  std::cout << "Took " << std::chrono::duration<double, std::milli>(end - start).count() << " ms.\n";
-#endif
 }
 
 void Window::handle_bufenter(object_handle* bufe_args)
@@ -375,7 +359,7 @@ void Window::register_handlers()
     if (is_frameless()) disable_frameless_window();
     else enable_frameless_window();
   });
-  listen_for_notification("NVUI_CHARSPACE", paramify<std::uint16_t>([this](std::uint16_t space) {
+  listen_for_notification("NVUI_CHARSPACE", paramify<float>([this](float space) {
     editor_area.set_charspace(space);
   }));
   listen_for_notification("NVUI_CARET_EXTEND", paramify<float, float>([this](float top, float bot) {
@@ -742,7 +726,7 @@ void Window::resize_or_move(const QPointF& p)
 
 void Window::mousePressEvent(QMouseEvent* event)
 {
-  if (frameless_window)
+  if (is_frameless())
   {
     resize_or_move(event->localPos());
   }
@@ -764,13 +748,14 @@ void Window::mouseMoveEvent(QMouseEvent* event)
     // No resizing
     return;
   }
-  if (frameless_window)
+  if (is_frameless())
   {
     const ResizeType type = should_resize(rect(), tolerance, event);
     setCursor(Qt::CursorShape(type));
   }
   else
   {
+    setCursor(Qt::ArrowCursor);
     QMainWindow::mouseMoveEvent(event);
   }
 }
@@ -854,11 +839,7 @@ void Window::handle_request(
           std::optional<Res> res;
           std::optional<Err> err;
           std::tie(res, err) = f(params_obj.via.array);
-          msgpack::object result = msgpack::object();
-          msgpack::object error = msgpack::object();
-          if (res) result = pack(*res);
-          if (err) error = pack(*err);
-          nvim->send_response(msgid, result, error);
+          nvim->send_response(msgid, res, err);
         },
         Qt::QueuedConnection
       );

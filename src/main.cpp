@@ -5,7 +5,9 @@
 #include <QMessageBox>
 #include <QStyleFactory>
 #include <QStringBuilder>
+#include <charconv>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <thread>
 #include <ios>
@@ -19,19 +21,21 @@
 using std::string;
 using std::vector;
 
-/**
- * When a string is observed in v that starts with s, this function trims s
- * from the beginning of the string and calls f with the resulting string.
- * This only occurs for the first string that satisfies the condition.
- */
-template<typename Func>
-void on_argument(const std::vector<string>& v, const std::string& s, const Func& f)
+
+std::optional<std::string_view> get_arg(
+  const std::vector<std::string>& args,
+  const std::string_view prefix
+)
 {
-  for(const auto& e : v)
+  for(const auto& arg : args)
   {
-    if (e == "--") return; // Don't process command line arguments beyond "--" (those are for Neovim)
-    if (e.rfind(s, 0) == 0) { f(e.substr(s.size())); return; }
+    if (arg == "--") return {};
+    if (arg.rfind(prefix, 0) == 0)
+    {
+      return std::string_view(arg).substr(prefix.size());
+    }
   }
+  return std::nullopt;
 }
 
 vector<string> neovim_args(const vector<string>& listofargs)
@@ -56,12 +60,31 @@ vector<string> get_args(int argc, char** argv)
   return vector<string>(argv + 1, argv + argc);
 }
 
+std::optional<std::pair<int, int>> parse_geometry(std::string_view geom)
+{
+  auto pos = geom.find('x');
+  if (pos == std::string::npos) return std::nullopt;
+  int width, height;
+  auto data = geom.data();
+  auto res = std::from_chars(data, data + pos, width);
+  res = std::from_chars(data + pos + 1, data + geom.size(), height);
+  return std::pair {width, height};
+}
+
+bool is_executable(std::string_view path)
+{
+  QFileInfo file_info {QString::fromStdString(std::string(path))};
+  return file_info.exists() && file_info.isExecutable();
+}
+
 Q_DECLARE_METATYPE(msgpack::object)
 Q_DECLARE_METATYPE(msgpack::object_handle*)
 
-const std::string geometry_opt = "--geometry=";
 int main(int argc, char** argv)
 {
+  qRegisterMetaType<msgpack::object>();
+  qRegisterMetaType<msgpack::object_handle*>();
+  const auto args = get_args(argc, argv);
 #ifdef Q_OS_LINUX
   // See issue #21
   auto env = boost::this_process::environment();
@@ -70,7 +93,9 @@ int main(int argc, char** argv)
     env.set("FONTCONFIG_PATH", "/etc/fonts");
   }
 #endif
-  const auto args = get_args(argc, argv);
+  int width = 100;
+  int height = 50;
+  bool custom_titlebar = false;
   // Arguments to pass to nvim
   vector<string> nvim_args {"--embed"};
   vector<string> cl_nvim_args = neovim_args(args);
@@ -84,48 +109,46 @@ int main(int argc, char** argv)
     {"ext_linegrid", true},
     {"ext_hlstate", false}
   };
+  auto titlebar = get_arg(args, "--titlebar");
+  if (titlebar)
+  {
+    if (titlebar->empty()) custom_titlebar = true;
+    else custom_titlebar = *titlebar == "=true" ? true : false;
+  }
+  auto path_to_nvim = get_arg(args, "--nvim=");
+  if (path_to_nvim && is_executable(*path_to_nvim))
+  {
+    nvim_path = std::string(*path_to_nvim);
+  }
+  auto geometry = get_arg(args, "--geometry=");
+  if (geometry)
+  {
+    auto parsed = parse_geometry(*geometry);
+    if (parsed) std::tie(width, height) = *parsed;
+  }
   for(const auto& capability : capabilities)
   {
     // Ex. --ext_popupmenu=true
-    on_argument(args, fmt::format("--{}=", capability.first), [&](std::string opt) {
-      if (opt == "true") capabilities[capability.first] = true;
-      else capabilities[capability.first] = false;
-    });
-    // Single argument (e.g. --ext_popupmenu)
-    on_argument(args, fmt::format("--{}", capability.first), [&](std::string opt) {
-      if (opt.size() == 0) capabilities[capability.first] = true;
-    });
-  }
-  on_argument(args, "--nvim=", [&](std::string opt) {
-    QFileInfo nvim_path_info {QString::fromStdString(opt)};
-    if (nvim_path_info.exists() && nvim_path_info.isExecutable()) nvim_path = opt;
-  });
-  int width = 100;
-  int height = 50;
-  std::ios_base::sync_with_stdio(false);
-  qRegisterMetaType<msgpack::object>();
-  qRegisterMetaType<msgpack::object_handle*>();
-  // Get "size" option
-  on_argument(args, geometry_opt, [&](std::string size_opt) {
-    std::size_t pos = size_opt.find("x");
-    if (pos != std::string::npos)
+    auto set_arg = get_arg(args, fmt::format("--{}=", capability.first));
+    if (set_arg)
     {
-      int new_width = std::stoi(size_opt.substr(0, pos));
-      int new_height = std::stoi(size_opt.substr(pos + 1));
-      width = new_width;
-      height = new_height;
+      capabilities[capability.first] = *set_arg == "true" ? true : false;
     }
-  });
+    // Single argument (e.g. --ext_popupmenu)
+    auto arg = get_arg(args, fmt::format("--{}", capability.first));
+    if (arg && arg->empty()) capabilities[capability.first] = true;
+  }
+  std::ios_base::sync_with_stdio(false);
   QApplication app {argc, argv};
   try
   {
-    const auto nvim = std::make_shared<Nvim>(nvim_path, nvim_args);
-    Window w {nullptr, nvim, width, height};
+    Nvim nvim {nvim_path, nvim_args};
+    Window w(nullptr, &nvim, width, height, custom_titlebar);
     w.register_handlers();
     w.show();
-    nvim->set_var("nvui", 1);
-    nvim->attach_ui(width, height, capabilities);
-    nvim->on_exit([&] {
+    nvim.set_var("nvui", 1);
+    nvim.attach_ui(width, height, capabilities);
+    nvim.on_exit([&] {
       QMetaObject::invokeMethod(&w, &QMainWindow::close, Qt::QueuedConnection);
     });
     return app.exec();

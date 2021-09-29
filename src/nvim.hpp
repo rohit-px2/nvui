@@ -3,15 +3,19 @@
 
 #include <boost/process/pipe.hpp>
 #include <boost/process.hpp>
+#include <atomic>
+#include <functional>
+#include <iostream>
+#include <optional>
+#include <thread>
 #include <unordered_map>
 #include <vector>
-#include <functional>
-#include <thread>
 #include <msgpack.hpp>
-#include <atomic>
-#include <optional>
+#include <fmt/format.h>
+#include <fmt/core.h>
 
-enum Type : std::uint64_t {
+enum Type : std::uint64_t
+{
   Request = 0,
   Response = 1,
   Notification = 2
@@ -53,7 +57,14 @@ public:
    * If the key is a "Special" key, then it's given the angle brackets, even if
    * there are no modifiers attached. This is needed for things like <LT>, <Space>, <Tab> etc.
    */
-  void send_input(const bool ctrl, const bool shift, const bool alt, const std::string& key, bool is_special = false);
+  void send_input(
+    const bool c,
+    const bool s,
+    const bool a,
+    const bool d,
+    const std::string& key,
+    bool is_special = false
+  );
   /**
    * Sends the nvim_input message directly to Nvim with no processing,
    * which means you should have done the processing on your end.
@@ -71,18 +82,6 @@ public:
    * and client capabilities.
    */
   void attach_ui(const int rows, const int cols, std::unordered_map<std::string, bool> capabilities);
-  /**
-   * Evaluates expr as a VimL expression and returns the result as a msgpack
-   * object handle. The underlying msgpack object can be obtained using
-   * msgpack::object_handle::get(), and can then be converted into the
-   * desired type using msgpack::object::as<T>() (if it is possible to convert
-   * it, otherwise it will throw an exception).
-   * NOTE: You should either immediately convert the result to a different type,
-   * or keep it as msgpack::object_handle. If you call get() immediately,
-   * the msgpack::object_handle will have no references and will thus destroy
-   * the object data.
-   */
-  msgpack::object_handle eval(const std::string& expr);
   /**
    * Sends an "nvim_set_var" message, setting a global variable (g:var)
    * with the value val.
@@ -121,10 +120,6 @@ public:
    * This can be used to set autocommands, among other things.
    */
   void command(const std::string& cmd);
-  /**
-   * Returns the api info of the attached Neovim instance.
-   */
-  msgpack::object_handle get_api_info();
   /**
    * Attach a function which is called when Neovim exits.
    */
@@ -180,11 +175,33 @@ public:
    * Send the response to Neovim for the given msgid,
    * with the given error and result objects.
    */
+  template<typename Res, typename Err>
   void send_response(
     std::uint64_t msgid,
-    msgpack::object res,
-    msgpack::object err
+    const Res& res,
+    const Err& err
   );
+
+  /**
+   * Write the string to Neovim's output i.e.
+   * you'll see this message in the editor.
+   * Note: This is buffered. If you want the message to display
+   * add a '\n' at the end of the string.
+   */
+  void out_write(std::string_view str)
+  {
+    send_notification("nvim_out_write", std::tuple {str});
+  }
+  /**
+   * Write the string as an error to Neovim.
+   * Same as out_write but with an error.
+   * Note: This is buffered. If you want the message to display
+   * add a '\n' at the end of the string.
+   */
+  void err_write(std::string_view str)
+  {
+    send_notification("nvim_err_write", std::tuple {str});
+  }
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
@@ -218,8 +235,80 @@ private:
   void send_notification(const std::string& method, const T& params);
   void read_output_sync();
   void read_error_sync();
-  template<typename T>
-  msgpack::object_handle send_request_sync(const std::string& method, const T& params);
 };
+
+template<typename T>
+void Nvim::send_request(const std::string& method, const T& params, bool blocking)
+{
+  is_blocking.push_back(blocking);
+  std::unique_lock<std::mutex> lock {input_mutex};
+  const std::uint64_t msg_type = Type::Request;
+  msgpack::sbuffer sbuf;
+  const auto msg = std::make_tuple(msg_type, current_msgid, method, params);
+  msgpack::pack(sbuf, msg);
+  // Potential for an exception when calling below code
+  try
+  {
+    stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
+    ++current_msgid;
+  }
+  catch (const std::exception& e)
+  {
+    fmt::print("Exception occurred: {}\n", e.what());
+  }
+}
+
+template<typename T>
+void Nvim::send_notification(const std::string& method, const T& params)
+{
+  // Same deal as Nvim::send_request, but for a notification this time
+  std::unique_lock<std::mutex> lock {input_mutex};
+  const std::uint64_t msg_type = Type::Notification;
+  msgpack::sbuffer sbuf;
+  const auto msg = std::make_tuple(msg_type, method, params);
+  msgpack::pack(sbuf, msg);
+  try
+  {
+    stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
+  }
+  catch (const std::exception& e)
+  {
+    fmt::print("Exception occurred: {}\n", e.what());
+  }
+}
+
+template<typename Res, typename Err>
+void Nvim::send_response(
+  std::uint64_t msgid,
+  const Res& res,
+  const Err& err
+)
+{
+  std::unique_lock<std::mutex> lock {input_mutex};
+  const std::uint64_t type = Type::Response;
+  const auto msg = std::tuple {type, msgid, err, res};
+  msgpack::sbuffer sbuf;
+  msgpack::pack(sbuf, msg);
+  try
+  {
+    stdin_pipe.write(sbuf.data(), static_cast<int>(sbuf.size()));
+  }
+  catch(...)
+  {
+    fmt::print("Could not send response. Msgid: {}\n", msgid);
+  }
+}
+
+template<typename T>
+void Nvim::send_request_cb(
+  const std::string& method,
+  const T& params,
+  response_cb cb
+)
+{
+  std::unique_lock<std::mutex> lock {response_cb_mutex};
+  singleshot_callbacks[current_msgid] = std::move(cb);
+  send_request(method, params, false);
+}
 
 #endif

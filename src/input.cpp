@@ -112,16 +112,6 @@ static bool is_modifier(int key)
   return false;
 }
 
-static std::string mod_prefix(Qt::KeyboardModifiers mods)
-{
-  std::string result;
-  if (mods & Qt::ShiftModifier) result.append("S-");
-  if (mods & Qt::ControlModifier) result.append("C-");
-  if (mods & Qt::AltModifier) result.append("M-");
-  if (mods & Qt::MetaModifier) result.append("D-");
-  return result;
-}
-
 /// Taken from Neovim-Qt's "IsAsciiCharRequiringAlt" function in input.cpp.
 [[maybe_unused]]
 static bool requires_alt(int key, Qt::KeyboardModifiers mods, QChar c)
@@ -193,6 +183,17 @@ static constexpr auto d_mod()
 #else
   return Qt::MetaModifier;
 #endif
+}
+
+
+static std::string mod_prefix(Qt::KeyboardModifiers mods)
+{
+  std::string result;
+  if (mods & Qt::ShiftModifier) result.append("S-");
+  if (mods & c_mod()) result.append("C-");
+  if (mods & Qt::AltModifier) result.append("M-");
+  if (mods & d_mod()) result.append("D-");
+  return result;
 }
 
 /// Equivalent of Neovim's "ToKeyString",

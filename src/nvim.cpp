@@ -120,18 +120,22 @@ void Nvim::read_output_sync()
       //oh = msgpack::unpack(buf, msg_size, offset);
       const msgpack::object& obj = oh.get();
       // According to msgpack-rpc spec, this must be an array
-      assert(obj.type == msgpack::type::ARRAY);
+      if (obj.type != msgpack::type::ARRAY) continue;
       const msgpack::object_array& arr = obj.via.array;
       // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
-      assert(arr.size == 3 || arr.size == 4);
+      if (!(arr.size == 3 || arr.size == 4)) continue;
+      if (!(arr.ptr[0].type == msgpack::type::POSITIVE_INTEGER)) continue;
       const std::uint32_t type = arr.ptr[0].as<std::uint32_t>();
       // The type should only ever be one of Request, Notification, or Response.
-      assert(type == Type::Notification || type == Type::Response || type == Type::Request);
+      if (!(type == Type::Notification
+          || type == Type::Response
+          || type == Type::Request)) continue;
       switch(type)
       {
         case Type::Request:
         {
-          assert(arr.size == 4);
+          if (!(arr.size == 4)) continue;
+          if (!(arr.ptr[2].type == msgpack::type::STR)) continue;
           const std::string method = arr.ptr[2].as<std::string>();
           // Lock while reading
           Lock read_lock {request_handlers_mutex};
@@ -145,7 +149,8 @@ void Nvim::read_output_sync()
         }
         case Type::Notification:
         {
-          assert(arr.size == 3);
+          if (!(arr.size == 3)) continue;
+          if (!(arr.ptr[1].type == msgpack::type::STR)) continue;
           const std::string method = arr.ptr[1].as<std::string>();
           // Lock while reading
           Lock read_lock {notification_handlers_mutex};
@@ -159,10 +164,11 @@ void Nvim::read_output_sync()
         }
         case Type::Response:
         {
-          assert(arr.size == 4);
+          if (!(arr.size == 4)) continue;
+          if (!(arr.ptr[0].type == msgpack::type::POSITIVE_INTEGER)) continue;
           const std::uint32_t msgid = arr.ptr[1].as<std::uint32_t>();
           //cout << "Message id: " << msgid << '\n';
-          assert(msgid < is_blocking.size());
+          if (!(msgid < is_blocking.size())) continue;
           // If it's a blocking request, the other thread is waiting for
           // response_received
           if (is_blocking[msgid])
@@ -204,12 +210,7 @@ void Nvim::read_output_sync()
           }
           break;
         }
-        default:
-        {
-          // Should never happen
-          assert(!"Message was not a valid msgpack-rpc message");
-          fmt::print("Message was not a valid msgpack-rpc message\n");
-        }
+        default: continue;
       }
     }
   }

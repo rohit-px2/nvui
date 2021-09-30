@@ -371,7 +371,6 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
       float pum_ty = std::ceil(pum_tr.y() / font_height);
       anchor_pos = QPoint(pum_rx, pum_ty);
     }
-    shift_z(grid->z_index);
     bool were_animations_enabled = animations_enabled();
     set_animations_enabled(false);
     grid->set_pos(anchor_pos);

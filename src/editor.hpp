@@ -545,11 +545,35 @@ protected:
     });
   }
   /// Returns an integer identifier for the window.
-  u64 get_win(const NeovimExt& ext)
+  /// Translated version of
+  /// https://github.com/neovim/go-client/blob/e3638e2a1819d9a5fc7238a89dd3ad5c48abc5ab/nvim/nvim.go#L723
+  std::int64_t get_win(const NeovimExt& ext)
   {
-    u64 x = 0;
-    for(const auto& c : ext.data) x += static_cast<std::uint8_t>(c);
-    return x;
+    using namespace std;
+    vector<uint8_t> data;
+    for(const auto& c : ext.data) data.push_back(static_cast<uint8_t>(c));
+    const auto size = ext.data.size();
+    if (size == 1 && data[0] <= 0x7f) return (int) data[0];
+    else if (size == 1 && data[0] >= 0xe0)
+    {
+      return int8_t(data[0]);
+    }
+    else if (size == 2 && data[0] == 0xcc) return (int) data[1];
+    else if (size == 2 && data[0] == 0xd0) return int8_t(data[1]);
+    else if (size == 3 && data[0] == 0xcd)
+    {
+      return u16(data[2]) | u16(data[1]) << 8;
+    }
+    else if (size == 3 && data[0] == 0xd1)
+    {
+      return int16_t(uint16_t(data[2])) | uint16_t(data[1]) << 8;
+    }
+    else if (size == 5 && data[0] == 0xce)
+    {
+      return u32(data[4] | u32(data[3]) << 8
+           | u32(data[2]) << 16 | u32(data[1]) << 24);
+    }
+    return numeric_limits<int>::min();
   }
 public slots:
   /**

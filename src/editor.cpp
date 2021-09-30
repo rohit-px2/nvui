@@ -295,7 +295,7 @@ void EditorArea::win_pos(std::span<NeovimObj> objs)
   {
     auto vars = obj.decompose<u64, NeovimExt, u64, u64, u64, u64>();
     if (!vars) continue;
-    auto [grid_num, ext, sr, sc, width, height] = *vars;
+    auto [grid_num, win, sr, sc, width, height] = *vars;
     GridBase* grid = find_grid(grid_num);
     if (!grid)
     {
@@ -305,7 +305,7 @@ void EditorArea::win_pos(std::span<NeovimObj> objs)
     grid->hidden = false;
     grid->set_pos(sc, sr);
     grid->set_size(width, height);
-    grid->winid = get_win(ext);
+    grid->winid = get_win(win);
     QRect r(0, 0, grid->cols, grid->rows);
   }
   send_redraw();

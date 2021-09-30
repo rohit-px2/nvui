@@ -105,6 +105,7 @@ static bool is_modifier(int key)
     case Qt::Key_Shift:
     case Qt::Key_Super_L:
     case Qt::Key_Super_R:
+    case Qt::Key_CapsLock:
       return true;
     default:
       return false;

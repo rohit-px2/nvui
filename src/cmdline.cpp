@@ -7,7 +7,7 @@
 
 static auto get_font_dimensions_for(const QFont& font)
 {
-  QFontMetrics fm {font};
+  QFontMetricsF fm {font};
   return std::make_tuple(fm.averageCharWidth(), fm.height());
 }
 
@@ -44,8 +44,8 @@ void CmdLine::font_changed(const QFont& new_font)
 
 void CmdLine::update_metrics()
 {
-  reg_metrics = QFontMetrics(font);
-  big_metrics = QFontMetrics(big_font);
+  reg_metrics = QFontMetricsF(font);
+  big_metrics = QFontMetricsF(big_font);
   std::tie(font_width, font_height) = get_font_dimensions_for(font);
   std::tie(big_font_width, big_font_height) = get_font_dimensions_for(big_font);
 }
@@ -122,11 +122,14 @@ static void draw_border(QPainter& p, QRect rect, float border_size)
 
 void CmdLine::paintEvent(QPaintEvent* event)
 {
+  const HLAttr& default_colors = state->default_colors_get();
   Q_UNUSED(event);
+  QColor def_fg = inner_fg.value_or(default_colors.fg().value_or(0x00ffffff).qcolor());
+  QColor def_bg = inner_bg.value_or(default_colors.bg().value_or(0).qcolor());
   QPainter p(this);
-  p.fillRect(rect(), inner_bg);
+  p.fillRect(rect(), def_bg);
   QString thing;
-  p.setPen(inner_fg);
+  p.setPen(def_fg);
   int base_x = border_width + padding;
   int base_y = border_width + padding;
   struct {
@@ -147,7 +150,6 @@ void CmdLine::paintEvent(QPaintEvent* event)
   int cur_char = 0;
   bool cursor_drawn = false;
   QRect inner = inner_rect();
-  const HLAttr& default_colors = state->default_colors_get();
   for(std::size_t i = 0; i < lines.size(); ++i)
   {
     for(const auto& seq : lines[i])

@@ -1,5 +1,4 @@
 #!/bin/bash
-./scripts/linux/build-release.sh
 cd build
 mkdir packaged
 mkdir packaged/bin

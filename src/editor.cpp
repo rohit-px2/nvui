@@ -1,4 +1,5 @@
 #include "editor.hpp"
+#include "input.hpp"
 #include "msgpack_overrides.hpp"
 #include "utils.hpp"
 #include <chrono>
@@ -25,9 +26,9 @@
 using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 
-static int get_offset(const QFont& font, const int linespacing)
+static float get_offset(const QFont& font, const float linespacing)
 {
-  QFontMetrics fm {font};
+  QFontMetricsF fm {font};
   return fm.ascent() + (linespacing / 2);
 }
 
@@ -159,7 +160,6 @@ void EditorArea::grid_resize(std::span<NeovimObj> objs)
 
 void EditorArea::grid_line(std::span<NeovimObj> objs)
 {
-  QFontMetrics fm {font};
   std::uint16_t hl_id = 0;
   //std::cout << "Received grid line.\nNum params: " << size << '\n';
   for(auto& grid_cmd : objs)
@@ -169,6 +169,7 @@ void EditorArea::grid_line(std::span<NeovimObj> objs)
     const auto grid_num = arr->at(0).get<u64>();
     GridBase* grid_ptr = find_grid(grid_num);
     if (!grid_ptr) continue;
+    if (!grid_ptr) return;
     GridBase& g = *grid_ptr;
     int start_row = arr->at(1);
     int start_col = arr->at(2);
@@ -191,7 +192,11 @@ void EditorArea::grid_line(std::span<NeovimObj> objs)
       bool is_dbl = false;
       if (prev_was_dbl)
       {
-        grid_ptr->area[start_row * grid_ptr->cols + col - 1].double_width = true;
+        std::size_t idx = start_row * grid_ptr->cols + col - 1;
+        if (idx < grid_ptr->area.size())
+        {
+          grid_ptr->area[idx].double_width = true;
+        }
       }
       //ss << text.size() << ' ';
       switch(cell_arr.size())
@@ -233,6 +238,9 @@ void EditorArea::grid_cursor_goto(std::span<NeovimObj> objs)
   if (!old_pos.has_value()) return;
   QRect rect {old_pos->col, old_pos->row, 1, 0};
   send_draw(old_pos->grid_num, rect);
+  // Thanks Neovim-Qt
+  // https://github.com/equalsraf/neovim-qt/blob/4212ee18a7536c5e2ed101fc1aeed610c502c0df/src/gui/shell.cpp#L1203-L1220
+  qApp->inputMethod()->update(Qt::ImCursorRectangle);
   //update();
 }
 
@@ -355,6 +363,15 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
     {
       // NW, no need to do anything
     }
+    if (!popup_menu.hidden() && popup_menu.selected_idx() != -1)
+    {
+      QPoint pum_tr = popupmenu_rect().topRight();
+      // Don't let the grid get clipped by the popup menu
+      float pum_rx = std::round(pum_tr.x() / font_width);
+      float pum_ty = std::ceil(pum_tr.y() / font_height);
+      anchor_pos = QPoint(pum_rx, pum_ty);
+    }
+    shift_z(grid->z_index);
     bool were_animations_enabled = animations_enabled();
     set_animations_enabled(false);
     grid->set_pos(anchor_pos);
@@ -431,12 +448,12 @@ static std::tuple<QString, double, std::uint8_t> parse_guifont(const QString& st
     {
       // Substr excluding the first char ('h')
       // to get the number
-      const QStringRef size_str {&list.at(1), 1, list.at(1).size() - 1};
+      const QStringView size_str {list.at(1).utf16() + 1, list[1].size() - 1};
       return std::make_tuple(list.at(0), size_str.toDouble(), FontOpts::Normal);
     }
     default:
     {
-      const QStringRef size_str {&list.at(1), 1, list.at(1).size() - 1};
+      const QStringView size_str {list.at(1).utf16() + 1, list[1].size() - 1};
       std::uint8_t font_opts = FontOpts::Normal;
       assert(list.size() <= 255);
       for(std::uint8_t i = 0; i < list.size(); ++i)
@@ -483,7 +500,19 @@ void EditorArea::set_guifont(QString new_font)
   // No need for complicated stuff if there's only one font to deal with
   if (lst.size() == 0) return;
   auto [font_name, font_size, font_opts] = parse_guifont(lst.at(0));
-  font.setFamily(font_name);
+  QFontDatabase font_db;
+  const auto set_font_if_contains = [&](QFont& f, const QString& family) {
+    if (font_db.hasFamily(family)) f.setFamily(family);
+    else
+    {
+      nvim->err_write(fmt::format(
+        "Could not find font for family \"{}\".\n",
+        family.toStdString()
+      ));
+      f.setFamily(default_font_family());
+    }
+  };
+  set_font_if_contains(font, font_name);
   if (font_size > 0)
   {
     font.setPointSizeF(font_size);
@@ -495,7 +524,7 @@ void EditorArea::set_guifont(QString new_font)
   {
     std::tie(font_name, font_size, font_opts) = parse_guifont(lst[i]);
     QFont f;
-    f.setFamily(font_name);
+    set_font_if_contains(f, font_name);
     set_relative_font_size(font, f, 0.0001, 1000);
     // The widths at the same point size can be different,
     // normalize the widths
@@ -524,21 +553,27 @@ QRect EditorArea::to_pixels(
   const std::uint16_t height
 )
 {
-  return {
+  return QRect(
     x * font_width, y * font_height, width * font_width, height * font_height
-  };
+  );
 }
 
 void EditorArea::update_font_metrics(bool)
 {
   QFontMetricsF metrics {font};
   float combined_height = std::max(metrics.height(), metrics.lineSpacing());
-  font_height = std::ceil(combined_height) + linespace;
+  font_height = combined_height + linespace;
   // NOTE: This will only work for monospace fonts since we're basing every char's
   // spocing off a single char.
   constexpr QChar any_char = 'a';
-  font_width = std::round(metrics.horizontalAdvance(any_char) + charspace);
+  font_width = metrics.horizontalAdvance(any_char) + charspace;
   font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
+  for(auto& f : fonts)
+  {
+    QFont old_font = f.font();
+    old_font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
+    f = old_font;
+  }
   popup_menu.font_changed(font, font_width, font_height, linespace);
 }
 
@@ -552,10 +587,6 @@ QSize EditorArea::to_rc(const QSize& pixel_size)
 void EditorArea::paintEvent(QPaintEvent* event)
 {
   Q_UNUSED(event);
-#ifndef NDEBUG
-  using Clock = std::chrono::high_resolution_clock;
-  const auto start = Clock::now();
-#endif
   QPainter p(this);
   p.fillRect(rect(), default_bg());
   QRectF grid_clip_rect(0, 0, cols * font_width, rows * font_height);
@@ -581,10 +612,6 @@ void EditorArea::paintEvent(QPaintEvent* event)
   {
     draw_popup_menu();
   } else popup_menu.setVisible(false);
-#ifndef NDEBUG
-  const auto end = Clock::now();
-  std::cout << "Grid draw took " << std::chrono::duration<double, std::milli>(end - start).count() << "ms.\n";
-#endif
 }
 
 std::tuple<float, float> EditorArea::font_dimensions() const
@@ -618,8 +645,7 @@ void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect&
   // const int end_x = rect.right();
   const int end_y = rect.bottom();
   const HLAttr& def_clrs = state->default_colors_get();
-  const QFontMetrics metrics {font};
-  const int offset = get_offset(font, linespace);
+  const float offset = get_offset(font, linespace);
   const auto get_pos = [&](int x, int y, int num_chars) {
     float left = x * font_width;
     float top = y * font_height;
@@ -639,7 +665,7 @@ void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect&
   };
   for(int y = start_y; y <= end_y && y < grid.rows; ++y)
   {
-    QPointF start = {(double) grid.x * font_width, (double) (grid.y + y) * font_height};
+    QPointF start(grid.x * font_width, (grid.y + y) * font_height);
     std::uint16_t prev_hl_id = UINT16_MAX;
     std::size_t cur_font_idx = 0;
     for(int x = 0; x < grid.cols; ++x)
@@ -781,120 +807,12 @@ void EditorArea::set_resizing(bool is_resizing)
   resizing = is_resizing;
 }
 
-std::string event_to_string(QKeyEvent* event, bool* special)
-{
-  *special = true;
-  switch(event->key())
-  {
-    case Qt::Key_Enter:
-      return "CR";
-    case Qt::Key_Return:
-      return "CR";
-    case Qt::Key_Backspace:
-      return "BS";
-    case Qt::Key_Tab:
-      return "Tab";
-    case Qt::Key_Down:
-      return "Down";
-    case Qt::Key_Up:
-      return "Up";
-    case Qt::Key_Left:
-      return "Left";
-    case Qt::Key_Right:
-      return "Right";
-    case Qt::Key_Escape:
-      return "Esc";
-    case Qt::Key_Home:
-      return "Home";
-    case Qt::Key_End:
-      return "End";
-    case Qt::Key_Insert:
-      return "Insert";
-    case Qt::Key_Delete:
-      return "Del";
-    case Qt::Key_PageUp:
-      return "PageUp";
-    case Qt::Key_PageDown:
-      return "PageDown";
-    case Qt::Key_Less:
-      return "LT";
-    case Qt::Key_Space:
-      return "Space";
-    case Qt::Key_F1:
-      return "F1";
-    case Qt::Key_F2:
-      return "F2";
-    case Qt::Key_F3:
-      return "F3";
-    case Qt::Key_F4:
-      return "F4";
-    case Qt::Key_F5:
-      return "F5";
-    case Qt::Key_F6:
-      return "F6";
-    case Qt::Key_F7:
-      return "F7";
-    case Qt::Key_F8:
-      return "F8";
-    case Qt::Key_F9:
-      return "F9";
-    case Qt::Key_F10:
-      return "F10";
-    case Qt::Key_F11:
-      return "F11";
-    case Qt::Key_F12:
-      return "F12";
-    case Qt::Key_F13:
-      return "F13";
-    case Qt::Key_F14:
-      return "F14";
-    case Qt::Key_F15:
-      return "F15";
-    case Qt::Key_F16:
-      return "F16";
-    case Qt::Key_F17:
-      return "F17";
-    case Qt::Key_F18:
-      return "F18";
-    case Qt::Key_F19:
-      return "F19";
-    case Qt::Key_F20:
-      return "F20";
-    default:
-      *special = false;
-      return event->text().toStdString();
-  }
-}
-
 void EditorArea::keyPressEvent(QKeyEvent* event)
 {
   event->accept();
-  const auto modifiers = event->modifiers();
-  bool ctrl = modifiers & Qt::ControlModifier;
-  bool shift = modifiers & Qt::ShiftModifier;
-  bool alt = modifiers & Qt::AltModifier;
-#ifdef Q_OS_WIN
-  // Windows: Ctrl+Alt (AltGr) is used for alternate characters
-  // don't send modifiers with text
-  if (ctrl && alt) { ctrl = false; alt = false; }
-#endif
-  bool is_special = false;
-  const QString& text = event->text();
-  std::string key = event_to_string(event, &is_special);
-  if (text.isEmpty() || text.at(0).isSpace())
-  {
-    nvim->send_input(ctrl, shift, alt, std::move(key), is_special);
-  }
-  // Qt already factors in Shift+Ctrl into a lot of keys.
-  // For the number keys, it doesn't factor in Ctrl though.
-  else if (text.at(0).isNumber())
-  {
-    nvim->send_input(ctrl, false, alt, std::move(key), is_special);
-  }
-  else
-  {
-    nvim->send_input(false, false, alt, std::move(key), is_special);
-  }
+  auto text = convert_key(*event);
+  if (text.empty()) return;
+  nvim->send_input(std::move(text));
 }
 
 bool EditorArea::focusNextPrevChild(bool /* is_next */)
@@ -932,7 +850,7 @@ void EditorArea::draw_text_and_bg(
   const HLAttr& def_clrs,
   const QPointF& start,
   const QPointF& end,
-  const int offset,
+  const float offset,
   QFont font
 )
 {
@@ -966,7 +884,7 @@ void EditorArea::draw_cursor(QPainter& painter)
   if (gc.double_width) scale_factor = 2.0f;
   auto rect = neovim_cursor.rect(font_width, font_height, scale_factor).value();
   QFontMetrics fm {font};
-  const int offset = get_offset(font, linespace);
+  const float offset = get_offset(font, linespace);
   const auto pos = neovim_cursor.pos().value();
   const HLAttr& def_clrs = state->default_colors_get();
   const HLAttr& attr = state->attr_for_id(rect.hl_id);
@@ -974,7 +892,9 @@ void EditorArea::draw_cursor(QPainter& painter)
   painter.fillRect(rect.rect, QColor(bg.r, bg.g, bg.b));
   if (rect.should_draw_text)
   {
-    const QPoint bot_left = { (grid->x + pos.col) * font_width, (grid->y + pos.row) * font_height + offset};
+    float left = (grid->x + pos.col) * font_width;
+    float top = (grid->y + pos.row) * font_height + offset;
+    const QPointF bot_left {left, top};
     const Color fgc = rect.hl_id == 0
       ? *def_clrs.bg()
       : (attr.reverse
@@ -988,7 +908,7 @@ void EditorArea::draw_cursor(QPainter& painter)
   }
 }
 
-void EditorArea::draw_popup_menu()
+QRect EditorArea::popupmenu_rect()
 {
   QRect popup_rect = popup_menu.available_rect();
   auto&& [grid_num, row, col] = popup_menu.position();
@@ -1004,7 +924,7 @@ void EditorArea::draw_popup_menu()
   else
   {
     GridBase* grid = find_grid(grid_num);
-    assert(grid);
+    if (!grid) return {};
     start_x = (grid->x + col) * font_width;
     start_y = (grid->y + row + 1) * font_height;
     // int p_width = popup_rect.width();
@@ -1014,10 +934,19 @@ void EditorArea::draw_popup_menu()
       start_y -= (p_height + font_height);
     }
   }
-  popup_menu.move({start_x, start_y});
+  return {start_x, start_y, popup_rect.width(), popup_rect.height()};
+}
+
+void EditorArea::draw_popup_menu()
+{
+  QRect pum_rect = popupmenu_rect();
+  auto start_x = pum_rect.x();
+  auto start_y = pum_rect.y();
+  popup_menu.move(start_x, start_y);
   popup_menu.setVisible(true);
   QPoint info_pos = {start_x + popup_menu.width(), start_y};
-  popup_menu.info_display().move(info_pos);
+  auto& pum_info_widget = popup_menu.info_display();
+  if (!pum_info_widget.isHidden()) pum_info_widget.move(info_pos);
 }
 
 static bool is_image(const QString& file)
@@ -1083,8 +1012,9 @@ EditorArea::grid_pos_for(const QPoint& pos)
   const auto font_dims = font_dimensions();
   const auto font_width = std::get<0>(font_dims);
   const auto font_height = std::get<1>(font_dims);
-  for(const auto& grid : grids)
+  for(auto it = grids.rbegin(); it != grids.rend(); ++it)
   {
+    const auto& grid = *it;
     const auto start_y = grid->y * font_height;
     const auto start_x = grid->x * font_width;
     const auto height = grid->rows * font_height;

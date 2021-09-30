@@ -71,17 +71,7 @@ const QPixmap* PopupMenuIconManager::icon_for_kind(const QString& kind)
   if (kind.isEmpty()) return nullptr;
   QString iname = kind_to_iname(kind).trimmed();
   const auto it = icons.find(iname);
-  if (it == icons.end())
-  {
-    // Check the icons folder for the icon file
-    QPixmap p = load_icon(iname, sq_width);
-    if (p.isNull()) return nullptr;
-    else
-    {
-      icons[iname] = std::move(p);
-      return &icons[iname];
-    }
-  }
+  if (it == icons.end()) return nullptr;
   else return &(*it);
 }
 
@@ -259,7 +249,7 @@ void PopupMenu::font_changed(const QFont& font, float c_width, float c_height, i
   cell_width = c_width;
   cell_height = c_height;
   linespace = line_spacing;
-  QFontMetrics fm {font};
+  QFontMetricsF fm {font};
   font_ascent = fm.ascent();
   icon_manager.size_changed(cell_height + icon_size_offset);
   update_dimensions();
@@ -324,8 +314,6 @@ void PopupMenu::paintEvent(QPaintEvent* event)
   int offset = std::ceil(float(border_width) / 2.f);
   draw_rect.adjust(0, 0, -offset, -offset);
   p.drawRect(draw_rect);
-  if (cur_selected == -1) info_widget.hide();
-  else info_widget.show();
 }
 
 void PopupMenu::set_max_items(std::size_t new_max)
@@ -352,5 +340,6 @@ void PopupMenu::update_dimensions()
 
 void PopupMenu::draw_info(QPainter& p, const HLAttr& attr, const QString& info)
 {
-  info_widget.draw(p, attr, info);
+  Q_UNUSED(p); Q_UNUSED(attr); Q_UNUSED(info);
+  //info_widget.draw(p, attr, info);
 }

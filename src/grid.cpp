@@ -68,8 +68,7 @@ void QPaintGrid::draw_text_and_bg(
     temp.setTextFormat(Qt::PlainText);
     temp.setPerformanceHint(QStaticText::AggressiveCaching);
     temp.prepare(QTransform(), font);
-    text_cache.put(key, std::move(temp));
-    static_text = text_cache.get(key);
+    static_text = text_cache.put(key, std::move(temp));
   }
   Color fg = attr.fg().value_or(*def_clrs.fg());
   Color bg = attr.bg().value_or(*def_clrs.bg());

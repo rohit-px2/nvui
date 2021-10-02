@@ -587,6 +587,7 @@ void Window::register_handlers()
   listen_for_notification("NVUI_CURSOR_HIDE_TYPE",
     paramify<bool>([this](bool hide) {
       editor_area.set_cursor_hidden_while_typing(hide);
+      editor_area.unsetCursor(); // Reset state.
   }));
   /// Add request handlers
   using arr = msgpack::object_array;

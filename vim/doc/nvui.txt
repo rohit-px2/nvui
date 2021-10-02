@@ -16,7 +16,13 @@ Cursor				|nvui-cursor|
 COMMANDS			*nvui-commands*
 
 GENERAL				*nvui-general*
-
+:NvuiCursorHideWhileTyping {hide}				*:NvuiCursorHideWhileTyping*
+	
+	{hide} is a boolean setting whether to hide the mouse cursor when you type.
+	If {hide} is true, then when you type, the mouse cursor will be hidden until
+	you perform a mouse interaction.
+	By default this is disabled.
+	
 :NvuiOpacity {opacity}					*:NvuiOpacity*
 
 	{opacity} must be greater than 0 and less than or equal to 1.
@@ -24,9 +30,8 @@ GENERAL				*nvui-general*
 
 :NvuiCharspace {charspace}			*:NvuiCharspace*
 
-	{charspace} must be greater than or equal to 0.
-	Sets the character spacing between characters to {charspace}.
-	This may make the GUI slower.
+	Increases the character spacing by {charspace}.
+	{charspace} must be a decimal number (negative or positive).
 
 :NvuiFullscreen {fullscreen}		*:NvuiFullscreen*
 

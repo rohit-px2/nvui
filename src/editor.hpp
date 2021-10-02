@@ -357,6 +357,10 @@ public:
   virtual QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
   /// Returns the rectangle the popup menu will appear at on the screen.
   QRect popupmenu_rect();
+  void set_cursor_hidden_while_typing(bool hide)
+  {
+    hide_cursor_while_typing = hide;
+  }
 protected:
   std::queue<PaintEventItem> events;
   float charspace = 0;
@@ -391,6 +395,7 @@ protected:
   float scroll_animation_time = 0.3f;
   float cursor_animation_time = 0.3f;
   int cursor_animation_frametime_ms = 10;
+  bool hide_cursor_while_typing = false;
   /**
    * Sets the current font to new_font.
    * If new_font is empty (this indicates an unset value),

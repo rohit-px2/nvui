@@ -220,7 +220,6 @@ void Nvim::read_output_sync()
   // calling it
   Lock exit_lock {exit_handler_mutex};
   on_exit_handler();
-  cout << "Output closed." << std::endl;
 }
 
 void Nvim::attach_ui(const int rows, const int cols)
@@ -249,7 +248,6 @@ void Nvim::read_error_sync()
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
-  std::cout << "Error closed\n";
 }
 
 int Nvim::exit_code()

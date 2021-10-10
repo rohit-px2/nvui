@@ -117,22 +117,22 @@ static bool is_modifier(int key)
 [[maybe_unused]]
 static bool requires_alt(int key, Qt::KeyboardModifiers mods, QChar c)
 {
-	// Ignore all key events where Alt is not pressed
-	if (!(mods & Qt::AltModifier)) return false;
+  // Ignore all key events where Alt is not pressed
+  if (!(mods & Qt::AltModifier)) return false;
 
-	// These low-ascii characters may require AltModifier on MacOS
-	if ((c == '[' && key != Qt::Key_BracketLeft)
-		|| (c == ']' && key != Qt::Key_BracketRight)
-		|| (c == '{' && key != Qt::Key_BraceLeft)
-		|| (c == '}' && key != Qt::Key_BraceRight)
-		|| (c == '|' && key != Qt::Key_Bar)
-		|| (c == '~' && key != Qt::Key_AsciiTilde)
-		|| (c == '@' && key != Qt::Key_At))
+  // These low-ascii characters may require AltModifier on MacOS
+  if ((c == '[' && key != Qt::Key_BracketLeft)
+    || (c == ']' && key != Qt::Key_BracketRight)
+    || (c == '{' && key != Qt::Key_BraceLeft)
+    || (c == '}' && key != Qt::Key_BraceRight)
+    || (c == '|' && key != Qt::Key_Bar)
+    || (c == '~' && key != Qt::Key_AsciiTilde)
+    || (c == '@' && key != Qt::Key_At))
   {
-		return true;
-	}
+    return true;
+  }
 
-	return false;
+  return false;
 }
 
 /// Normalizes a key event. Does nothing for non-Mac platforms.
@@ -148,16 +148,16 @@ static QKeyEvent normalize_key_event(
 #if !defined(Q_OS_MAC)
   return {type, key, mods, text};
 #else
-	if (text.isEmpty())
-	{
-		return {type, key, mods, text};
-	}
-
-	const QChar& c = text.at(0);
-	if ((c.unicode() >= 0x80 && c.isPrint()) || requires_alt(key, mods, c))
+  if (text.isEmpty())
   {
-		mods &= ~Qt::AltModifier;
-	}
+    return {type, key, mods, text};
+  }
+
+  const QChar& c = text.at(0);
+  if ((c.unicode() >= 0x80 && c.isPrint()) || requires_alt(key, mods, c))
+  {
+    mods &= ~Qt::AltModifier;
+  }
   return {type, key, mods, text};
 #endif // !defined(Q_OS_MAC)
 }
@@ -212,135 +212,135 @@ static std::string key_mod_str(
 /// https://github.com/equalsraf/neovim-qt/blob/master/src/gui/input.cpp#L144
 static std::string convertKey(const QKeyEvent& ev) noexcept
 {
-	QString text = ev.text();
-	auto mod = ev.modifiers();
-	int key = ev.key();
+  QString text = ev.text();
+  auto mod = ev.modifiers();
+  int key = ev.key();
 
-	static const std::unordered_map<int, std::string_view> keypadKeys {
-		{ Qt::Key_Home, "<{}Home>" },
-		{ Qt::Key_End, "<{}End>" },
-		{ Qt::Key_PageUp, "<{}PageUp>" },
-		{ Qt::Key_PageDown, "<{}PageDown>" },
-		{ Qt::Key_Plus, "<{}Plus>" },
-		{ Qt::Key_Minus, "<{}Minus>" },
-		{ Qt::Key_multiply, "<{}Multiply>" },
-		{ Qt::Key_division, "<{}Divide>" },
-		{ Qt::Key_Enter, "<{}Enter>" },
-		{ Qt::Key_Period, "<{}Point>" },
-		{ Qt::Key_0, "<{}0>" },
-		{ Qt::Key_1, "<{}1>" },
-		{ Qt::Key_2, "<{}2>" },
-		{ Qt::Key_3, "<{}3>" },
-		{ Qt::Key_4, "<{}4>" },
-		{ Qt::Key_5, "<{}5>" },
-		{ Qt::Key_6, "<{}6>" },
-		{ Qt::Key_7, "<{}7>" },
-		{ Qt::Key_8, "<{}8>" },
-		{ Qt::Key_9, "<{}9>" },
-	};
+  static const std::unordered_map<int, std::string_view> keypadKeys {
+    { Qt::Key_Home, "<{}Home>" },
+    { Qt::Key_End, "<{}End>" },
+    { Qt::Key_PageUp, "<{}PageUp>" },
+    { Qt::Key_PageDown, "<{}PageDown>" },
+    { Qt::Key_Plus, "<{}Plus>" },
+    { Qt::Key_Minus, "<{}Minus>" },
+    { Qt::Key_multiply, "<{}Multiply>" },
+    { Qt::Key_division, "<{}Divide>" },
+    { Qt::Key_Enter, "<{}Enter>" },
+    { Qt::Key_Period, "<{}Point>" },
+    { Qt::Key_0, "<{}0>" },
+    { Qt::Key_1, "<{}1>" },
+    { Qt::Key_2, "<{}2>" },
+    { Qt::Key_3, "<{}3>" },
+    { Qt::Key_4, "<{}4>" },
+    { Qt::Key_5, "<{}5>" },
+    { Qt::Key_6, "<{}6>" },
+    { Qt::Key_7, "<{}7>" },
+    { Qt::Key_8, "<{}8>" },
+    { Qt::Key_9, "<{}9>" },
+  };
 
-	if (mod & Qt::KeypadModifier && keypadKeys.contains(key))
+  if (mod & Qt::KeypadModifier && keypadKeys.contains(key))
   {
     return fmt::format(keypadKeys.at(key), mod_prefix(mod));
-	}
+  }
 
-	// Issue#917: On Linux, Control + Space sends text as "\u0000"
-	if (key == Qt::Key_Space && text.size() > 0 && !text.at(0).isPrint())
+  // Issue#917: On Linux, Control + Space sends text as "\u0000"
+  if (key == Qt::Key_Space && text.size() > 0 && !text.at(0).isPrint())
   {
-		text = " ";
-	}
+    text = " ";
+  }
 
-	// Issue#864: Some international layouts insert accents (~^`) on Key_Space
-	if (key == Qt::Key_Space && !text.isEmpty() && text != " ")
+  // Issue#864: Some international layouts insert accents (~^`) on Key_Space
+  if (key == Qt::Key_Space && !text.isEmpty() && text != " ")
   {
-		if (mod != Qt::NoModifier)
+    if (mod != Qt::NoModifier)
     {
       return key_mod_str(mod, text.toStdString());
-		}
+    }
 
-		return text.toStdString();
-	}
+    return text.toStdString();
+  }
 
   bool is_special = false;
   auto s = event_to_string(&ev, &is_special);
   if (is_special)
   {
-		if (key == Qt::Key_Space
-			|| key == Qt::Key_Backspace)
+    if (key == Qt::Key_Space
+      || key == Qt::Key_Backspace)
     {
-			mod &= ~Qt::ShiftModifier;
-		}
+      mod &= ~Qt::ShiftModifier;
+    }
     return key_mod_str(mod, s);
-	}
+  }
 
-	// The key "<" should be sent as "<lt>"
-	//   Issue#607: Remove ShiftModifier from "<", shift is implied
-	if (text == "<")
+  // The key "<" should be sent as "<lt>"
+  //   Issue#607: Remove ShiftModifier from "<", shift is implied
+  if (text == "<")
   {
-		const Qt::KeyboardModifiers modNoShift = mod & ~Qt::KeyboardModifier::ShiftModifier;
+    const Qt::KeyboardModifiers modNoShift = mod & ~Qt::KeyboardModifier::ShiftModifier;
     return key_mod_str(modNoShift, "LT");
-	}
+  }
 
-	// Issue#170: Normalize modifiers, CTRL+^ always sends as <C-^>
-	const bool isCaretKey = (key == Qt::Key_6 || key == Qt::Key_AsciiCircum);
-	if (isCaretKey && mod & c_mod())
+  // Issue#170: Normalize modifiers, CTRL+^ always sends as <C-^>
+  const bool isCaretKey = (key == Qt::Key_6 || key == Qt::Key_AsciiCircum);
+  if (isCaretKey && mod & c_mod())
   {
     const Qt::KeyboardModifiers modNoShiftMeta = mod
       & Qt::KeyboardModifier::ShiftModifier
       & ~d_mod();
     return key_mod_str(modNoShiftMeta, "^");
-	}
+  }
 
-	if (text == "\\")
+  if (text == "\\")
   {
     return key_mod_str(mod, "Bslash");
-	}
+  }
 
-	if (text.isEmpty())
+  if (text.isEmpty())
   {
-		// Ignore all modifier-only key events.
-		//   Issue#344: Ignore Ctrl-Shift, C-S- being treated as C-Space
-		//   Issue#593: Pressing Control + Super inserts ^S
-		//   Issue#199: Pressing Control + CapsLock inserts $
+    // Ignore all modifier-only key events.
+    //   Issue#344: Ignore Ctrl-Shift, C-S- being treated as C-Space
+    //   Issue#593: Pressing Control + Super inserts ^S
+    //   Issue#199: Pressing Control + CapsLock inserts $
     if (is_modifier(key)) return {};
 
-		// Ignore special keys
-		//   Issue#671: `q`/`p`/`r` key is sent by Mute/Volume DOWN/Volume UP
-		if (key == Qt::Key::Key_VolumeDown
-			|| key == Qt::Key::Key_VolumeMute
-			|| key == Qt::Key::Key_VolumeUp) return {};
+    // Ignore special keys
+    //   Issue#671: `q`/`p`/`r` key is sent by Mute/Volume DOWN/Volume UP
+    if (key == Qt::Key::Key_VolumeDown
+      || key == Qt::Key::Key_VolumeMute
+      || key == Qt::Key::Key_VolumeUp) return {};
 
     text = QChar(key);
     if (!(mod & Qt::ShiftModifier)) text = text.toLower();
-	}
+  }
 
-	const QChar c = text.at(0);
+  const QChar c = text.at(0);
 
-	// Remove Shift, skip when ALT or CTRL are pressed
-	if ((c.unicode() >= 0x80 || c.isPrint())
-		&& !(mod & c_mod()) && !(mod & d_mod()))
+  // Remove Shift, skip when ALT or CTRL are pressed
+  if ((c.unicode() >= 0x80 || c.isPrint())
+    && !(mod & c_mod()) && !(mod & d_mod()))
   {
-		mod &= ~Qt::ShiftModifier;
-	}
+    mod &= ~Qt::ShiftModifier;
+  }
 
-	// Ignore empty characters at the start of the ASCII range
-	if (c.unicode() < 0x20)
+  // Ignore empty characters at the start of the ASCII range
+  if (c.unicode() < 0x20)
   {
-		text = QChar(key);
+    text = QChar(key);
     if (!(mod & Qt::ShiftModifier)) text = text.toLower();
-	}
+  }
 
-	// Perform any platform specific QKeyEvent modifications
-	auto evNormalized = normalize_key_event(ev.type(), key, mod, text);
+  // Perform any platform specific QKeyEvent modifications
+  auto evNormalized = normalize_key_event(ev.type(), key, mod, text);
 
   const auto prefix = mod_prefix(evNormalized.modifiers());
-	if (!prefix.empty())
+  if (!prefix.empty())
   {
     auto normalized_mods = evNormalized.modifiers();
     return key_mod_str(normalized_mods, evNormalized.text().toStdString());
-	}
+  }
 
-	return evNormalized.text().toStdString();
+  return evNormalized.text().toStdString();
 }
 
 std::string convert_key(const QKeyEvent& ev)

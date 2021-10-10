@@ -41,7 +41,12 @@ static void remove_margin(HWND hwnd)
 static void windows_setup_frameless(HWND hwnd)
 {
   add_margin(hwnd, {0, 0, 1, 0});
-  SetWindowLong(hwnd, GWL_STYLE, WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CAPTION);
+  SetWindowLong(
+    hwnd,
+    GWL_STYLE,
+    WS_THICKFRAME | WS_MINIMIZEBOX
+    | WS_MAXIMIZEBOX | WS_CLIPCHILDREN | WS_CAPTION
+  );
 }
 #endif
 
@@ -579,6 +584,11 @@ void Window::register_handlers()
     paramify<int>([this](int ms) {
       editor_area.set_cursor_frametime(ms);
   }));
+  listen_for_notification("NVUI_CURSOR_HIDE_TYPE",
+    paramify<bool>([this](bool hide) {
+      editor_area.set_cursor_hidden_while_typing(hide);
+      editor_area.unsetCursor(); // Reset state.
+  }));
   /// Add request handlers
   using arr = msgpack::object_array;
   handle_request<std::vector<std::string>, std::string>(
@@ -873,6 +883,7 @@ void Window::changeEvent(QEvent* event)
     emit win_state_changed(windowState());
     auto ev = static_cast<QWindowStateChangeEvent*>(event);
     prev_state = ev->oldState();
+  }
 #ifdef Q_OS_WIN
     if ((windowState() & Qt::WindowMaximized) && is_frameless())
     {
@@ -885,7 +896,6 @@ void Window::changeEvent(QEvent* event)
       setContentsMargins(0, 0, 0, 0);
     }
 #endif
-  }
   QMainWindow::changeEvent(event);
 }
 

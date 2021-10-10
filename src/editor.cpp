@@ -673,6 +673,11 @@ void EditorArea::resized(QSize sz)
   Q_UNUSED(sz);
   const QSize new_rc = to_rc(size());
   assert(nvim);
+  if (resizing)
+  {
+    queued_resize = new_rc;
+    return;
+  }
   if (new_rc.width() == cols && new_rc.height() == rows) return;
   else
   {
@@ -682,7 +687,18 @@ void EditorArea::resized(QSize sz)
   cmdline.parent_resized(size());
   popup_menu.cmdline_width_changed(cmdline.width());
   reposition_cmdline();
-  nvim->resize(new_rc.width(), new_rc.height());
+  resizing = true;
+  nvim->resize_cb(new_rc.width(), new_rc.height(), [&](auto res, auto err) {
+    Q_UNUSED(res); Q_UNUSED(err);
+    QMetaObject::invokeMethod(this, [this] {
+      resizing = false;
+      if (queued_resize)
+      {
+        resized(queued_resize.value());
+        queued_resize.reset();
+      }
+    });
+  });
 }
 
 void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect& rect)
@@ -861,6 +877,10 @@ void EditorArea::set_resizing(bool is_resizing)
 
 void EditorArea::keyPressEvent(QKeyEvent* event)
 {
+  if (hide_cursor_while_typing && cursor() != Qt::BlankCursor)
+  {
+    setCursor(Qt::BlankCursor);
+  }
   event->accept();
   auto text = convert_key(*event);
   if (text.empty()) return;
@@ -1112,6 +1132,10 @@ void EditorArea::send_mouse_input(
 
 void EditorArea::mousePressEvent(QMouseEvent* event)
 {
+  if (hide_cursor_while_typing && cursor() == Qt::BlankCursor)
+  {
+    unsetCursor();
+  }
   if (cursor() != Qt::ArrowCursor)
   {
     QWidget::mousePressEvent(event);
@@ -1129,6 +1153,10 @@ void EditorArea::mousePressEvent(QMouseEvent* event)
 
 void EditorArea::mouseMoveEvent(QMouseEvent* event)
 {
+  if (hide_cursor_while_typing && cursor() == Qt::BlankCursor)
+  {
+    unsetCursor();
+  }
   QWidget::mouseMoveEvent(event);
   if (cursor() != Qt::ArrowCursor) return;
   if (!mouse_enabled) return;

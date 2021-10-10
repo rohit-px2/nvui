@@ -2,6 +2,7 @@
 #include <cassert>
 #include <iostream>
 #include <sstream>
+
 namespace hl
 {
   HLAttr hl_attr_from_object(const msgpack::object& obj)
@@ -95,60 +96,11 @@ namespace hl
   }
 }
 
-/*
-   HLAttr Implementation
-*/
-
-HLAttr::HLAttr()
-: hl_id(0) {}
-
-HLAttr::HLAttr(int id)
-: hl_id(id) {}
-
-HLAttr::HLAttr(const HLAttr& other)
-: hl_id(other.hl_id),
-  reverse(other.reverse),
-  special(other.special),
-  foreground(other.foreground),
-  background(other.background),
-  state(other.state),
-  opacity(other.opacity) {}
-
-HLAttr::HLAttr(HLAttr&& other)
-: hl_id(other.hl_id),
-  reverse(other.reverse),
-  special(other.special),
-  foreground(other.foreground),
-  background(other.background),
-  state(std::move(other.state)),
-  opacity(other.opacity) {}
-
-HLAttr& HLAttr::operator=(HLAttr&& other)
-{
-  hl_id = other.hl_id;
-  foreground = other.foreground;
-  background = other.background;
-  special = other.special;
-  reverse = other.reverse;
-  state = std::move(other.state);
-  opacity = other.opacity;
-  return *this;
-}
-/*
-   HLState Implementation
-*/
-
-
 const HLAttr& HLState::attr_for_id(int id) const
 {
-  const auto it = id_to_attr.find(id);
-  if (it != id_to_attr.end())
-  {
-    return it->second;
-  }
-  return default_colors;
+  if (id < 0 || id >= (int) id_to_attr.size()) return default_colors;
+  return id_to_attr[id];
 }
-
 
 int HLState::id_for_name(const std::string &name) const
 {
@@ -160,18 +112,26 @@ int HLState::id_for_name(const std::string &name) const
   return 0;
 }
 
-
 void HLState::set_name_id(const std::string& name, std::uint32_t hl_id)
 {
   name_to_id[name] = hl_id;
 }
 
-
 void HLState::set_id_attr(int id, HLAttr attr)
 {
-  id_to_attr[id] = attr;
+  if (id > (int) id_to_attr.size())
+  {
+    // Shouldn't happen with the way Neovim gives us highlight
+    // attributes but just to make sure
+    id_to_attr.resize(id + 1);
+  }
+  if (id == (int) id_to_attr.size())
+  {
+    id_to_attr.emplace_back(std::move(attr));
+    return;
+  }
+  id_to_attr[id] = std::move(attr);
 }
-
 
 void HLState::default_colors_set(const msgpack::object& obj)
 {
@@ -185,12 +145,10 @@ void HLState::default_colors_set(const msgpack::object& obj)
   default_colors.special = params.ptr[2].as<std::uint32_t>();
 }
 
-
 const HLAttr& HLState::default_colors_get() const
 {
   return default_colors;
 }
-
 
 void HLState::define(const msgpack::object& obj)
 {
@@ -207,7 +165,7 @@ void HLState::define(const msgpack::object& obj)
       set_name_id(s.ui_name, id);
     }
   }
-  id_to_attr[id] = attr;
+  set_id_attr(attr.hl_id, std::move(attr));
 }
 
 

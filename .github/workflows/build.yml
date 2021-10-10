@@ -122,7 +122,7 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu') && !matrix.use_vcpkg }}
         run: |
           python3 -m pip install aqtinstall
-          python3 -m aqt install -O ./Qt 5.15.2 linux desktop -m qtsvg
+          python3 -m aqt install-qt -O ./Qt linux desktop 5.15.2
           echo "Qt5_DIR=$(cd Qt/5.15.2/gcc_64/lib/cmake/Qt5; pwd)" >> $GITHUB_ENV
 
       - name: Mac - Install dependencies
@@ -220,8 +220,8 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           sdk: 10.0.19041.0
-      - name: Install Neovim Nightly (needed for tests)
-        run: choco install -y neovim --pre
+      - name: Install Neovim Stable
+        run: choco install -y neovim
       - name: Add Neovim to PATH
         run: echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Restore deps from cache if they exist

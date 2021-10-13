@@ -512,7 +512,7 @@ protected:
    * Returns nullopt if no grid could be found that
    * matches the requirements.
    */
-  std::optional<GridPos> grid_pos_for(const QPoint& pos);
+  std::optional<GridPos> grid_pos_for(QPoint pos);
   /**
    * Calculate the position for the mouse click event
    * and send the mouse input with the given button,

@@ -99,7 +99,6 @@ static const std::unordered_map<std::string, bool> default_capabilities {
 void Nvim::read_output_sync()
 {
   using std::cout;
-  msgpack::object_handle oh;
   cout << std::dec;
   // buffer_maxsize of 1MB
   constexpr int buffer_maxsize = 1024 * 1024;

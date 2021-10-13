@@ -1079,22 +1079,24 @@ void EditorArea::resizeEvent(QResizeEvent* event)
 }
 
 std::optional<EditorArea::GridPos>
-EditorArea::grid_pos_for(const QPoint& pos)
+EditorArea::grid_pos_for(QPoint pos)
 {
-  const auto font_dims = font_dimensions();
-  const auto font_width = std::get<0>(font_dims);
-  const auto font_height = std::get<1>(font_dims);
+  if (pos.x() > width()) pos.setX(width());
+  if (pos.y() > height()) pos.setY(height());
+  if (pos.x() < 0) pos.setX(0);
+  if (pos.y() < 0) pos.setY(0);
+  const auto [f_width, f_height] = font_dimensions();
   for(auto it = grids.rbegin(); it != grids.rend(); ++it)
   {
     const auto& grid = *it;
-    const auto start_y = grid->y * font_height;
-    const auto start_x = grid->x * font_width;
-    const auto height = grid->rows * font_height;
-    const auto width = grid->cols * font_width;
+    const auto start_y = grid->y * f_height;
+    const auto start_x = grid->x * f_width;
+    const auto height = grid->rows * f_height;
+    const auto width = grid->cols * f_width;
     if (QRect(start_x, start_y, width, height).contains(pos))
     {
-      int row = (pos.y() - grid->y) / font_height;
-      int col = (pos.x() - grid->x) / font_width;
+      int row = (pos.y() - grid->y) / f_height;
+      int col = (pos.x() - grid->x) / f_width;
       return GridPos {grid->id, row, col};
     }
   }
@@ -1109,10 +1111,6 @@ void EditorArea::send_mouse_input(
 )
 {
   if (!mouse_enabled) return;
-  if (pos.x() < 0) pos.setX(0);
-  if (pos.y() < 0) pos.setY(0);
-  if (pos.x() > width()) pos.setX(width());
-  if (pos.y() > height()) pos.setY(height());
   auto grid_pos_opt = grid_pos_for(pos);
   if (!grid_pos_opt)
   {
@@ -1123,7 +1121,7 @@ void EditorArea::send_mouse_input(
     return;
   }
   auto&& [grid_num, row, col] = *grid_pos_opt;
-  if (capabilities.multigrid) grid_num = 0;
+  if (!capabilities.multigrid) grid_num = 0;
   nvim->input_mouse(
     std::move(button), std::move(action), std::move(modifiers),
     grid_num, row, col

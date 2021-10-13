@@ -188,7 +188,7 @@ public:
    * Note: This is buffered. If you want the message to display
    * add a '\n' at the end of the string.
    */
-  void out_write(std::string_view str)
+  void out_write(std::string str)
   {
     send_notification("nvim_out_write", std::tuple {str});
   }
@@ -198,7 +198,7 @@ public:
    * Note: This is buffered. If you want the message to display
    * add a '\n' at the end of the string.
    */
-  void err_write(std::string_view str)
+  void err_write(std::string str)
   {
     send_notification("nvim_err_write", std::tuple {str});
   }

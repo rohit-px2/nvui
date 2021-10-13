@@ -829,7 +829,14 @@ void Window::handle_request(
           std::optional<Res> res;
           std::optional<Err> err;
           std::tie(res, err) = f(params_obj.via.array);
-          nvim->send_response(msgid, res, err);
+          if (res)
+          {
+            nvim->send_response(msgid, *res, msgpack::object());
+          }
+          else
+          {
+            nvim->send_response(msgid, msgpack::object(), *err);
+          }
         },
         Qt::QueuedConnection
       );

@@ -40,6 +40,13 @@ class EditorArea : public QWidget
 {
   Q_OBJECT
 public:
+  struct Mouse
+  {
+    QTimer mouse_click_timer;
+    std::optional<int> gridid {};
+    int row;
+    int col;
+  };
   using NeovimObj = const msgpack::object*;
   using u32 = std::uint32_t;
   using u16 = std::uint16_t;
@@ -396,6 +403,7 @@ protected:
   float cursor_animation_time = 0.3f;
   int cursor_animation_frametime_ms = 10;
   bool hide_cursor_while_typing = false;
+  Mouse mouse;
   /**
    * Sets the current font to new_font.
    * If new_font is empty (this indicates an unset value),

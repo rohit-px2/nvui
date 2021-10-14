@@ -338,8 +338,8 @@ void EditorArea::win_pos(NeovimObj obj, u32 size)
     }
     shift_z(grid->z_index);
     grid->hidden = false;
-    grid->set_pos(sc, sr);
     grid->set_size(width, height);
+    grid->win_pos(sc, sr);
     grid->z_index = grids.size() - 1;
     QRect r(0, 0, grid->cols, grid->rows);
   }
@@ -410,7 +410,7 @@ void EditorArea::win_float_pos(NeovimObj obj, u32 size)
     shift_z(grid->z_index);
     bool were_animations_enabled = animations_enabled();
     set_animations_enabled(false);
-    grid->set_pos(anchor_pos);
+    grid->float_pos(anchor_pos.x(), anchor_pos.y());
     grid->z_index = grids.size() - 1;
     set_animations_enabled(were_animations_enabled);
   }
@@ -1189,10 +1189,12 @@ void EditorArea::mouseMoveEvent(QMouseEvent* event)
   if (mouse.gridid)
   {
     auto* grid = find_grid(mouse.gridid);
-    if (!grid) return;
-    text_pos.rx() -= grid->x;
-    text_pos.ry() -= grid->y;
-    text_pos = clamped(text_pos, {0, 0, grid->cols, grid->rows});
+    if (grid && grid->is_float())
+    {
+      text_pos.rx() -= grid->x;
+      text_pos.ry() -= grid->y;
+      text_pos = clamped(text_pos, {0, 0, grid->cols, grid->rows});
+    }
     grid_num = mouse.gridid;
   }
   // Check if mouse actually moved

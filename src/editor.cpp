@@ -1141,7 +1141,12 @@ void EditorArea::send_mouse_input(
   }
   auto&& [grid_num, row, col] = *grid_pos_opt;
   if (!capabilities.multigrid) grid_num = 0;
-  if (action == "press") mouse.gridid = grid_num;
+  if (action == "press")
+  {
+    mouse.gridid = grid_num;
+    mouse.row = row;
+    mouse.col = col;
+  }
   nvim->input_mouse(
     std::move(button), std::move(action), std::move(modifiers),
     grid_num, row, col
@@ -1189,7 +1194,7 @@ void EditorArea::mouseMoveEvent(QMouseEvent* event)
   if (mouse.gridid)
   {
     auto* grid = find_grid(mouse.gridid);
-    if (grid && grid->is_float())
+    if (grid)
     {
       text_pos.rx() -= grid->x;
       text_pos.ry() -= grid->y;

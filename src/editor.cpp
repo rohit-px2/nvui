@@ -78,7 +78,8 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   pixmap(width(), height()),
   neovim_cursor(this),
   popup_menu(hl_state, this),
-  cmdline(hl_state, &neovim_cursor, this)
+  cmdline(hl_state, &neovim_cursor, this),
+  mouse(QApplication::doubleClickInterval())
 {
   setAttribute(Qt::WA_InputMethodEnabled);
   setAttribute(Qt::WA_OpaquePaintEvent);
@@ -861,12 +862,16 @@ static std::string mouse_button_to_string(Qt::MouseButtons btn)
   }
 }
 
-static std::string mouse_mods_to_string(Qt::KeyboardModifiers mods)
+static std::string mouse_mods_to_string(
+  Qt::KeyboardModifiers mods,
+  int click_count = 0
+)
 {
   std::string mod_str;
   if (mods & Qt::ControlModifier) mod_str.push_back('c');
   if (mods & Qt::AltModifier) mod_str.push_back('a');
   if (mods & Qt::ShiftModifier) mod_str.push_back('s');
+  if (click_count > 1) mod_str.append(std::to_string(click_count));
   return mod_str;
 }
 
@@ -1155,10 +1160,11 @@ void EditorArea::mousePressEvent(QMouseEvent* event)
     return;
   }
   if (!mouse_enabled) return;
+  mouse.button_clicked(event->button());
   std::string btn_text = mouse_button_to_string(event->button());
   if (btn_text.empty()) return;
   std::string action = "press";
-  std::string mods = mouse_mods_to_string(event->modifiers());
+  std::string mods = mouse_mods_to_string(event->modifiers(), mouse.click_count);
   send_mouse_input(
     event->pos(), std::move(btn_text), std::move(action), std::move(mods)
   );
@@ -1182,16 +1188,19 @@ void EditorArea::mouseMoveEvent(QMouseEvent* event)
   int grid_num = 0;
   if (mouse.gridid)
   {
-    auto* grid = find_grid(*mouse.gridid);
+    auto* grid = find_grid(mouse.gridid);
     if (!grid) return;
     text_pos.rx() -= grid->x;
     text_pos.ry() -= grid->y;
     text_pos = clamped(text_pos, {0, 0, grid->cols, grid->rows});
-    grid_num = *mouse.gridid;
+    grid_num = mouse.gridid;
   }
-  if (!capabilities.multigrid) grid_num = 0;
+  // Check if mouse actually moved
+  if (mouse.col == text_pos.x() && mouse.row == text_pos.y()) return;
+  mouse.col = text_pos.x();
+  mouse.row = text_pos.y();
   nvim->input_mouse(
-    button, action, mods, grid_num, text_pos.y(), text_pos.x()
+    button, action, mods, grid_num, mouse.row, mouse.col
   );
 }
 
@@ -1202,7 +1211,7 @@ void EditorArea::mouseReleaseEvent(QMouseEvent* event)
   if (button.empty()) return;
   auto mods = mouse_mods_to_string(event->modifiers());
   std::string action = "release";
-  mouse.gridid.reset();
+  mouse.gridid = 0;
   send_mouse_input(
     event->pos(), std::move(button), std::move(action), std::move(mods)
   );

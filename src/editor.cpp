@@ -78,7 +78,8 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   pixmap(width(), height()),
   neovim_cursor(this),
   popup_menu(hl_state, this),
-  cmdline(hl_state, &neovim_cursor, this)
+  cmdline(hl_state, &neovim_cursor, this),
+  mouse(QApplication::doubleClickInterval())
 {
   setAttribute(Qt::WA_InputMethodEnabled);
   setAttribute(Qt::WA_OpaquePaintEvent);
@@ -337,8 +338,8 @@ void EditorArea::win_pos(NeovimObj obj, u32 size)
     }
     shift_z(grid->z_index);
     grid->hidden = false;
-    grid->set_pos(sc, sr);
     grid->set_size(width, height);
+    grid->win_pos(sc, sr);
     grid->z_index = grids.size() - 1;
     QRect r(0, 0, grid->cols, grid->rows);
   }
@@ -409,7 +410,7 @@ void EditorArea::win_float_pos(NeovimObj obj, u32 size)
     shift_z(grid->z_index);
     bool were_animations_enabled = animations_enabled();
     set_animations_enabled(false);
-    grid->set_pos(anchor_pos);
+    grid->float_pos(anchor_pos.x(), anchor_pos.y());
     grid->z_index = grids.size() - 1;
     set_animations_enabled(were_animations_enabled);
   }
@@ -861,12 +862,16 @@ static std::string mouse_button_to_string(Qt::MouseButtons btn)
   }
 }
 
-static std::string mouse_mods_to_string(Qt::KeyboardModifiers mods)
+static std::string mouse_mods_to_string(
+  Qt::KeyboardModifiers mods,
+  int click_count = 0
+)
 {
   std::string mod_str;
   if (mods & Qt::ControlModifier) mod_str.push_back('c');
   if (mods & Qt::AltModifier) mod_str.push_back('a');
   if (mods & Qt::ShiftModifier) mod_str.push_back('s');
+  if (click_count > 1) mod_str.append(std::to_string(click_count));
   return mod_str;
 }
 
@@ -1078,24 +1083,40 @@ void EditorArea::resizeEvent(QResizeEvent* event)
   repaint();
 }
 
-std::optional<EditorArea::GridPos>
-EditorArea::grid_pos_for(const QPoint& pos)
+/// Returns a point clamped between the top-left and bottom-right
+/// of r.
+static QPoint clamped(QPoint p, const QRect& r)
 {
-  const auto font_dims = font_dimensions();
-  const auto font_width = std::get<0>(font_dims);
-  const auto font_height = std::get<1>(font_dims);
+  p.setX(std::clamp(p.x(), r.left(), r.right()));
+  p.setY(std::clamp(p.y(), r.top(), r.bottom()));
+  return p;
+}
+
+static QRect scaled(const QRect& r, float hor, float vert)
+{
+  return QRectF(
+    r.x() * hor,
+    r.y() * vert,
+    r.width() * hor,
+    r.height() * vert
+  ).toRect();
+}
+
+std::optional<EditorArea::GridPos>
+EditorArea::grid_pos_for(QPoint pos)
+{
+  const auto [f_width, f_height] = font_dimensions();
   for(auto it = grids.rbegin(); it != grids.rend(); ++it)
   {
     const auto& grid = *it;
-    const auto start_y = grid->y * font_height;
-    const auto start_x = grid->x * font_width;
-    const auto height = grid->rows * font_height;
-    const auto width = grid->cols * font_width;
-    if (QRect(start_x, start_y, width, height).contains(pos))
+    QRect grid_rect = {grid->x, grid->y, grid->cols, grid->rows};
+    QRect grid_px_rect = scaled(grid_rect, f_width, f_height);
+    if (grid_px_rect.contains(pos))
     {
-      int row = (pos.y() - grid->y) / font_height;
-      int col = (pos.x() - grid->x) / font_width;
-      return GridPos {grid->id, row, col};
+      int row = (pos.y() / f_height) - grid->y;
+      int col = (pos.x() / f_width) - grid->x;
+      auto x = clamped({col, row}, {0, 0, grid->cols, grid->rows});
+      return GridPos {grid->id, x.y(), x.x()};
     }
   }
   return std::nullopt;
@@ -1109,10 +1130,6 @@ void EditorArea::send_mouse_input(
 )
 {
   if (!mouse_enabled) return;
-  if (pos.x() < 0) pos.setX(0);
-  if (pos.y() < 0) pos.setY(0);
-  if (pos.x() > width()) pos.setX(width());
-  if (pos.y() > height()) pos.setY(height());
   auto grid_pos_opt = grid_pos_for(pos);
   if (!grid_pos_opt)
   {
@@ -1123,7 +1140,13 @@ void EditorArea::send_mouse_input(
     return;
   }
   auto&& [grid_num, row, col] = *grid_pos_opt;
-  if (capabilities.multigrid) grid_num = 0;
+  if (!capabilities.multigrid) grid_num = 0;
+  if (action == "press")
+  {
+    mouse.gridid = grid_num;
+    mouse.row = row;
+    mouse.col = col;
+  }
   nvim->input_mouse(
     std::move(button), std::move(action), std::move(modifiers),
     grid_num, row, col
@@ -1142,10 +1165,11 @@ void EditorArea::mousePressEvent(QMouseEvent* event)
     return;
   }
   if (!mouse_enabled) return;
+  mouse.button_clicked(event->button());
   std::string btn_text = mouse_button_to_string(event->button());
   if (btn_text.empty()) return;
   std::string action = "press";
-  std::string mods = mouse_mods_to_string(event->modifiers());
+  std::string mods = mouse_mods_to_string(event->modifiers(), mouse.click_count);
   send_mouse_input(
     event->pos(), std::move(btn_text), std::move(action), std::move(mods)
   );
@@ -1164,8 +1188,26 @@ void EditorArea::mouseMoveEvent(QMouseEvent* event)
   if (button.empty()) return;
   auto mods = mouse_mods_to_string(event->modifiers());
   std::string action = "drag";
-  send_mouse_input(
-    event->pos(), std::move(button), std::move(action), std::move(mods)
+  const auto [f_width, f_height] = font_dimensions();
+  QPoint text_pos(event->x() / f_width, event->y() / f_height);
+  int grid_num = 0;
+  if (mouse.gridid)
+  {
+    auto* grid = find_grid(mouse.gridid);
+    if (grid)
+    {
+      text_pos.rx() -= grid->x;
+      text_pos.ry() -= grid->y;
+      text_pos = clamped(text_pos, {0, 0, grid->cols, grid->rows});
+    }
+    grid_num = mouse.gridid;
+  }
+  // Check if mouse actually moved
+  if (mouse.col == text_pos.x() && mouse.row == text_pos.y()) return;
+  mouse.col = text_pos.x();
+  mouse.row = text_pos.y();
+  nvim->input_mouse(
+    button, action, mods, grid_num, mouse.row, mouse.col
   );
 }
 
@@ -1176,6 +1218,7 @@ void EditorArea::mouseReleaseEvent(QMouseEvent* event)
   if (button.empty()) return;
   auto mods = mouse_mods_to_string(event->modifiers());
   std::string action = "release";
+  mouse.gridid = 0;
   send_mouse_input(
     event->pos(), std::move(button), std::move(action), std::move(mods)
   );

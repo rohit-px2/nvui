@@ -320,6 +320,18 @@ public:
   {
     viewport = vp;
   }
+  bool is_float() const { return is_float_grid; }
+  void set_floating(bool f) { is_float_grid = f; }
+  void win_pos(u16 x, u16 y)
+  {
+    set_pos(x, y);
+    set_floating(false);
+  }
+  void float_pos(u16 x, u16 y)
+  {
+    set_pos(x, y);
+    set_floating(true);
+  }
 public:
   u16 x;
   u16 y;
@@ -331,6 +343,7 @@ public:
   bool hidden = false;
   std::queue<PaintEventItem> evt_q;
   Viewport viewport;
+  bool is_float_grid = false;
   /// Not used in GridBase (may not even be used at all
   /// if animations are not supported/enabled by the rendering
   /// grid).

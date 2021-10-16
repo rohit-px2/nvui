@@ -264,15 +264,6 @@ bool Nvim::running()
   return nvim.running();
 }
 
-template<typename T>
-void Nvim::set_var(const std::string& name, const T& val)
-{
-  send_notification("nvim_set_var", std::make_tuple(name, val));
-}
-
-template void Nvim::set_var<int>(const std::string&, const int&);
-template void Nvim::set_var<std::string>(const std::string&, const std::string&);
-
 void Nvim::set_notification_handler(
   const std::string& method,
   msgpack_callback handler

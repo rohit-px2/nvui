@@ -122,9 +122,9 @@ Window::Window(QWidget* parent, Nvim* nv, int width, int height, bool custom_tit
   }
   QObject::connect(title_bar.get(), &TitleBar::resize_move, this, &Window::resize_or_move);
   setWindowIcon(QIcon(constants::appicon()));
-  title_bar->set_separator(" • ");
   // We'll do this later
   setCentralWidget(&editor_area);
+  nvim->set_var("nvui_tb_separator", " • ");
   editor_area.setFocus();
   QObject::connect(this, &Window::default_colors_changed, [this] { update_titlebar_colors(); });
   QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
@@ -158,34 +158,6 @@ void Window::handle_redraw(object_handle* redraw_args)
       //fmt::print("No handler found for task {}\n", std::move(task_name));
     }
   }
-}
-
-void Window::handle_bufenter(object_handle* bufe_args)
-{
-  const auto oh = safe_copy(bufe_args);
-  const auto& obj = oh.get();
-  assert(obj.type == msgpack::type::ARRAY);
-  const auto& arr = obj.via.array.ptr[2].via.array;
-  assert(arr.size == 1);
-  const object& file_obj = arr.ptr[0];
-  assert(file_obj.type == msgpack::type::STR);
-  //QString&& file_name = QString::fromStdString(file_obj.as<std::string>());
-  QString&& file_name = file_obj.as<QString>();
-  title_bar->set_right_text(file_name);
-}
-
-void Window::dirchanged_titlebar(object_handle* dir_args)
-{
-  const auto oh = safe_copy(dir_args);
-  const auto& obj = oh.get();
-  const auto& arr = obj.via.array.ptr[2].via.array;
-  assert(arr.size == 2); // Local dir name, and full path (we might use later)
-  assert(arr.ptr[0].type == msgpack::type::STR);
-  //QString&& new_dir = QString::fromStdString(arr.ptr[0].as<std::string>());
-  QString&& new_dir = arr.ptr[0].as<QString>();
-  //assert(arr.ptr[1].type == msgpack::type::STR);
-  //const QString full_dir = QString::fromStdString(arr.ptr[1].as<std::string>());
-  title_bar->set_middle_text(new_dir);
 }
 
 void Window::set_handler(std::string method, obj_ref_cb handler)
@@ -344,16 +316,6 @@ void Window::register_handlers()
       this, "handle_redraw", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
     );
   }));
-  nvim->set_notification_handler("NVUI_BUFENTER", sem_block([this](object_handle* obj) {
-    QMetaObject::invokeMethod(
-      this, "handle_bufenter", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
-    );
-  }));
-  nvim->set_notification_handler("NVUI_DIRCHANGED", sem_block([this](object_handle* obj) {
-    QMetaObject::invokeMethod(
-      this, "dirchanged_titlebar", Qt::QueuedConnection, Q_ARG(msgpack::object_handle*, obj)
-    );
-  }));
   using notification = const object_array&;
   listen_for_notification("NVUI_WINOPACITY", paramify<float>([this](double opacity) {
     if (opacity <= 0.0 || opacity > 1.0) return;
@@ -494,9 +456,6 @@ void Window::register_handlers()
     if (isFullScreen()) set_fullscreen(false);
     else set_fullscreen(true);
   });
-  listen_for_notification("NVUI_TB_SEPARATOR", paramify<QString>([this](QString new_sep) {
-    title_bar->set_separator(std::move(new_sep));
-  }));
   listen_for_notification("NVUI_TITLEBAR_FONT_FAMILY", paramify<QString>([this](QString family) {
     title_bar->set_font_family(family);
     emit resize_done(size());
@@ -588,6 +547,10 @@ void Window::register_handlers()
     paramify<bool>([this](bool hide) {
       editor_area.set_cursor_hidden_while_typing(hide);
       editor_area.unsetCursor(); // Reset state.
+  }));
+  listen_for_notification("NVUI_TB_TITLE",
+    paramify<QString>([this](QString text) {
+      title_bar->set_title_text(text);
   }));
   /// Add request handlers
   using arr = msgpack::object_array;

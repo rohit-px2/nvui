@@ -311,4 +311,10 @@ void Nvim::send_request_cb(
   send_request(method, params, false);
 }
 
+template<typename T>
+void Nvim::set_var(const std::string& name, const T& val)
+{
+  send_notification("nvim_set_var", std::tuple {name, val});
+}
+
 #endif

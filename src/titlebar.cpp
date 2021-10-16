@@ -176,13 +176,10 @@ static const QColor mm_dark = "#3d4148";
 static const QColor close_bg = {255, 0, 0}; // completely red
 
 TitleBar::TitleBar(QString text, Window* window)
-: separator(" "),
-  maximized(false),
+: maximized(false),
   foreground("#ffffff"),
   background("#282c34"),
-  win(window),
-  left_text(std::move(text)),
-  right_text("")
+  win(window)
 {
   setMouseTracking(true);
   assert(qApp->screens().size() > 0);
@@ -202,7 +199,7 @@ TitleBar::TitleBar(QString text, Window* window)
   layout = new QHBoxLayout();
   QPushButton* appicon = new MenuButton();
   appicon->setIcon(QIcon(constants::appicon()));
-  label = new QLabel(left_text);
+  label = new QLabel(text);
   label->setMouseTracking(true);
   label->setFont(title_font);
   // Window buttons on left for non-Windows
@@ -243,56 +240,12 @@ TitleBar::TitleBar(QString text, Window* window)
   QObject::connect(max_btn, SIGNAL(clicked()), this, SLOT(minimize_maximize()));
 }
 
-void TitleBar::update_text()
+void TitleBar::set_title_text(const QString& text)
 {
-  if (left_text.isEmpty() && right_text.isEmpty())
-  {
-    label->setText(middle_text);
-  }
-  else if (left_text.isEmpty() && middle_text.isEmpty())
-  {
-    label->setText(right_text);
-  }
-  else if (right_text.isEmpty() && middle_text.isEmpty())
-  {
-    label->setText(left_text);
-  }
-  else if (left_text.isEmpty())
-  {
-    label->setText(middle_text % separator % right_text);
-  }
-  else if (middle_text.isEmpty())
-  {
-    label->setText(left_text % separator % right_text);
-  }
-  else if (right_text.isEmpty())
-  {
-    label->setText(left_text % separator % middle_text);
-  }
-  else
-  {
-    label->setText(left_text % separator % middle_text % separator % right_text);
-  }
-  win->setWindowTitle(label->text());
+  label->setText(text);
+  win->setWindowTitle(text);
 }
 
-void TitleBar::set_right_text(QString text)
-{
-  right_text = std::move(text);
-  update_text();
-}
-
-void TitleBar::set_left_text(QString text)
-{
-  left_text = std::move(text);
-  update_text();
-}
-
-void TitleBar::set_middle_text(QString text)
-{
-  middle_text = std::move(text);
-  update_text();
-}
 bool is_light(const QColor& color)
 {
   return color.lightness() >= 127;
@@ -352,12 +305,6 @@ void TitleBar::set_color(QColor fg, QColor bg)
   foreground = std::move(fg);
   background = std::move(bg);
   update_titlebar();
-}
-
-void TitleBar::set_separator(QString new_sep)
-{
-  separator = std::move(new_sep);
-  update_text();
 }
 
 void TitleBar::minimize_maximize()

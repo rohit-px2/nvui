@@ -181,12 +181,20 @@ jobs:
           if-no-files-found: ignore
           path: build/packaged
 
-      - name: Prepare release zip
-        if: matrix.upload && startsWith(github.ref, 'refs/tags/')
+      - name: Ubuntu - Prepare release zip
+        if: matrix.upload && startsWith(github.ref, 'refs/tags/') && startsWith(matrix.os, 'ubuntu')
         run: |
           cd build/packaged
           zip -r nvui-linux-x64.zip assets bin vim
           mv nvui-linux-x64.zip ../..
+
+      - name: Mac - Prepare Release Zip
+        if: matrix.upload && startsWith(github.ref, 'refs/tags/') && startsWith(matrix.os, 'macos')
+        run: |
+          cd build/packaged
+          zip -r nvui-macos-x64.zip assets bin vim
+          mv nvui-macos-x64.zip ../..
+
       - name: Ubuntu - Upload release asset
         if: startsWith(matrix.os, 'ubuntu') && matrix.upload && startsWith(github.ref, 'refs/tags/')
         uses: svenstaro/upload-release-action@v2

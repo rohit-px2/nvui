@@ -18,6 +18,9 @@
 #include <fmt/format.h>
 #include <boost/process/env.hpp>
 #include <QProcess>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include "log.hpp"
 
 using std::string;
 using std::vector;
@@ -65,7 +68,7 @@ void start_detached(int argc, char** argv)
 {
   if (argc < 1)
   {
-    fmt::print("No arguments given, could not start in detached mode\n");
+    LOG_ERROR("No arguments given, could not start in detached mode\n");
     return;
   }
   QString prog_name = argv[0];
@@ -99,11 +102,33 @@ bool is_executable(std::string_view path)
   return file_info.exists() && file_info.isExecutable();
 }
 
+void log_to_file(const std::string& fname, std::string level = "")
+{
+  using namespace spdlog;
+  auto logger = basic_logger_mt("nvui_log", fname);
+  set_default_logger(logger);
+  level::level_enum logging_level = level::info;
+  if (!level.empty()) logging_level = level::from_str(level);
+  // Don't let it be turned off
+  if (logging_level == level::off) logging_level = level::info;
+  set_level(logging_level);
+  info("Starting with a logging level of: {}", level::to_string_view(logging_level));
+}
+
+void show_message_box(QString msg, QString title = "")
+{
+  QMessageBox mbox;
+  mbox.setText(msg);
+  mbox.setWindowTitle(title);
+  mbox.exec();
+}
+
 Q_DECLARE_METATYPE(msgpack::object)
 Q_DECLARE_METATYPE(msgpack::object_handle*)
 
 int main(int argc, char** argv)
 {
+  spdlog::set_level(spdlog::level::err);
   qRegisterMetaType<msgpack::object>();
   qRegisterMetaType<msgpack::object_handle*>();
   const auto args = get_args(argc, argv);
@@ -137,6 +162,14 @@ int main(int argc, char** argv)
     start_detached(argc, argv);
     return 0;
   }
+  if (auto lvl = get_arg(args, "--log"))
+  {
+    if (!lvl->empty() && lvl->rfind('=') == 0)
+    {
+      *lvl = lvl->substr(1);
+    }
+    log_to_file("nvui_log.txt", std::string(*lvl));
+  }
   auto titlebar = get_arg(args, "--titlebar");
   if (titlebar)
   {
@@ -168,25 +201,25 @@ int main(int argc, char** argv)
   }
   std::ios_base::sync_with_stdio(false);
   QApplication app {argc, argv};
+  Nvim nvim;
   try
   {
-    Nvim nvim {nvim_path, nvim_args};
-    Window w(nullptr, &nvim, width, height, custom_titlebar);
-    w.register_handlers();
-    w.show();
-    nvim.set_var("nvui", 1);
-    nvim.attach_ui(width, height, capabilities);
-    nvim.on_exit([&] {
-      QMetaObject::invokeMethod(&w, &QMainWindow::close, Qt::QueuedConnection);
-    });
-    return app.exec();
+    nvim.open_local(nvim_path, nvim_args);
   }
-  catch (const std::exception& e)
+  catch(const std::exception& e)
   {
-    // The main purpose is to catch the exception where Neovim is not
-    // found in PATH
-    QMessageBox msg;
-    msg.setText("Error occurred: " % QLatin1String(e.what()) % ".");
-    msg.exec();
+    show_message_box(e.what(), "error");
+    LOG_ERROR("Error occurred: {}", e.what());
+    return EXIT_FAILURE;
   }
+  Window w(nullptr, &nvim, width, height, custom_titlebar);
+  w.register_handlers();
+  w.show();
+  nvim.set_var("nvui", 1);
+  nvim.attach_ui(width, height, capabilities);
+  nvim.on_exit([&] {
+    LOG_INFO("Nvim shut down. Closing nvui...");
+    QMetaObject::invokeMethod(&w, &QMainWindow::close, Qt::QueuedConnection);
+  });
+  return app.exec();
 }

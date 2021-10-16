@@ -13,6 +13,7 @@
 #include <msgpack.hpp>
 #include <fmt/format.h>
 #include <fmt/core.h>
+#include "log.hpp"
 
 enum Type : std::uint64_t
 {
@@ -32,11 +33,13 @@ private:
   using response_cb = std::function<void (msgpack::object, msgpack::object)>;
 public:
   ~Nvim();
-  /**
-   * Constructs an embedded Neovim instance and establishes communication.
-   * The Neovim instance is created with the command "nvim --embed".
-   */
-  Nvim(std::string path = "", std::vector<std::string> args = {"--embed"});
+  Nvim();
+  /// Connects to a local Neovim instance at the given path and arguments.
+  /// If path is empty, looks for Neovim in your PATH. If that isn't
+  /// found then an exception is thrown.
+  void open_local(
+    std::string path = "", std::vector<std::string> args = {"--embed"}
+  );
   /**
    * Get the exit code of the Neovim instance.
    * If Neovim is still running, the exit code that is return will be INT_MIN.
@@ -202,6 +205,18 @@ public:
   {
     send_notification("nvim_err_write", std::tuple {str});
   }
+
+  template<typename T>
+  void set_option(const std::string& name, const T& val)
+  {
+    send_notification("nvim_set_option", std::tuple {name, val});
+  }
+
+  template<typename T>
+  void ui_set_option(const std::string& name, const T& val)
+  {
+    send_notification("nvim_ui_set_option", std::tuple {name, val});
+  }
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
@@ -254,7 +269,7 @@ void Nvim::send_request(const std::string& method, const T& params, bool blockin
   }
   catch (const std::exception& e)
   {
-    fmt::print("Exception occurred: {}\n", e.what());
+    LOG_ERROR("Exception occurred: {}\n", e.what());
   }
 }
 
@@ -273,7 +288,7 @@ void Nvim::send_notification(const std::string& method, const T& params)
   }
   catch (const std::exception& e)
   {
-    fmt::print("Exception occurred: {}\n", e.what());
+    LOG_ERROR("Exception occurred: {}\n", e.what());
   }
 }
 
@@ -295,7 +310,7 @@ void Nvim::send_response(
   }
   catch(...)
   {
-    fmt::print("Could not send response. Msgid: {}\n", msgid);
+    LOG_ERROR("Could not send response. Msgid: {}\n", msgid);
   }
 }
 

@@ -333,7 +333,7 @@ void EditorArea::win_pos(NeovimObj obj, u32 size)
     GridBase* grid = find_grid(grid_num);
     if (!grid)
     {
-      fmt::print("No grid #{} found.\n", grid_num);
+      LOG_WARN("No grid #{} found.\n", grid_num);
       continue;
     }
     shift_z(grid->z_index);

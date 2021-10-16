@@ -15,28 +15,17 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <QtCore>
+#include "log.hpp"
 
 #ifdef _WIN32
 #include <boost/process/windows.hpp>
 #endif
 
 namespace bp = boost::process;
-
-// ######################## SETTING UP ####################################
-
 using Lock = std::lock_guard<std::mutex>;
 
-//constexpr auto one_ms = std::chrono::milliseconds(1);
-
-// ###################### DONE SETTING UP ##################################
-
-//// Useful for logging char data
-//static inline std::uint32_t to_uint(char ch)
-//{
-  //return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
-//}
 /// Constructor
-Nvim::Nvim(std::string path, std::vector<std::string> args)
+Nvim::Nvim()
 : notification_handlers(),
   request_handlers(),
   closed(false),
@@ -47,6 +36,10 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   stdin_pipe(),
   error()
 {
+}
+
+void Nvim::open_local(std::string path, std::vector<std::string> args)
+{
   auto nvim_path = boost::filesystem::path(path);
   if (path.empty())
   {
@@ -56,6 +49,7 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
       throw std::runtime_error("Neovim not found in PATH");
     }
   }
+  LOG_INFO("Using nvim executable at: {}", nvim_path.string());
   nvim = bp::child(
     nvim_path,
     args,
@@ -67,8 +61,8 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
     , bp::windows::create_no_window
 #endif
   );
-  err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
-  out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
+  err_reader = std::thread([&] { read_error_sync(); });
+  out_reader = std::thread([&] { read_output_sync(); });
 }
 
 //static int file_num = 0;
@@ -84,6 +78,7 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
 
 void Nvim::resize(const int new_width, const int new_height)
 {
+  LOG_TRACE("Resizing Neovim to width {} and height {}", new_width, new_height);
   send_notification("nvim_ui_try_resize", std::make_tuple(new_width, new_height));
 }
 
@@ -118,6 +113,11 @@ void Nvim::read_output_sync()
     {
       //oh = msgpack::unpack(buf, msg_size, offset);
       const msgpack::object& obj = oh.get();
+      log::lazy_trace([&] {
+        std::stringstream ss;
+        ss << "Received messagepack object: " << obj;
+        return ss.str();
+      });
       // According to msgpack-rpc spec, this must be an array
       if (obj.type != msgpack::type::ARRAY) continue;
       const msgpack::object_array& arr = obj.via.array;
@@ -193,6 +193,7 @@ void Nvim::read_output_sync()
           else
           {
             Lock lock {response_cb_mutex};
+            LOG_TRACE("Received response for message id {}", msgid);
             if (singleshot_callbacks.contains(msgid))
             {
               const auto& cb = singleshot_callbacks.at(msgid);
@@ -230,6 +231,7 @@ void Nvim::attach_ui(const int rows, const int cols, std::unordered_map<std::str
 {
   send_notification("nvim_ui_attach", std::make_tuple(rows, cols, std::move(capabilities)));
 }
+
 void Nvim::read_error_sync()
 {
   // 500KB should be enough for stderr (not receving any huge input)
@@ -325,6 +327,7 @@ void Nvim::send_input(
 
 void Nvim::send_input(std::string key)
 {
+  LOG_INFO("Keyboard input: {}", key);
   send_notification("nvim_input", std::array<std::string, 1> {std::move(key)});
 }
 
@@ -369,12 +372,15 @@ void Nvim::input_mouse(
   int col
 )
 {
+  LOG_INFO(
+    "Mouse input: Button: {}, Action: {}, Modifiers: {}, Grid: {}, Row: {}, Col: {}",
+    button, action, modifiers, grid, row, col
+  );
   send_notification("nvim_input_mouse", std::tuple {
       std::move(button), std::move(action), std::move(modifiers),
       grid, row, col
   });
 }
-
 
 Nvim::~Nvim()
 {

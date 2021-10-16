@@ -13,6 +13,7 @@
 #include <optional>
 #include <queue>
 #include <msgpack.hpp>
+#include <spdlog/spdlog.h>
 
 // Creates a QIcon from the given svg, with the given foreground
 // and background color.

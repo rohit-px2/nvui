@@ -20,7 +20,7 @@
 #include <sstream>
 #include <thread>
 #include "constants.hpp"
-
+#include <spdlog/spdlog.h>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -80,11 +80,20 @@ static std::function<void (const object_array&)> paramify(Func f)
     bool valid = true;
     std::size_t idx = 0;
     for_each_in_tuple(t, [&](auto& p) {
+      const auto& o = arg_list.ptr[idx];
       try
       {
-        p = arg_list.ptr[idx].as<std::remove_reference_t<decltype(p)>>();
+        p = o.as<std::remove_reference_t<decltype(p)>>();
       }
-      catch(...) { valid = false; }
+      catch(...)
+      {
+        log::lazy_warn([&] {
+          std::stringstream ss;
+          ss << "Paramify: Could not convert " << o << " to desired type.";
+          return ss.str();
+        });
+        valid = false;
+      }
       ++idx;
     });
     if (!valid) return;
@@ -151,10 +160,12 @@ void Window::handle_redraw(object_handle* redraw_args)
     const auto func_it = handlers.find(task_name);
     if (func_it != handlers.end())
     {
+      LOG_TRACE("Handling redraw event: {}", task_name);
       func_it->second(task.ptr + 1, task.size - 1);
     }
     else
     {
+      LOG_WARN("No handler found for task {}", std::move(task_name));
       //fmt::print("No handler found for task {}\n", std::move(task_name));
     }
   }
@@ -588,6 +599,10 @@ void Window::register_handlers()
     paramify<bool>([this](bool hide) {
       editor_area.set_cursor_hidden_while_typing(hide);
       editor_area.unsetCursor(); // Reset state.
+  }));
+  listen_for_notification("NVUI_OPTION_SET",
+    paramify<std::string, bool>([this](std::string opt, bool val) {
+      nvim->ui_set_option(std::move(opt), val);
   }));
   /// Add request handlers
   using arr = msgpack::object_array;

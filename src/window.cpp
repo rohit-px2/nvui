@@ -552,6 +552,18 @@ void Window::register_handlers()
     paramify<QString>([this](QString text) {
       title_bar->set_title_text(text);
   }));
+  listen_for_notification("NVUI_IME_SET",
+    paramify<bool>([this](bool enable) {
+      editor_area.setAttribute(Qt::WA_InputMethodEnabled, enable);
+  }));
+  listen_for_notification("NVUI_IME_TOGGLE", [&](const auto&) {
+    constexpr auto attr = Qt::WA_InputMethodEnabled;
+    if (editor_area.testAttribute(attr))
+    {
+      editor_area.setAttribute(attr, false);
+    }
+    else editor_area.setAttribute(attr, true);
+  });
   /// Add request handlers
   using arr = msgpack::object_array;
   handle_request<std::vector<std::string>, std::string>(

@@ -1070,7 +1070,7 @@ void EditorArea::set_fallback_for_ucs(u32 ucs)
 
 u32 EditorArea::font_for_ucs(u32 ucs)
 {
-  if (fonts.size() <= 1) return 0;
+  if (fonts.size() <= 1 || ucs < 256) return 0;
   auto it = font_for_unicode.find(ucs);
   if (it != font_for_unicode.end()) return it->second;
   set_fallback_for_ucs(ucs);

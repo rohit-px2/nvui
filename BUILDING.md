@@ -66,8 +66,8 @@ mkdir -p ~/.local/share/nvui/bin
 mkdir -p ~/.local/bin
 cp ./build/nvui ~/.local/share/nvui/bin
 cp -r ./vim ~/.local/share/nvui/vim
-cp -r ./asserts ~/.local/share/nvui/asserts
-echo -e '#!/bin/bash\n\n$HOME/.local/share/nvui/bin/nvui "$@"' > ~/.local/bin/nvui
+cp -r ./assets ~/.local/share/nvui/assets
+echo -e '#!/bin/bash\n\n$HOME/.local/share/nvui/bin/nvui --detached -- "$@"' > ~/.local/bin/nvui
 chmod +x ~/.local/bin/nvui
 ```
 

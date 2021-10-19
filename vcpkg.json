@@ -1,6 +1,6 @@
 {
   "name": "nvui",
-  "version-string": "0.0.1",
+  "version-string": "0.1.4",
   "dependencies": [
     "fmt",
     "msgpack",

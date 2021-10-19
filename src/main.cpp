@@ -17,6 +17,7 @@
 #include <msgpack.hpp>
 #include <fmt/format.h>
 #include <boost/process/env.hpp>
+#include <QProcess>
 
 using std::string;
 using std::vector;
@@ -58,6 +59,27 @@ vector<string> neovim_args(const vector<string>& listofargs)
 vector<string> get_args(int argc, char** argv)
 {
   return vector<string>(argv + 1, argv + argc);
+}
+
+void start_detached(int argc, char** argv)
+{
+  if (argc < 1)
+  {
+    fmt::print("No arguments given, could not start in detached mode\n");
+    return;
+  }
+  QString prog_name = argv[0];
+  QStringList args;
+  for(int i = 1; i < argc; ++i)
+  {
+    QString arg = argv[i];
+    /// Don't spawn processes infinitely
+    if (arg != "--detached") args.append(arg);
+  }
+  QProcess p;
+  p.setProgram(prog_name);
+  p.setArguments(args);
+  p.startDetached();
 }
 
 std::optional<std::pair<int, int>> parse_geometry(std::string_view geom)
@@ -109,6 +131,12 @@ int main(int argc, char** argv)
     {"ext_linegrid", true},
     {"ext_hlstate", false}
   };
+  auto should_detach = get_arg(args, "--detached");
+  if (should_detach)
+  {
+    start_detached(argc, argv);
+    return 0;
+  }
   auto titlebar = get_arg(args, "--titlebar");
   if (titlebar)
   {

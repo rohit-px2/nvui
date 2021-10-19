@@ -78,22 +78,16 @@ enum FontOpts : std::uint8_t
 class HLAttr
 {
 public:
+  int hl_id = 0;
   std::uint8_t font_opts = FontOpts::Normal;
-  int hl_id;
   bool reverse = false;
-  std::optional<Color> special;
-  std::optional<Color> foreground;
-  std::optional<Color> background;
+  std::optional<Color> special {};
+  std::optional<Color> foreground {};
+  std::optional<Color> background {};
   /// We don't need a detailed view of the highlight state
   // right now so we won't do anything with this.
-  std::vector<AttrState> state;
+  std::vector<AttrState> state {};
   float opacity = 1;
-  HLAttr();
-  HLAttr(int id);
-  HLAttr(const HLAttr& other) = default;
-  HLAttr(HLAttr&& other) = default;
-  HLAttr& operator=(const HLAttr&) = default;
-  HLAttr& operator=(HLAttr&&) = default;
   std::optional<Color> fg() const { return foreground; }
   std::optional<Color> bg() const { return background; }
   std::optional<Color> sp() const { return special; }
@@ -150,7 +144,8 @@ public:
 private:
   HLAttr default_colors;
   std::unordered_map<std::string, std::uint32_t> name_to_id;
-  std::unordered_map<int, HLAttr> id_to_attr;
+  //std::unordered_map<int, HLAttr> id_to_attr;
+  std::vector<HLAttr> id_to_attr {1};
 };
 
 /// Defining a function to parse "hl_attr_define" data

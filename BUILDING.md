@@ -28,6 +28,49 @@ zip unzip tar autopoint python
 
 I don't have experience with any other package manger, but these are all the required packages on Ubuntu. This is also what the Github Actions Ubuntu image does.
 
+#### Arch Linux
+
+- Build without vcpkg
+
+1. Dependencies
+
+```bash
+sudo pacman -Sy
+sudo pacman -S clang make boost fmt hicolor-icon-theme msgpack-cxx qt5-base qt5-svg catch2 cmake ninja git curl wget --needed
+```
+
+2. Clone
+
+```bash
+git clone https://github.com/rohit-px2/nvui.git --recurse-submodules
+cd nvui
+```
+
+3. Build
+
+```bash
+cmake -B build . -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target nvui --config Release
+```
+
+4. Install
+
+Nvui need to read the asserts and vim directories at parent directory.
+So I make a script to call it, not put it directly in the /bin.
+
+Also the path `~/.local` can be replace with `/usr/local` to use nvui
+system wide.
+
+```bash
+mkdir -p ~/.local/share/nvui/bin
+mkdir -p ~/.local/bin
+cp ./build/nvui ~/.local/share/nvui/bin
+cp -r ./vim ~/.local/share/nvui/vim
+cp -r ./assets ~/.local/share/nvui/assets
+echo -e '#!/bin/bash\n\n$HOME/.local/share/nvui/bin/nvui --detached -- "$@"' > ~/.local/bin/nvui
+chmod +x ~/.local/bin/nvui
+```
+
 ### Windows
 On Windows you don't need to install any dependencies, vcpkg takes care of it.
 <hr>

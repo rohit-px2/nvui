@@ -14,9 +14,13 @@
 :NvuiCmdWidth	nvui.txt	/*:NvuiCmdWidth*
 :NvuiCursorAnimationDuration	nvui.txt	/*:NvuiCursorAnimationDuration*
 :NvuiCursorFrametime	nvui.txt	/*:NvuiCursorFrametime*
+:NvuiCursorHideWhileTyping	nvui.txt	/*:NvuiCursorHideWhileTyping*
 :NvuiCursorScaler	nvui.txt	/*:NvuiCursorScaler*
 :NvuiFrameless	nvui.txt	/*:NvuiFrameless*
 :NvuiFullscreen	nvui.txt	/*:NvuiFullscreen*
+:NvuiIMEDisable	nvui.txt	/*:NvuiIMEDisable*
+:NvuiIMEEnable	nvui.txt	/*:NvuiIMEEnable*
+:NvuiIMEToggle	nvui.txt	/*:NvuiIMEToggle*
 :NvuiMoveAnimationDuration	nvui.txt	/*:NvuiMoveAnimationDuration*
 :NvuiMoveAnimationFrametime	nvui.txt	/*:NvuiMoveAnimationFrametime*
 :NvuiMoveScaler	nvui.txt	/*:NvuiMoveScaler*
@@ -51,6 +55,7 @@ nvui-cmdline	nvui.txt	/*nvui-cmdline*
 nvui-commands	nvui.txt	/*nvui-commands*
 nvui-cursor	nvui.txt	/*nvui-cursor*
 nvui-general	nvui.txt	/*nvui-general*
+nvui-ime	nvui.txt	/*nvui-ime*
 nvui-multigrid	nvui.txt	/*nvui-multigrid*
 nvui-popup	nvui.txt	/*nvui-popup*
 nvui-titlebar	nvui.txt	/*nvui-titlebar*

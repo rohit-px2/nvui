@@ -73,18 +73,6 @@ public slots:
    */
   void resize_or_move(const QPointF& p);
   /**
-   * Handles a Neovim 'BufEnter' event, updating the titlebar with the
-   * current file.
-   */
-  void handle_bufenter(Object dir_args);
-  /**
-   * Handles a Neovim 'DirChanged' event
-   * Some things this would probably do would be:
-   * 1. Updating the titlebar text
-   * 2. Updating a file tree (if it ever gets added)
-   */
-  void dirchanged_titlebar(Object dir_args);
-  /**
    * Returns whether the window is frameless or not
    */
   inline bool is_frameless() const

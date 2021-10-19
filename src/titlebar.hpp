@@ -32,17 +32,9 @@ class TitleBar : public QWidget
 public:
   TitleBar(QString text, Window* window);
   /**
-   * Sets the right-side text to text.
+   * Sets the title bar text.
    */
-  void set_right_text(QString text);
-  /**
-   * Sets the left text.
-   */
-  void set_left_text(QString text);
-  /**
-   * Sets the middle text.
-   */
-  void set_middle_text(QString text);
+  void set_title_text(const QString& text);
   /**
    * Sets foreground to color if foreground is true,
    * otherwise sets background to color.
@@ -52,11 +44,6 @@ public:
    * Sets the foreground and background color to bg and fg respectively.
    */
   void set_color(QColor fg, QColor bg);
-  /**
-   * Set the separator string, which is what separates left_text and
-   * right_text
-   */
-  void set_separator(QString new_sep);
   /**
    * Update the icons based on the status of the attached window (win).
    */
@@ -137,12 +124,6 @@ private:
      (not when new text is set).
    */
   void update_titlebar();
-  /**
-   * Updates the titlebar text to the current values of
-   * left_text, separator, and right_text
-   */
-  void update_text();
-  QString separator;
   bool maximized;
   QColor foreground;
   QColor background;
@@ -157,9 +138,6 @@ private:
   //QPushButton* min_btn;
   Window* win;
   QFont title_font;
-  QString left_text;
-  QString right_text;
-  QString middle_text;
   QLabel* label;
   QHBoxLayout* layout;
   QWidget* titlebar_widget;

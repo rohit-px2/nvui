@@ -42,7 +42,12 @@ static void remove_margin(HWND hwnd)
 static void windows_setup_frameless(HWND hwnd)
 {
   add_margin(hwnd, {0, 0, 1, 0});
-  SetWindowLong(hwnd, GWL_STYLE, WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CAPTION);
+  SetWindowLong(
+    hwnd,
+    GWL_STYLE,
+    WS_THICKFRAME | WS_MINIMIZEBOX
+    | WS_MAXIMIZEBOX | WS_CLIPCHILDREN | WS_CAPTION
+  );
 }
 #endif
 
@@ -103,9 +108,9 @@ Window::Window(QWidget* parent, Nvim* nv, int width, int height, bool custom_tit
   }
   QObject::connect(title_bar.get(), &TitleBar::resize_move, this, &Window::resize_or_move);
   setWindowIcon(QIcon(constants::appicon()));
-  title_bar->set_separator(" • ");
   // We'll do this later
   setCentralWidget(&editor_area);
+  nvim->set_var("nvui_tb_separator", " • ");
   editor_area.setFocus();
   QObject::connect(this, &Window::default_colors_changed, [this] { update_titlebar_colors(); });
   QObject::connect(this, &Window::default_colors_changed, &editor_area, &EditorArea::default_colors_changed);
@@ -132,28 +137,6 @@ void Window::handle_redraw(Object redraw_args)
       func_it->second(this, span);
     }
   }
-}
-
-void Window::handle_bufenter(Object bufe_args)
-{
-  auto* arr = bufe_args.array();
-  if (!arr || arr->size() != 3) return;
-  auto* args = arr->at(2).array();
-  if (!args) return;
-  auto file_name = args->at(0).string();
-  if (!file_name) return;
-  title_bar->set_right_text(std::move(*file_name));
-}
-
-void Window::dirchanged_titlebar(Object dir_args)
-{
-  auto* arr = dir_args.array();
-  if (!arr || arr->size() != 3) return;
-  auto* args = arr->at(2).array();
-  if (!args) return;
-  auto new_dir = args->at(0).string();
-  if (!new_dir) return;
-  title_bar->set_middle_text(std::move(*new_dir));
 }
 
 void Window::set_handler(std::string method, obj_ref_cb handler)
@@ -283,21 +266,6 @@ void Window::register_handlers()
         handle_redraw(std::move(o));
       }
     );
-  });
-  nvim->set_notification_handler("NVUI_BUFENTER", [this](Object obj) {
-    QMetaObject::invokeMethod(
-      this, [this, o = std::move(obj)] {
-        handle_bufenter(std::move(o));
-      }
-    );
-  });
-  nvim->set_notification_handler("NVUI_DIRCHANGED", [this](Object obj) {
-    QMetaObject::invokeMethod(
-      this, [this, o = std::move(obj)] {
-        dirchanged_titlebar(std::move(o));
-      }
-    );
-  });
   using notification = const ObjectArray&;
   listen_for_notification("NVUI_WINOPACITY", paramify<float>([this](double opacity) {
     if (opacity <= 0.0 || opacity > 1.0) return;
@@ -438,9 +406,6 @@ void Window::register_handlers()
     if (isFullScreen()) set_fullscreen(false);
     else set_fullscreen(true);
   });
-  listen_for_notification("NVUI_TB_SEPARATOR", paramify<QString>([this](QString new_sep) {
-    title_bar->set_separator(std::move(new_sep));
-  }));
   listen_for_notification("NVUI_TITLEBAR_FONT_FAMILY", paramify<QString>([this](QString family) {
     title_bar->set_font_family(family);
     emit resize_done(size());
@@ -528,6 +493,27 @@ void Window::register_handlers()
     paramify<int>([this](int ms) {
       editor_area.set_cursor_frametime(ms);
   }));
+  listen_for_notification("NVUI_CURSOR_HIDE_TYPE",
+    paramify<bool>([this](bool hide) {
+      editor_area.set_cursor_hidden_while_typing(hide);
+      editor_area.unsetCursor(); // Reset state.
+  }));
+  listen_for_notification("NVUI_TB_TITLE",
+    paramify<QString>([this](QString text) {
+      title_bar->set_title_text(text);
+  }));
+  listen_for_notification("NVUI_IME_SET",
+    paramify<bool>([this](bool enable) {
+      editor_area.setAttribute(Qt::WA_InputMethodEnabled, enable);
+  }));
+  listen_for_notification("NVUI_IME_TOGGLE", [&](const auto&) {
+    constexpr auto attr = Qt::WA_InputMethodEnabled;
+    if (editor_area.testAttribute(attr))
+    {
+      editor_area.setAttribute(attr, false);
+    }
+    else editor_area.setAttribute(attr, true);
+  });
   /// Add request handlers
   handle_request<std::vector<std::string>, std::string>(
     "NVUI_POPUPMENU_ICON_NAMES", [&](const ObjectArray& arr) {
@@ -759,8 +745,15 @@ void Window::handle_request(
           if (!msgid || !params) return;
           std::optional<Res> res;
           std::optional<Err> err;
-          std::tie(res, err) = f(*params);
-          nvim->send_response(*msgid, res, err);
+          std::tie(res, err) = f(params_obj.via.array);
+          if (res)
+          {
+            nvim->send_response(msgid, *res, msgpack::object());
+          }
+          else
+          {
+            nvim->send_response(msgid, msgpack::object(), *err);
+          }
         },
         Qt::QueuedConnection
       );
@@ -814,6 +807,7 @@ void Window::changeEvent(QEvent* event)
     emit win_state_changed(windowState());
     auto ev = static_cast<QWindowStateChangeEvent*>(event);
     prev_state = ev->oldState();
+  }
 #ifdef Q_OS_WIN
     if ((windowState() & Qt::WindowMaximized) && is_frameless())
     {
@@ -826,7 +820,6 @@ void Window::changeEvent(QEvent* event)
       setContentsMargins(0, 0, 0, 0);
     }
 #endif
-  }
   QMainWindow::changeEvent(event);
 }
 

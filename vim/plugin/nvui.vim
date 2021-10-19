@@ -7,6 +7,15 @@ endfunction
 function! s:complete_scaler(arg, line, pos)
 	return rpcrequest(1, 'NVUI_SCALER_NAMES')
 endfunction
+function! s:get_dir()
+	return fnamemodify(getcwd(), ':t')
+endfunction
+function! s:get_file()
+	return expand('%:t')
+endfunction
+function! s:get_title()
+	return join(split("nvui," . s:get_dir() . "," . s:get_file(), ","), g:nvui_tb_separator)
+endfunction
 command! -nargs=1 NvuiPopupMenuInfoColumns call rpcnotify(1, 'NVUI_PUM_INFO_COLS', <args>)
 command! -nargs=1 NvuiScrollAnimationDuration call rpcnotify(1, 'NVUI_SCROLL_ANIMATION_DURATION', <args>)
 command! -nargs=1 NvuiSnapshotLimit call rpcnotify(1, 'NVUI_SNAPSHOT_LIMIT', <args>)
@@ -61,5 +70,12 @@ command! NvuiToggleFullscreen call rpcnotify(1, 'NVUI_TOGGLE_FULLSCREEN')
 command! -nargs=1 NvuiFrameless call rpcnotify(1, 'NVUI_FRAMELESS', <args>)
 command! -nargs=1 NvuiCursorAnimationDuration call rpcnotify(1, 'NVUI_CURSOR_ANIMATION_DURATION', <args>)
 command! -nargs=1 NvuiCursorFrametime call rpcnotify(1, 'NVUI_CURSOR_FRAMETIME', <args>)
-autocmd BufEnter * call rpcnotify(1, 'NVUI_BUFENTER', expand('%:t'))
-autocmd DirChanged * call rpcnotify(1, 'NVUI_DIRCHANGED', fnamemodify(getcwd(), ':t'), getcwd())
+command! -nargs=1 NvuiCursorHideWhileTyping call rpcnotify(1, 'NVUI_CURSOR_HIDE_TYPE', <args>)
+command! NvuiIMEEnable call rpcnotify(1, 'NVUI_IME_SET', v:true)
+command! NvuiIMEDisable call rpcnotify(1, 'NVUI_IME_SET', v:false)
+command! NvuiIMEToggle call rpcnotify(1, 'NVUI_IME_TOGGLE')
+function! NvuiGetTitle()
+	return s:get_title()
+endfunction
+autocmd BufEnter * call rpcnotify(1, 'NVUI_TB_TITLE', NvuiGetTitle())
+autocmd DirChanged * call rpcnotify(1, 'NVUI_TB_TITLE', NvuiGetTitle())

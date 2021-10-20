@@ -127,16 +127,16 @@ public:
    * Manages an "hl_attr_define" call, with obj
    * being the parameters of the call.
    */
-  void define(Object& obj);
+  void define(const Object& obj);
   /**
    * Sets the default colors.
    */
-  void default_colors_set(Object& obj);
+  void default_colors_set(const Object& obj);
   /**
    * Sets the given highlight group. This should be called with
    * the parameters of an "hl_group_set" call.
    */
-  void group_set(Object& obj);
+  void group_set(const Object& obj);
   /**
    * Returns the default colors.
    */

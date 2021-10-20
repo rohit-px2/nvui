@@ -115,7 +115,7 @@ void HLState::set_id_attr(int id, HLAttr attr)
   id_to_attr[id] = std::move(attr);
 }
 
-void HLState::default_colors_set(Object& obj)
+void HLState::default_colors_set(const Object& obj)
 {
   // We only look at the first three values (the others are ctermfg
   // and ctermbg, which we don't care about)
@@ -135,7 +135,7 @@ const HLAttr& HLState::default_colors_get() const
   return default_colors;
 }
 
-void HLState::define(Object& obj)
+void HLState::define(const Object& obj)
 {
   HLAttr attr = hl::hl_attr_from_object(obj);
   int id = attr.hl_id;
@@ -154,7 +154,7 @@ void HLState::define(Object& obj)
 }
 
 
-void HLState::group_set(Object& obj)
+void HLState::group_set(const Object& obj)
 {
   auto* arr = obj.array();
   assert(arr && arr->size() >= 2);

@@ -92,7 +92,7 @@ class EditorArea : public QWidget
 {
   Q_OBJECT
 public:
-  using NeovimObj = Object;
+  using NeovimObj = const Object;
   using u64 = std::uint64_t;
   using u32 = std::uint32_t;
   using u16 = std::uint16_t;

@@ -206,17 +206,17 @@ public:
    * Handles a Neovim "popupmenu_show" event, showing the popupmenu with the
    * given items.
    */
-  void pum_show(std::span<Object> objs);
+  void pum_show(std::span<const Object> objs);
   /**
    * Hides the popupmenu.
    */
-  void pum_hide(std::span<Object> objs);
+  void pum_hide(std::span<const Object> objs);
   /**
    * Handles a Neovim "popupmenu_select" event, selecting the
    * popupmenu item at the given index,
    * or selecting nothing if the index is -1.
    */
-  void pum_sel(std::span<Object> objs);
+  void pum_sel(std::span<const Object> objs);
   /**
    * Update the highlight attributes used for drawing the popup menu.
    */
@@ -363,7 +363,7 @@ private:
   /**
    * Add the given popupmenu items to the popup menu.
    */
-  void add_items(ObjectArray& items);
+  void add_items(const ObjectArray& items);
   /**
    * Redraw the popupmenu.
    */

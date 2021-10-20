@@ -73,11 +73,11 @@ public:
   /**
    * Handles a 'mode_info_set' Neovim redraw event.
    */
-  void mode_info_set(std::span<Object> objs);
+  void mode_info_set(std::span<const Object> objs);
   /**
    * Handles a 'mode_change' Neovim redraw event.
    */
-  void mode_change(std::span<Object> objs);
+  void mode_change(std::span<const Object> objs);
   /**
    * Set the current position to pos, and refresh the cursor.
    */

@@ -27,7 +27,7 @@ class Window;
 
 constexpr int tolerance = 10; //10px tolerance for resizing
 
-using obj_ref_cb = void (*)(Window*, std::span<Object>);
+using obj_ref_cb = void (*)(Window*, std::span<const Object>);
 
 /// The main window class which holds the rest of the GUI components.
 /// Fundamentally, the Neovim area is just 1 big text box.

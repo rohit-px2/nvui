@@ -14,13 +14,13 @@ class CmdLine : public QWidget
 public:
   CmdLine(const HLState* hl_state, Cursor* cursor, QWidget* parent = nullptr);
   /// Neovim event handlers
-  void cmdline_show(std::span<Object> objs);
-  void cmdline_hide(std::span<Object> objs);
-  void cmdline_cursor_pos(std::span<Object> objs);
-  void cmdline_special_char(std::span<Object> objs);
-  void cmdline_block_show(std::span<Object> objs);
-  void cmdline_block_append(std::span<Object> objs);
-  void cmdline_block_hide(std::span<Object> objs);
+  void cmdline_show(std::span<const Object> objs);
+  void cmdline_hide(std::span<const Object> objs);
+  void cmdline_cursor_pos(std::span<const Object> objs);
+  void cmdline_special_char(std::span<const Object> objs);
+  void cmdline_block_show(std::span<const Object> objs);
+  void cmdline_block_append(std::span<const Object> objs);
+  void cmdline_block_hide(std::span<const Object> objs);
   /**
    * Returns where the popup menu should be positioned.
    */
@@ -185,7 +185,7 @@ private:
   std::optional<float> centered_x;
   std::optional<float> centered_y;
   // Parse and add new lines from new_line to line_arr.
-  void add_line(ObjectArray& new_line);
+  void add_line(const ObjectArray& new_line);
   const HLState* state = nullptr;
   // Owned by EditorArea, but so is the cmdline
   // so there should be no problems

@@ -148,13 +148,13 @@ void Window::register_handlers()
 {
   // Set GUI handlers before we set the notification handler (since Nvim runs on a different thread,
   // it can be called any time)
-  set_handler("hl_attr_define", [](Window* w,std::span<Object> objs) {
-    for(auto& obj : objs) w->hl_state.define(obj);
+  set_handler("hl_attr_define", [](Window* w, std::span<const Object> objs) {
+    for(const auto& obj : objs) w->hl_state.define(obj);
   });
-  set_handler("hl_group_set", [](Window* w, std::span<Object> objs) {
-    for (auto& obj : objs) w->hl_state.group_set(obj);
+  set_handler("hl_group_set", [](Window* w, std::span<const Object> objs) {
+    for (const auto& obj : objs) w->hl_state.group_set(obj);
   });
-  set_handler("default_colors_set", [](Window* w, std::span<Object> objs) {
+  set_handler("default_colors_set", [](Window* w, std::span<const Object> objs) {
     if (objs.empty()) return;
     w->hl_state.default_colors_set(objs.back());
     const HLAttr& def_clrs = w->hl_state.default_colors_get();
@@ -162,99 +162,99 @@ void Window::register_handlers()
     auto bg = def_clrs.bg()->qcolor();
     emit w->default_colors_changed(fg, bg);
   });
-  set_handler("grid_line", [](Window* w, std::span<Object> objs) {
+  set_handler("grid_line", [](Window* w, std::span<const Object> objs) {
     w->editor_area.grid_line(objs);
   });
-  set_handler("option_set", [](Window* w, std::span<Object> objs) {
+  set_handler("option_set", [](Window* w, std::span<const Object> objs) {
     w->editor_area.option_set(objs);
   });
-  set_handler("grid_resize", [](Window* w, std::span<Object> objs) {
+  set_handler("grid_resize", [](Window* w, std::span<const Object> objs) {
     w->editor_area.grid_resize(objs);
   });
-  set_handler("flush", [](Window* w, std::span<Object> objs) {
+  set_handler("flush", [](Window* w, std::span<const Object> objs) {
     Q_UNUSED(objs);
     w->editor_area.flush();
   });
-  set_handler("win_pos", [](Window* w, std::span<Object> objs) {
+  set_handler("win_pos", [](Window* w, std::span<const Object> objs) {
     w->editor_area.win_pos(objs);
   });
-  set_handler("grid_clear", [](Window* w, std::span<Object> objs) {
+  set_handler("grid_clear", [](Window* w, std::span<const Object> objs) {
     w->editor_area.grid_clear(objs);
   });
-  set_handler("grid_cursor_goto", [](Window* w, std::span<Object> objs) {
+  set_handler("grid_cursor_goto", [](Window* w, std::span<const Object> objs) {
     w->editor_area.grid_cursor_goto(objs);
   });
-  set_handler("grid_scroll", [](Window* w, std::span<Object> objs) {
+  set_handler("grid_scroll", [](Window* w, std::span<const Object> objs) {
     w->editor_area.grid_scroll(objs);
   });
-  set_handler("mode_info_set", [](Window* w, std::span<Object> objs) {
+  set_handler("mode_info_set", [](Window* w, std::span<const Object> objs) {
     w->editor_area.mode_info_set(objs);
   });
-  set_handler("mode_change", [](Window* w, std::span<Object> objs) {
+  set_handler("mode_change", [](Window* w, std::span<const Object> objs) {
     w->editor_area.mode_change(objs);
   });
-  set_handler("popupmenu_show", [](Window* w, std::span<Object> objs) {
+  set_handler("popupmenu_show", [](Window* w, std::span<const Object> objs) {
     w->editor_area.popupmenu_show(objs);
   });
-  set_handler("popupmenu_hide", [](Window* w, std::span<Object> objs) {
+  set_handler("popupmenu_hide", [](Window* w, std::span<const Object> objs) {
     w->editor_area.popupmenu_hide(objs);
   });
-  set_handler("popupmenu_select", [](Window* w, std::span<Object> objs) {
+  set_handler("popupmenu_select", [](Window* w, std::span<const Object> objs) {
     w->editor_area.popupmenu_select(objs);
   });
-  set_handler("busy_start", [](Window* w, std::span<Object> objs) {
+  set_handler("busy_start", [](Window* w, std::span<const Object> objs) {
     Q_UNUSED(objs);
     w->editor_area.busy_start();
   });
-  set_handler("busy_stop", [](Window* w, std::span<Object> objs) {
+  set_handler("busy_stop", [](Window* w, std::span<const Object> objs) {
     Q_UNUSED(objs);
     w->editor_area.busy_stop();
   });
-  set_handler("cmdline_show", [](Window* w, std::span<Object> objs) {
+  set_handler("cmdline_show", [](Window* w, std::span<const Object> objs) {
     w->editor_area.cmdline_show(objs);
   });
-  set_handler("cmdline_hide", [](Window* w, std::span<Object> objs) {
+  set_handler("cmdline_hide", [](Window* w, std::span<const Object> objs) {
     w->editor_area.cmdline_hide(objs);
   });
-  set_handler("cmdline_pos", [](Window* w, std::span<Object> objs) {
+  set_handler("cmdline_pos", [](Window* w, std::span<const Object> objs) {
     w->editor_area.cmdline_cursor_pos(objs);
   });
-  set_handler("cmdline_special_char", [](Window* w, std::span<Object> objs) {
+  set_handler("cmdline_special_char", [](Window* w, std::span<const Object> objs) {
     w->editor_area.cmdline_special_char(objs);
   });
-  set_handler("cmdline_block_show", [](Window* w, std::span<Object> objs) {
+  set_handler("cmdline_block_show", [](Window* w, std::span<const Object> objs) {
     w->editor_area.cmdline_block_show(objs);
   });
-  set_handler("cmdline_block_append", [](Window* w, std::span<Object> objs) {
+  set_handler("cmdline_block_append", [](Window* w, std::span<const Object> objs) {
     w->editor_area.cmdline_block_append(objs);
   });
-  set_handler("cmdline_block_hide", [](Window* w, std::span<Object> objs) {
+  set_handler("cmdline_block_hide", [](Window* w, std::span<const Object> objs) {
     w->editor_area.cmdline_block_hide(objs);
   });
-  set_handler("mouse_on", [](Window* w, std::span<Object> objs) {
+  set_handler("mouse_on", [](Window* w, std::span<const Object> objs) {
     Q_UNUSED(objs);
     w->editor_area.set_mouse_enabled(true);
   });
-  set_handler("mouse_off", [](Window* w, std::span<Object> objs) {
+  set_handler("mouse_off", [](Window* w, std::span<const Object> objs) {
     Q_UNUSED(objs);
     w->editor_area.set_mouse_enabled(false);
   });
-  set_handler("win_hide", [](Window* w, std::span<Object> objs) {
+  set_handler("win_hide", [](Window* w, std::span<const Object> objs) {
     w->editor_area.win_hide(objs);
   });
-  set_handler("win_float_pos", [](Window* w, std::span<Object> objs) {
+  set_handler("win_float_pos", [](Window* w, std::span<const Object> objs) {
     w->editor_area.win_float_pos(objs);
   });
-  set_handler("win_close", [](Window* w, std::span<Object> objs) {
+  set_handler("win_close", [](Window* w, std::span<const Object> objs) {
     w->editor_area.win_close(objs);
   });
-  set_handler("grid_destroy", [](Window* w, std::span<Object> objs) {
+  set_handler("grid_destroy", [](Window* w, std::span<const Object> objs) {
     w->editor_area.grid_destroy(objs);
   });
-  set_handler("msg_set_pos", [](Window* w, std::span<Object> objs) {
+  set_handler("msg_set_pos", [](Window* w, std::span<const Object> objs) {
     w->editor_area.msg_set_pos(objs);
   });
-  set_handler("win_viewport", [](Window* w, std::span<Object> objs) {
+  set_handler("win_viewport", [](Window* w, std::span<const Object> objs) {
     w->editor_area.win_viewport(objs);
   });
   // The lambda will get invoked on the Nvim::read_output thread, we use

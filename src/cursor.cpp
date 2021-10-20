@@ -61,7 +61,7 @@ Cursor::Cursor(EditorArea* ea)
   });
 }
 
-void Cursor::mode_change(std::span<Object> objs)
+void Cursor::mode_change(std::span<const Object> objs)
 {
   for(const auto& o : objs)
   {
@@ -76,7 +76,7 @@ void Cursor::mode_change(std::span<Object> objs)
   reset_timers();
 }
 
-void Cursor::mode_info_set(std::span<Object> objs)
+void Cursor::mode_info_set(std::span<const Object> objs)
 {
   mode_info.clear();
   for(const auto& o : objs)

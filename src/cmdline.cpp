@@ -50,7 +50,7 @@ void CmdLine::update_metrics()
   std::tie(big_font_width, big_font_height) = get_font_dimensions_for(big_font);
 }
 
-void CmdLine::cmdline_show(std::span<Object> objs)
+void CmdLine::cmdline_show(std::span<const Object> objs)
 {
   // Clear the previous text
   lines.clear();
@@ -59,7 +59,7 @@ void CmdLine::cmdline_show(std::span<Object> objs)
   auto* arr = obj.array();
   assert(arr && arr->size() >= 6);
   if (!arr->at(0).has<ObjectArray>()) return;
-  ObjectArray& content = *arr->at(0).array();
+  const ObjectArray& content = *arr->at(0).array();
   add_line(content);
   auto* c_pos = arr->at(1).u64();
   auto* firstc = arr->at(2).string();
@@ -78,13 +78,13 @@ void CmdLine::cmdline_show(std::span<Object> objs)
   setVisible(true);
 }
 
-void CmdLine::cmdline_hide(std::span<Object> objs)
+void CmdLine::cmdline_hide(std::span<const Object> objs)
 {
   Q_UNUSED(objs);
   setVisible(false);
 }
 
-void CmdLine::cmdline_cursor_pos(std::span<Object> objs)
+void CmdLine::cmdline_cursor_pos(std::span<const Object> objs)
 {
   for(auto& obj : objs)
   {
@@ -97,19 +97,19 @@ void CmdLine::cmdline_cursor_pos(std::span<Object> objs)
   update();
 }
 
-void CmdLine::cmdline_special_char(std::span<Object>)
+void CmdLine::cmdline_special_char(std::span<const Object>)
 {
 }
 
-void CmdLine::cmdline_block_show(std::span<Object>)
+void CmdLine::cmdline_block_show(std::span<const Object>)
 {
 }
 
-void CmdLine::cmdline_block_append(std::span<Object>)
+void CmdLine::cmdline_block_append(std::span<const Object>)
 {
 }
 
-void CmdLine::cmdline_block_hide(std::span<Object>)
+void CmdLine::cmdline_block_hide(std::span<const Object>)
 {
 }
 
@@ -242,7 +242,7 @@ void CmdLine::draw_text_and_bg(
   painter.drawText(text_start, text);
 }
 
-void CmdLine::add_line(ObjectArray& new_line)
+void CmdLine::add_line(const ObjectArray& new_line)
 {
   line line;
   for(auto& line_obj : new_line)
@@ -251,8 +251,8 @@ void CmdLine::add_line(ObjectArray& new_line)
     auto& arr = line_obj.get<ObjectArray>();
     assert(arr.size() == 2);
     int hl_id = arr.at(0).get_as<int>().value_or(0);
-    QString& text = arr.at(1).get<QString>();
-    line.push_back({std::move(text), hl_id});
+    const QString& text = arr.at(1).get<QString>();
+    line.emplace_back(text, hl_id);
   }
   lines.push_back(std::move(line));
 }

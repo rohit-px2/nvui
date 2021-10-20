@@ -132,7 +132,7 @@ PopupMenu::PopupMenu(const HLState* state, QWidget* parent)
   hide();
 }
 
-void PopupMenu::pum_show(std::span<Object> objs)
+void PopupMenu::pum_show(std::span<const Object> objs)
 {
   is_hidden = false;
   completion_items.clear();
@@ -160,7 +160,7 @@ void PopupMenu::pum_show(std::span<Object> objs)
   resize(available_rect().size());
 }
 
-void PopupMenu::pum_sel(std::span<Object> objs)
+void PopupMenu::pum_sel(std::span<const Object> objs)
 {
   if (objs.empty()) return;
   const auto& obj = objs.back();
@@ -172,7 +172,7 @@ void PopupMenu::pum_sel(std::span<Object> objs)
   paint();
 }
 
-void PopupMenu::pum_hide(std::span<Object> objs)
+void PopupMenu::pum_hide(std::span<const Object> objs)
 {
   Q_UNUSED(objs);
   is_hidden = true;
@@ -180,9 +180,9 @@ void PopupMenu::pum_hide(std::span<Object> objs)
   info_widget.hide();
 }
 
-void PopupMenu::add_items(ObjectArray& items)
+void PopupMenu::add_items(const ObjectArray& items)
 {
-  for(auto& item : items)
+  for(const auto& item : items)
   {
     auto* arr = item.array();
     assert(arr && arr->size() >= 4);
@@ -192,9 +192,7 @@ void PopupMenu::add_items(ObjectArray& items)
     auto* info = arr->at(3).string();
     assert(word && kind && menu && info);
     completion_items.push_back({
-      false,
-      std::move(*word), std::move(*kind),
-      std::move(*menu),std::move(*info)
+      false, *word, *kind, *menu,*info
     });
   }
 }

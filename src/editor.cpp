@@ -304,7 +304,7 @@ void EditorArea::win_pos(std::span<NeovimObj> objs)
   {
     auto vars = obj.decompose<u64, NeovimExt, u64, u64, u64, u64>();
     if (!vars) continue;
-    auto [grid_num, win, sr, sc, width, height] = *vars;
+    const auto& [grid_num, win, sr, sc, width, height] = *vars;
     GridBase* grid = find_grid(grid_num);
     if (!grid)
     {
@@ -312,9 +312,9 @@ void EditorArea::win_pos(std::span<NeovimObj> objs)
       continue;
     }
     grid->hidden = false;
+    grid->win_pos(sc, sr);
     grid->set_size(width, height);
     grid->winid = get_win(win);
-    QRect r(0, 0, grid->cols, grid->rows);
   }
   send_redraw();
 }
@@ -375,7 +375,6 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
     set_animations_enabled(false);
     grid->winid = get_win(win);
     grid->float_pos(anchor_pos.x(), anchor_pos.y());
-    grid->z_index = grids.size() - 1;
     set_animations_enabled(were_animations_enabled);
   }
 }

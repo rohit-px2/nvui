@@ -266,6 +266,7 @@ void Window::register_handlers()
         handle_redraw(std::move(o));
       }
     );
+  });
   using notification = const ObjectArray&;
   listen_for_notification("NVUI_WINOPACITY", paramify<float>([this](double opacity) {
     if (opacity <= 0.0 || opacity > 1.0) return;
@@ -745,14 +746,14 @@ void Window::handle_request(
           if (!msgid || !params) return;
           std::optional<Res> res;
           std::optional<Err> err;
-          std::tie(res, err) = f(params_obj.via.array);
+          std::tie(res, err) = f(*arr);
           if (res)
           {
-            nvim->send_response(msgid, *res, msgpack::object());
+            nvim->send_response(*msgid, *res, msgpack::object());
           }
           else
           {
-            nvim->send_response(msgid, msgpack::object(), *err);
+            nvim->send_response(*msgid, msgpack::object(), *err);
           }
         },
         Qt::QueuedConnection

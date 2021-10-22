@@ -155,7 +155,7 @@ void D2DPaintGrid::draw_text_and_bg(
       // to the width solves it. It's probably because
       // the text is just a little wider than the max width we set
       // so we increase the max width by a little here.
-      end.x - start.x + 1.f,
+      end.x - start.x + 1000.f,
       end.y - start.y,
       &old_text_layout
     );
@@ -196,9 +196,34 @@ void D2DPaintGrid::draw_text_and_bg(
     text_pt,
     text_layout,
     fg_brush,
-    D2D1_DRAW_TEXT_OPTIONS_NONE
+    D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT
   );
   SafeRelease(&old_text_layout);
+}
+
+/// UCS2-aware string reversal
+static void reverse_qstring(QString& s)
+{
+  const int len = s.size();
+  for(int i = 0; i < len / 2; ++i)
+  {
+    if (s.at(i).isHighSurrogate())
+    {
+      QChar hi = s[i];
+      QChar low = s[i + 1];
+      s[i] = s[len - i - 2];
+      s[i + 1] = s[len - i - 1];
+      s[len - i - 2] = hi;
+      s[len - i - 1] = low;
+      i += 2;
+    }
+    else
+    {
+      QChar temp = s[i];
+      s[i] = s[len - i - 1];
+      s[len - i - 1] = temp;
+    }
+  }
 }
 
 void D2DPaintGrid::draw(
@@ -208,16 +233,15 @@ void D2DPaintGrid::draw(
   ID2D1SolidColorBrush* bg_brush
 )
 {
-  auto target_size = context->GetPixelSize();
   const auto& fonts = editor_area->fallback_list();
   //const int start_x = r.left(), end_x = r.right();
   const int start_y = r.top(), end_y = r.bottom();
   const auto font_dims = editor_area->font_dimensions();
   const float font_width = std::get<0>(font_dims);
   const float font_height = std::get<1>(font_dims);
+  const HLState* s = editor_area->hl_state();
   QString buffer;
   buffer.reserve(100);
-  const HLState* s = editor_area->hl_state();
   const auto& def_clrs = s->default_colors_get();
   u32 cur_font_idx = 0;
   const auto get_pos = [&](int x, int y, int num_chars) {
@@ -228,6 +252,7 @@ void D2DPaintGrid::draw(
   const auto draw_buf = [&](const HLAttr& main, d2pt start, d2pt end) {
     if (buffer.isEmpty()) return;
     const auto& tf = fonts[cur_font_idx];
+    reverse_qstring(buffer);
     draw_text_and_bg(
       context, buffer, main, def_clrs, start, end,
       tf, fg_brush, bg_brush
@@ -236,28 +261,29 @@ void D2DPaintGrid::draw(
   };
   for(int y = start_y; y <= end_y && y < rows; ++y)
   {
-    d2pt start = {0, y * font_height};
-    std::uint16_t prev_hl_id = UINT16_MAX;
-    for(int x = 0; x < cols; ++x)
+    d2pt end = {cols * font_width, (y + 1) * font_height};
+    int prev_hl_id = INT_MAX;
+    /// Reverse iteration. This prevents text from clipping
+    for(int x = cols - 1; x >= 0; --x)
     {
       const auto& gc = area[y * cols + x];
       const auto font_idx = editor_area->font_for_ucs(gc.ucs);
-      if (font_idx != cur_font_idx
-          && !(gc.text.isEmpty() || gc.text.at(0).isSpace()))
+      if (font_idx != cur_font_idx)
       {
-        auto&& [tl, br] = get_pos(x, y, 0);
-        draw_buf(s->attr_for_id(prev_hl_id), start, br);
-        start = tl;
+        const auto [tl, br] = get_pos(x, y, 1);
+        d2pt buf_start = {br.x, br.y - font_height};
+        draw_buf(s->attr_for_id(prev_hl_id), buf_start, end);
+        end = br;
         cur_font_idx = font_idx;
       }
       if (gc.double_width)
       {
-        auto&& [tl, br] = get_pos(x, y, 2);
-        d2pt buf_end = {tl.x, tl.y + font_height};
-        draw_buf(s->attr_for_id(prev_hl_id), start, buf_end);
+        const auto [tl, br] = get_pos(x, y, 2);
+        d2pt prev_start = {br.x, br.y - font_height};
+        draw_buf(s->attr_for_id(prev_hl_id), prev_start, end);
         buffer.append(gc.text);
         draw_buf(s->attr_for_id(gc.hl_id), tl, br);
-        start = {br.x, br.y - font_height};
+        end = {tl.x, tl.y + font_height};
         prev_hl_id = gc.hl_id;
       }
       else if (gc.hl_id == prev_hl_id)
@@ -267,15 +293,16 @@ void D2DPaintGrid::draw(
       }
       else
       {
-        auto&& [tl, br] = get_pos(x, y, 1);
-        draw_buf(s->attr_for_id(prev_hl_id), start, br);
-        start = tl;
-        prev_hl_id = gc.hl_id;
+        const auto [tl, br] = get_pos(x, y, 1);
+        d2pt start = {br.x, br.y - font_height};
+        draw_buf(s->attr_for_id(prev_hl_id), start, end);
+        end = br;
         buffer.append(gc.text);
+        prev_hl_id = gc.hl_id;
       }
     }
-    d2pt br = D2D1::Point2F(target_size.width, (y + 1) * font_height);
-    draw_buf(s->attr_for_id(prev_hl_id), start, br);
+    d2pt start = {0, y * font_height};
+    draw_buf(s->attr_for_id(prev_hl_id), start, end);
   }
 }
 

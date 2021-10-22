@@ -116,7 +116,14 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
     {
       const auto& gc = area[y * cols + x];
       const auto font_idx = editor_area->font_for_ucs(gc.ucs);
-      if (font_idx != cur_font_idx)
+      if (gc.text.isEmpty())
+      {
+        const auto [tl, br] = get_pos(x + 1, y, 0);
+        draw_buf(s->attr_for_id(prev_hl_id), tl, end);
+        end = br;
+      }
+      if (font_idx != cur_font_idx
+          && !(gc.text.isEmpty() || gc.text[0].isSpace()))
       {
         const auto [tl, br] = get_pos(x, y, 1);
         QPointF buf_start = {br.x(), br.y() - font_height};
@@ -126,9 +133,8 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
       }
       if (gc.double_width)
       {
+        // Assume previous buffer already drawn.
         const auto [tl, br] = get_pos(x, y, 2);
-        QPointF prev_start = {br.x(), br.y() - font_height};
-        draw_buf(s->attr_for_id(prev_hl_id), prev_start, end);
         buffer.append(gc.text);
         draw_buf(s->attr_for_id(gc.hl_id), tl, br);
         end = {tl.x(), tl.y() + font_height};

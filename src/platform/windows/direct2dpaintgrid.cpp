@@ -244,7 +244,17 @@ void D2DPaintGrid::draw(
     {
       const auto& gc = area[y * cols + x];
       const auto font_idx = editor_area->font_for_ucs(gc.ucs);
-      if (font_idx != cur_font_idx)
+      /// Neovim double-width characters have an empty string after them.
+      /// Iterating from right to left we see the empty string first,
+      /// then the double width character, which is why we have to draw
+      /// the buffer as soon as we see the empty string.
+      if (gc.text.isEmpty())
+      {
+        const auto [tl, br] = get_pos(x + 1, y, 0);
+        draw_buf(s->attr_for_id(prev_hl_id), tl, end);
+        end = br;
+      }
+      if (font_idx != cur_font_idx && !gc.text[0].isSpace())
       {
         const auto [tl, br] = get_pos(x, y, 1);
         d2pt buf_start = {br.x, br.y - font_height};
@@ -254,9 +264,8 @@ void D2DPaintGrid::draw(
       }
       if (gc.double_width)
       {
+        // Assume previous text has already been drawn.
         const auto [tl, br] = get_pos(x, y, 2);
-        d2pt prev_start = {br.x, br.y - font_height};
-        draw_buf(s->attr_for_id(prev_hl_id), prev_start, end);
         buffer.append(gc.text);
         draw_buf(s->attr_for_id(gc.hl_id), tl, br);
         end = {tl.x, tl.y + font_height};

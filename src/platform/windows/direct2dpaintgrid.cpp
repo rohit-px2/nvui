@@ -1,5 +1,6 @@
 #include "wineditor.hpp"
 #include "direct2dpaintgrid.hpp"
+#include "utils.hpp"
 #include <d2d1.h>
 
 void D2DPaintGrid::set_size(u16 w, u16 h)
@@ -199,31 +200,6 @@ void D2DPaintGrid::draw_text_and_bg(
     D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT
   );
   SafeRelease(&old_text_layout);
-}
-
-/// UCS2-aware string reversal
-static void reverse_qstring(QString& s)
-{
-  const int len = s.size();
-  for(int i = 0; i < len / 2; ++i)
-  {
-    if (s.at(i).isHighSurrogate())
-    {
-      QChar hi = s[i];
-      QChar low = s[i + 1];
-      s[i] = s[len - i - 2];
-      s[i + 1] = s[len - i - 1];
-      s[len - i - 2] = hi;
-      s[len - i - 1] = low;
-      i += 2;
-    }
-    else
-    {
-      QChar temp = s[i];
-      s[i] = s[len - i - 1];
-      s[len - i - 1] = temp;
-    }
-  }
 }
 
 void D2DPaintGrid::draw(

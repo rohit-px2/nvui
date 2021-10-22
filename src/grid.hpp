@@ -77,7 +77,7 @@ public:
     map.reserve(static_cast<int>(max_size));
   }
 
-  V* put(K k, V v)
+  V& put(K k, V v)
   {
     V* ptr = nullptr;
     auto it = map.find(k);
@@ -102,10 +102,10 @@ public:
       map.erase(erase_it);
       keys.pop_back();
     }
-    return ptr;
+    return *ptr;
   }
 
-  const V* get(const K& k)
+  V* get(const K& k)
   {
     auto it = map.find(k);
     if (it != map.end())

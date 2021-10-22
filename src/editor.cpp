@@ -960,8 +960,6 @@ void EditorArea::draw_cursor(QPainter& painter)
   float scale_factor = 1.0f;
   if (gc.double_width) scale_factor = 2.0f;
   auto rect = neovim_cursor.rect(font_width, font_height, scale_factor).value();
-  QFontMetrics fm {font};
-  const float offset = get_offset(font, linespace);
   const auto pos = neovim_cursor.pos().value();
   const HLAttr& def_clrs = state->default_colors_get();
   const HLAttr& attr = state->attr_for_id(rect.hl_id);
@@ -970,7 +968,7 @@ void EditorArea::draw_cursor(QPainter& painter)
   if (rect.should_draw_text)
   {
     float left = (grid->x + pos.col) * font_width;
-    float top = (grid->y + pos.row) * font_height + offset;
+    float top = (grid->y + pos.row) * font_height;
     const QPointF bot_left {left, top};
     const Color fgc = rect.hl_id == 0
       ? *def_clrs.bg()
@@ -979,9 +977,13 @@ void EditorArea::draw_cursor(QPainter& painter)
           : attr.fg().value_or(*def_clrs.fg()));
     const QColor fg = {fgc.r, fgc.g, fgc.b};
     auto font_idx = font_for_ucs(gc.ucs);
-    painter.setFont(fonts[font_idx].font());
+    const auto& chosen_font = fonts[font_idx].font();
+    QStaticText text(gc.text);
+    text.setTextFormat(Qt::PlainText);
+    text.prepare(QTransform(), chosen_font);
+    painter.setFont(chosen_font);
     painter.setPen(fg);
-    painter.drawText(bot_left, gc.text);
+    painter.drawStaticText(QPointF {left, top}, text);
   }
 }
 

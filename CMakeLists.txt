@@ -67,6 +67,7 @@ file(GLOB SOURCES
   src/decide_renderer.hpp
   src/input.cpp
   src/input.hpp
+  src/scalers.hpp
 )
 if (WIN32)
   message("Windows detected.")
@@ -135,6 +136,7 @@ file(GLOB TEST_SOURCES
   src/decide_renderer.hpp
   src/input.cpp
   src/input.hpp
+  src/scalers.hpp
 )
 if (WIN32)
   file(GLOB WINONLYTESTSOURCES

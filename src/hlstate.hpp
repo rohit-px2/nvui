@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <QFont>
 #include <unordered_map>
 #include <variant>
 #include <optional>
@@ -10,6 +11,7 @@
 #include <string>
 #include <msgpack.hpp>
 #include <QColor>
+#include <type_traits>
 
 using uint8 = std::uint8_t;
 using uint16 = std::uint16_t;
@@ -65,20 +67,17 @@ enum FontOpts : std::uint8_t
   Undercurl = 64
 };
 
+using FontOptions = std::underlying_type_t<FontOpts>;
+
 /// Data for a single highlight attribute
 class HLAttr
 {
 public:
-  int hl_id = 0;
-  std::uint8_t font_opts = FontOpts::Normal;
-  bool reverse = false;
-  std::optional<Color> special {};
-  std::optional<Color> foreground {};
-  std::optional<Color> background {};
-  /// We don't need a detailed view of the highlight state
-  // right now so we won't do anything with this.
-  std::vector<AttrState> state {};
-  float opacity = 1;
+  struct ColorPair
+  {
+    Color fg;
+    Color bg;
+  };
   std::optional<Color> fg() const { return foreground; }
   std::optional<Color> bg() const { return background; }
   std::optional<Color> sp() const { return special; }
@@ -87,6 +86,25 @@ public:
   bool strikethrough() const { return font_opts & FontOpts::Strikethrough; }
   bool underline() const { return font_opts & FontOpts::Underline; }
   bool undercurl() const { return font_opts & FontOpts::Undercurl; }
+  ColorPair colors(const HLAttr& fallback) const
+  {
+    ColorPair cp = {
+      foreground.value_or(fallback.foreground.value()),
+      background.value_or(fallback.background.value())
+    };
+    if (reverse) std::swap(cp.fg, cp.bg);
+    return cp;
+  }
+  int hl_id = 0;
+  FontOptions font_opts = FontOpts::Normal;
+  bool reverse = false;
+  std::optional<Color> special {};
+  std::optional<Color> foreground {};
+  std::optional<Color> background {};
+  /// We don't need a detailed view of the highlight state
+  // right now so we won't do anything with this.
+  std::vector<AttrState> state {};
+  float opacity = 1;
 };
 
 /// Keeps the highlight state of Neovim
@@ -132,6 +150,9 @@ public:
    * Returns the default colors.
    */
   const HLAttr& default_colors_get() const;
+  Color default_bg() const { return default_colors.bg().value(); }
+  Color default_fg() const { return default_colors.fg().value(); }
+  HLAttr::ColorPair colors_for(const HLAttr& attr) const;
 private:
   HLAttr default_colors;
   std::unordered_map<std::string, std::uint32_t> name_to_id;
@@ -152,6 +173,11 @@ namespace hl
    * call.
    */
   HLAttr hl_attr_from_object(const msgpack::object& obj);
+}
+
+namespace font
+{
+  void set_opts(QFont& font, const FontOptions options);
 }
 
 #endif

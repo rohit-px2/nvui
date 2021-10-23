@@ -13,6 +13,7 @@
 #include <dwrite_3.h>
 #include "grid.hpp"
 #include "hlstate.hpp"
+#include "cursor.hpp"
 
 class WinEditorArea;
 
@@ -83,6 +84,8 @@ public:
   void update_position(double x, double y);
   /// Render this grid to a render target
   void render(ID2D1RenderTarget* render_target);
+  /// Draw the given cursor to the render target at the appropriate position
+  void draw_cursor(ID2D1RenderTarget* target, const Cursor& cursor);
 private:
   std::vector<Snapshot> snapshots;
   WinEditorArea* editor_area = nullptr;

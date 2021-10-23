@@ -504,35 +504,12 @@ protected:
     grids.push_back(std::make_unique<QPaintGrid>(this, x, y, w, h, id));
   }
   /**
-   * Draws a portion of the grid on the screen
-   * (the area to draw is given by rect).
-   */
-  void draw_grid(
-    QPainter& painter,
-    const GridBase& grid,
-    const QRect& rect
-  );
-  /**
    * Clears a portion of the grid by drawing Neovim's current default background
    color over it.
    * This should be faster than draw_grid if all you want to do is clear,
    * since it doesn't draw text/look for text to draw.
    */
   void clear_grid(QPainter& painter, const GridBase& grid, const QRect& rect);
-  /**
-   * Draws the text with the background and foreground according to the
-   * given attributes attr and the default colors, between start and end.
-   */
-  void draw_text_and_bg(
-    QPainter& painter,
-    const QString& text,
-    const HLAttr& attr,
-    const HLAttr& def_clrs,
-    const QPointF& start,
-    const QPointF& end,
-    const float offset,
-    QFont font
-  );
   /**
    * Draw the cursor
    */

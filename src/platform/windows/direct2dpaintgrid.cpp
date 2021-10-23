@@ -435,6 +435,49 @@ void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
   render_target->PopAxisAlignedClip();
 }
 
+void D2DPaintGrid::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
+{
+  const auto& text_formats = editor_area->fallback_list();
+  const HLState* hl = editor_area->hl_state();
+  const auto& def_clrs = hl->default_colors_get();
+  const auto [font_width, font_height] = editor_area->font_dimensions();
+  const auto pos_opt = cursor.pos();
+  if (!pos_opt) return;
+  const auto pos = pos_opt.value();
+  std::size_t idx = pos.row * cols + pos.col;
+  if (idx >= area.size()) return;
+  const auto& gc = area[idx];
+  float scale_factor = 1.0f;
+  if (gc.double_width) scale_factor = 2.0f;
+  const CursorRect rect = *cursor.rect(font_width, font_height, scale_factor);
+  ID2D1SolidColorBrush* bg_brush = nullptr;
+  HLAttr attr = hl->attr_for_id(rect.hl_id);
+  auto [fg, bg] = hl->colors_for(attr);
+  target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
+  const QRectF& r = rect.rect;
+  auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());
+  target->PushAxisAlignedClip(fill_rect, D2D1_ANTIALIAS_MODE_ALIASED);
+  target->FillRectangle(fill_rect, bg_brush);
+  target->PopAxisAlignedClip();
+  if (rect.should_draw_text)
+  {
+    ID2D1SolidColorBrush* fg_brush = nullptr, *bg_brush = nullptr;
+    target->CreateSolidColorBrush(D2D1::ColorF(fg.to_uint32()), &fg_brush);
+    target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &bg_brush);
+    // If the rect exists, the pos must exist as well.
+    auto font_idx = editor_area->font_for_ucs(gc.ucs);
+    assert(font_idx < text_formats.size());
+    if (rect.hl_id == 0) attr.reverse = true;
+    const auto start = D2D1::Point2F(fill_rect.left, fill_rect.top);
+    const auto end = D2D1::Point2F(fill_rect.right, fill_rect.bottom);
+    draw_text_and_bg(
+      target, gc.text, attr, def_clrs, start, end,
+      text_formats[font_idx], fg_brush, bg_brush
+    );
+  }
+  SafeRelease(&bg_brush);
+}
+
 D2DPaintGrid::~D2DPaintGrid()
 {
   for(auto& snapshot : snapshots) SafeRelease(&snapshot.image);

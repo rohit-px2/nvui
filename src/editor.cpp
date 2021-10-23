@@ -504,7 +504,7 @@ static std::tuple<QString, double, std::uint8_t> parse_guifont(const QString& st
     default:
     {
       const QStringView size_str {list.at(1).utf16() + 1, list[1].size() - 1};
-      std::uint8_t font_opts = FontOpts::Normal;
+      FontOptions font_opts = FontOpts::Normal;
       assert(list.size() <= 255);
       for(std::uint8_t i = 0; i < list.size(); ++i)
       {
@@ -567,8 +567,7 @@ void EditorArea::set_guifont(QString new_font)
   {
     font.setPointSizeF(font_size);
   }
-  font.setBold(font_opts & FontOpts::Bold);
-  font.setItalic(font_opts & FontOpts::Italic);
+  font::set_opts(font, font_opts);
   fonts.push_back({font});
   for(int i = 1; i < lst.size(); ++i)
   {
@@ -700,79 +699,6 @@ void EditorArea::resized(QSize sz)
       }
     });
   });
-}
-
-void EditorArea::draw_grid(QPainter& painter, const GridBase& grid, const QRect& rect)
-{
-  QString buffer;
-  buffer.reserve(100);
-  // const int start_x = rect.x();
-  const int start_y = rect.y();
-  // const int end_x = rect.right();
-  const int end_y = rect.bottom();
-  const HLAttr& def_clrs = state->default_colors_get();
-  const float offset = get_offset(font, linespace);
-  const auto get_pos = [&](int x, int y, int num_chars) {
-    float left = x * font_width;
-    float top = y * font_height;
-    float bottom = top + font_height;
-    float right = left + (font_width * num_chars);
-    return std::make_tuple(QPointF(left, top), QPointF(right, bottom));
-  };
-  QFont cur_font = font;
-  const auto draw_buf = [&](QString& text, const HLAttr& attr, const HLAttr& def_clrs,
-      const QPointF& start, const QPointF& end, u32 font_idx) {
-    if (!text.isEmpty())
-    {
-      cur_font = fonts[font_idx].font();
-      draw_text_and_bg(painter, text, attr, def_clrs, start, end, offset, cur_font);
-      text.clear();
-    }
-  };
-  for(int y = start_y; y <= end_y && y < grid.rows; ++y)
-  {
-    QPointF start(grid.x * font_width, (grid.y + y) * font_height);
-    std::uint16_t prev_hl_id = UINT16_MAX;
-    u32 cur_font_idx = 0;
-    for(int x = 0; x < grid.cols; ++x)
-    {
-      const auto& gc = grid.area[y * grid.cols + x];
-      auto font_idx = font_for_ucs(gc.ucs);
-      if (font_idx != cur_font_idx && !(gc.text.isEmpty() || gc.text.at(0).isSpace()))
-      {
-        auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
-        QPointF buf_end = {top_left.x(), top_left.y() + font_height};
-        draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, buf_end, cur_font_idx);
-        start = top_left;
-        cur_font_idx = font_idx;
-      }
-      if (gc.double_width)
-      {
-        auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 2);
-        QPointF buf_end = {top_left.x(), top_left.y() + font_height};
-        draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, buf_end, cur_font_idx);
-        buffer.append(gc.text);
-        draw_buf(buffer, state->attr_for_id(gc.hl_id), def_clrs, top_left, bot_right, cur_font_idx);
-        start = {bot_right.x(), bot_right.y() - font_height};
-        prev_hl_id = gc.hl_id;
-      }
-      else if (gc.hl_id == prev_hl_id)
-      {
-        buffer.append(gc.text);
-        continue;
-      }
-      else
-      {
-        auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
-        draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, bot_right, cur_font_idx);
-        start = top_left;
-        buffer.append(gc.text);
-        prev_hl_id = gc.hl_id;
-      }
-    }
-    auto [top_left, bot_right] = get_pos(grid.x + (grid.cols - 1), grid.y + y, 1);
-    draw_buf(buffer, state->attr_for_id(prev_hl_id), def_clrs, start, bot_right, cur_font_idx);
-  }
 }
 
 void EditorArea::clear_grid(QPainter& painter, const GridBase& grid, const QRect& rect)
@@ -920,70 +846,13 @@ void EditorArea::mode_change(const msgpack::object* obj, u32 size)
   neovim_cursor.mode_change(obj, size);
 }
 
-void EditorArea::draw_text_and_bg(
-  QPainter& painter,
-  const QString& text,
-  const HLAttr& attr,
-  const HLAttr& def_clrs,
-  const QPointF& start,
-  const QPointF& end,
-  const float offset,
-  QFont font
-)
-{
-  font.setItalic(attr.font_opts & FontOpts::Italic);
-  font.setBold(attr.font_opts & FontOpts::Bold);
-  font.setUnderline(attr.font_opts & FontOpts::Underline);
-  font.setStrikeOut(attr.font_opts & FontOpts::Strikethrough);
-  painter.setFont(font);
-  Color fg = attr.fg().value_or(*def_clrs.fg());
-  Color bg = attr.bg().value_or(*def_clrs.bg());
-  if (attr.reverse) std::swap(fg, bg);
-  const QRectF rect = {start, end};
-  painter.setClipRect(rect);
-  painter.fillRect(rect, QColor(bg.r, bg.g, bg.b));
-  painter.setPen(QColor(fg.r, fg.g, fg.b));
-  const QPointF text_start = {start.x(), start.y() + offset};
-  painter.drawText(text_start, text);
-}
-
 void EditorArea::draw_cursor(QPainter& painter)
 {
-  auto pos_opt = neovim_cursor.pos();
-  if (!pos_opt) return;
-  auto p = pos_opt.value();
-  GridBase* grid = find_grid(p.grid_num);
-  if (!grid) return;
-  std::size_t idx = p.row * grid->cols + p.col;
-  if (idx >= grid->area.size()) return;
-  const auto& gc = grid->area[idx];
-  float scale_factor = 1.0f;
-  if (gc.double_width) scale_factor = 2.0f;
-  auto rect = neovim_cursor.rect(font_width, font_height, scale_factor).value();
-  const auto pos = neovim_cursor.pos().value();
-  const HLAttr& def_clrs = state->default_colors_get();
-  const HLAttr& attr = state->attr_for_id(rect.hl_id);
-  Color bg = rect.hl_id == 0 ? *def_clrs.fg() : (attr.reverse ? (attr.fg().value_or(*def_clrs.fg())) : (attr.bg().value_or(*def_clrs.bg())));
-  painter.fillRect(rect.rect, QColor(bg.r, bg.g, bg.b));
-  if (rect.should_draw_text)
+  auto grid_num = neovim_cursor.grid_num();
+  if (grid_num < 0) return;
+  if (auto* grid = static_cast<QPaintGrid*>(find_grid(grid_num)))
   {
-    float left = (grid->x + pos.col) * font_width;
-    float top = (grid->y + pos.row) * font_height;
-    const QPointF bot_left {left, top};
-    const Color fgc = rect.hl_id == 0
-      ? *def_clrs.bg()
-      : (attr.reverse
-          ? (attr.bg().value_or(*def_clrs.bg()))
-          : attr.fg().value_or(*def_clrs.fg()));
-    const QColor fg = {fgc.r, fgc.g, fgc.b};
-    auto font_idx = font_for_ucs(gc.ucs);
-    const auto& chosen_font = fonts[font_idx].font();
-    QStaticText text(gc.text);
-    text.setTextFormat(Qt::PlainText);
-    text.prepare(QTransform(), chosen_font);
-    painter.setFont(chosen_font);
-    painter.setPen(fg);
-    painter.drawStaticText(QPointF {left, top}, text);
+    grid->draw_cursor(painter, neovim_cursor);
   }
 }
 
@@ -1082,7 +951,7 @@ u32 EditorArea::font_for_ucs(u32 ucs)
 void EditorArea::resizeEvent(QResizeEvent* event)
 {
   Q_UNUSED(event);
-  repaint();
+  update();
 }
 
 /// Returns a point clamped between the top-left and bottom-right

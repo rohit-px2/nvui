@@ -41,24 +41,19 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
   if (!move_update_timer.isActive()) move_update_timer.start();
 }
 
-void QPaintGrid::draw_text_and_bg(
+void QPaintGrid::draw_text(
   QPainter& painter,
   const QString& text,
-  const HLAttr& attr,
-  const HLAttr& def_clrs,
-  const QPointF& start,
-  const QPointF& end,
-  const int offset,
-  QFont font
+  Color fg,
+  const QRectF& rect,
+  const FontOptions font_opts,
+  QFont& font,
+  double font_height
 )
 {
-  Q_UNUSED(offset);
   using key_type = decltype(text_cache)::key_type;
-  key_type key = {text, attr.font_opts};
-  font.setItalic(attr.font_opts & FontOpts::Italic);
-  font.setBold(attr.font_opts & FontOpts::Bold);
-  font.setUnderline(attr.font_opts & FontOpts::Underline);
-  font.setStrikeOut(attr.font_opts & FontOpts::Strikethrough);
+  key_type key = {text, font_opts};
+  font::set_opts(font, font_opts);
   painter.setFont(font);
   QStaticText* static_text = text_cache.get(key);
   if (!static_text)
@@ -68,13 +63,32 @@ void QPaintGrid::draw_text_and_bg(
     static_text->setPerformanceHint(QStaticText::AggressiveCaching);
     static_text->prepare(QTransform(), font);
   }
-  Color fg = attr.fg().value_or(*def_clrs.fg());
-  Color bg = attr.bg().value_or(*def_clrs.bg());
-  if (attr.reverse) std::swap(fg, bg);
-  const QRectF rect = {start, end};
-  painter.fillRect(rect, QColor(bg.r, bg.g, bg.b));
-  painter.setPen(QColor(fg.r, fg.g, fg.b));
-  painter.drawStaticText(start, *static_text);
+  double y = rect.y();
+  y -= (static_text->size().height() - font_height);
+  painter.setClipRect(rect);
+  painter.setPen(fg.qcolor());
+  painter.drawStaticText(QPointF {rect.x(), y}, *static_text);
+}
+
+void QPaintGrid::draw_text_and_bg(
+  QPainter& painter,
+  const QString& text,
+  const HLAttr& attr,
+  const HLAttr& def_clrs,
+  const QPointF& start,
+  const QPointF& end,
+  const int offset,
+  QFont font,
+  double font_height
+)
+{
+  Q_UNUSED(offset);
+  auto [fg, bg] = attr.colors(def_clrs);
+  QRectF rect = {start, end};
+  painter.setClipRect(rect);
+  painter.fillRect(rect, bg.qcolor());
+  rect.setWidth(rect.width() * 3.);
+  draw_text(painter, text, fg, rect, attr.font_opts, font, font_height);
 }
 
 void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
@@ -98,7 +112,7 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
     reverse_qstring(buffer);
     draw_text_and_bg(
       p, buffer, main, def_clrs, start, end,
-      offset, fonts[cur_font_idx].font()
+      offset, fonts[cur_font_idx].font(), font_height
     );
     buffer.clear();
   };
@@ -326,4 +340,39 @@ void QPaintGrid::initialize_move_animation()
     }
     editor_area->update();
   });
+}
+
+void QPaintGrid::draw_cursor(QPainter& painter, const Cursor& cursor)
+{
+  const auto [font_width, font_height] = editor_area->font_dimensions();
+  const HLState* hl = editor_area->hl_state();
+  auto pos_opt = cursor.pos();
+  if (!pos_opt) return;
+  auto pos = pos_opt.value();
+  std::size_t idx = pos.row * cols + pos.col;
+  if (idx >= area.size()) return;
+  const auto& gc = area[idx];
+  float scale_factor = 1.0f;
+  if (gc.double_width) scale_factor = 2.0f;
+  auto rect_opt = cursor.rect(font_width, font_height, scale_factor);
+  if (!rect_opt) return;
+  auto [rect, hl_id, should_draw_text] = rect_opt.value();
+  const HLAttr& cursor_attr = hl->attr_for_id(hl_id);
+  Color fg = cursor_attr.fg().value_or(hl->default_fg());
+  Color bg = cursor_attr.bg().value_or(hl->default_bg());
+  if (hl_id == 0 || cursor_attr.reverse) std::swap(fg, bg);
+  painter.fillRect(rect, bg.qcolor());
+  if (should_draw_text)
+  {
+    float left = (x + pos.col) * font_width;
+    float top = (y + pos.row) * font_height;
+    const QPointF bot_left {left, top};
+    auto font_idx = editor_area->font_for_ucs(gc.ucs);
+    QFont chosen_font = editor_area->fallback_list()[font_idx].font();
+    QRectF rect(left, top, font_width * scale_factor * 5., font_height);
+    draw_text(
+      painter, gc.text, fg, rect,
+      cursor_attr.font_opts, chosen_font, font_height
+    );
+  }
 }

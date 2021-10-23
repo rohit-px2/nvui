@@ -231,10 +231,7 @@ void CmdLine::draw_text_and_bg(
   const int offset
 )
 {
-  font.setItalic(attr.font_opts & FontOpts::Italic);
-  font.setBold(attr.font_opts & FontOpts::Bold);
-  font.setUnderline(attr.font_opts & FontOpts::Underline);
-  font.setStrikeOut(attr.font_opts & FontOpts::Strikethrough);
+  font::set_opts(font, attr.font_opts);
   painter.setFont(font);
   Color fg = attr.fg().value_or(*def_clrs.fg());
   Color bg = attr.bg().value_or(*def_clrs.bg());

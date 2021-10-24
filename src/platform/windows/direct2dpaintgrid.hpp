@@ -141,6 +141,8 @@ private:
     const HLAttr& fallback,
     D2D1_POINT_2F start,
     D2D1_POINT_2F end,
+    float font_width,
+    float font_height,
     IDWriteTextFormat* text_format,
     ID2D1SolidColorBrush* fg_brush,
     ID2D1SolidColorBrush* bg_brush

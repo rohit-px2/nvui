@@ -65,8 +65,9 @@ static FontDecorationPaintPath calculate_path(
     case FontOpts::Underline:
     {
       thickness = 1.f;
-      p.moveTo({rect.x(), rect.bottom() - (thickness / 2.f)});
-      p.lineTo({rect.right(), rect.bottom() - (thickness / 2.f)});
+      const float offset = std::round(font_height * 0.1f);
+      p.moveTo(rect.x(), rect.bottom() - offset - (thickness / 2.f));
+      p.lineTo(rect.right(), rect.bottom() - offset - (thickness / 2.f));
       break;
     }
     case FontOpts::Undercurl:
@@ -74,7 +75,7 @@ static FontDecorationPaintPath calculate_path(
       // Squiggly undercurl
       thickness = 1.f;
       float path_height = std::min(font_height / 5.0f, 3.0f);
-      p.moveTo({rect.x(), rect.bottom() - path_height});
+      p.moveTo(rect.x(), rect.bottom() - path_height);
       bool top = false;
       /// Ensure each character gets at least one triangle-shape
       /// so that it doesn't look awkward

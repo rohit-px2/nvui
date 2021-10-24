@@ -141,8 +141,10 @@ static void draw_text_decorations(
   {
     case FontOpts::Underline:
     {
-      float line_thickness = 1.0f;
-      float line_mid = seq_end.y - (line_thickness / 2.f);
+      const float line_thickness = 1.0f;
+      const float line_mid = seq_end.y
+        - std::round(font_height * 0.1f)
+        - (line_thickness / 2.f);
       context->DrawLine(
         {seq_start.x, line_mid}, {seq_end.x, line_mid}, brush, line_thickness
       );

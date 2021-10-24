@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <msgpack.hpp>
 #include "hlstate.hpp"
-#include "grid.hpp"
+#include "scalers.hpp"
 
 enum class CursorShape : std::uint8_t
 {
@@ -136,6 +136,11 @@ public:
   inline void set_caret_extend_bottom(float bottom)
   {
     caret_extend_bottom = bottom;
+  }
+  int grid_num() const
+  {
+    if (!cur_pos) return -1;
+    return cur_pos.value().grid_num;
   }
 private:
   EditorArea* editor_area = nullptr;

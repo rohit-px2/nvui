@@ -178,235 +178,16 @@ private:
   float font_height_f = -1.f;
   float x_dpi = default_dpi;
 
-  // Override EditorArea draw_grid
-  // We can use native Windows stuff here
-  inline void draw_grid(const GridBase& grid, const QRect& rect, ID2D1RenderTarget* target)
-  {
-    // In ext_multigrid mode the root grid is "layered" over other grids
-    // and does things like drawing separators. However, since we render
-    // the whole line on every change this overwrites the other grids
-    // and messes up everything else.
-    // The solution is to treat the multigrid root window as a special
-    // case.
-    bool is_root_grid = grid.id == 1 && capabilities.multigrid;
-    using d2pt = D2D1_POINT_2F;
-    QString buffer;
-    buffer.reserve(100);
-    const int start_x = is_root_grid ? rect.left() : 0;
-    const int start_y = rect.y();
-    const int end_x = is_root_grid ? rect.right() : grid.cols - 1;
-    const int end_y = rect.bottom();
-    const HLAttr& def_clrs = state->default_colors_get();
-    const auto get_pos = [&](int x, int y, int num_chars) {
-      using D2D1::Point2F;
-      float left = x * font_width_f;
-      float top = y * font_height_f;
-      float bottom = top + font_height_f;
-      float right = left + (font_width_f * num_chars);
-      return std::tuple {Point2F(left, top), Point2F(right, bottom)};
-    };
-    const auto draw_buf = [&](
-      const d2pt& start,
-      const d2pt& end,
-      const HLAttr& main,
-      u32 font_idx) {
-        if (!buffer.isEmpty())
-        {
-          draw_text_and_bg(
-            buffer, text_formats[font_idx], main, def_clrs,
-            start, end, target
-          );
-          buffer.clear();
-        }
-    };
-    for(int y = start_y; y <= end_y && y < grid.rows; ++y)
-    {
-      // Check if we already drew the line
-      d2pt cur_start = {grid.x * font_width_f, (grid.y + y) * font_height_f};
-      std::uint16_t prev_hl_id = UINT16_MAX;
-      std::uint32_t cur_font_idx = 0;
-      for(int x = start_x; x <= end_x && x < grid.cols; ++x)
-      {
-        const auto& gc = grid.area[y * grid.cols + x];
-        // The second condition is for supporting Nerd fonts
-        auto font_idx = font_for_ucs(gc.ucs);
-        if (font_idx != cur_font_idx && !(gc.text.isEmpty() || gc.text.at(0).isSpace()))
-        {
-          auto&& [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
-          d2pt buf_end = {top_left.x + font_width_f, top_left.y + font_height_f};
-          draw_buf(cur_start, buf_end, state->attr_for_id(prev_hl_id), cur_font_idx);
-          cur_start = top_left;
-          cur_font_idx = font_idx;
-        }
-        if (gc.double_width)
-        {
-          auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 2);
-          // Directwrite sometimes makes the content overflow (draws the last char
-          // of the text on the next line). Since we do clipping this shows up as
-          // the last character before a double-width character disappearing. This
-          // doesn't happen all the time, but I've seen it happen.
-          // To solve this we make the ending point a little further to the right than
-          // it should be.
-          d2pt buf_end = {top_left.x + font_width_f, top_left.y + font_height_f};
-          draw_buf(cur_start, buf_end, state->attr_for_id(prev_hl_id), cur_font_idx);
-          buffer.append(gc.text);
-          draw_buf(top_left, bot_right, state->attr_for_id(gc.hl_id),cur_font_idx);
-          prev_hl_id = gc.hl_id;
-          ++x;
-          cur_start = {bot_right.x, bot_right.y - font_height_f};
-        }
-        else if (prev_hl_id == gc.hl_id)
-        {
-          buffer.append(gc.text);
-          continue;
-        }
-        else
-        {
-          auto [top_left, bot_right] = get_pos(grid.x + x, grid.y + y, 1);
-          bot_right.x += font_width;
-          draw_buf(cur_start, bot_right, state->attr_for_id(prev_hl_id), cur_font_idx);
-          cur_start = top_left;
-          buffer.append(gc.text);
-        }
-        prev_hl_id = gc.hl_id;
-      }
-      auto [top_left, bot_right] = get_pos(grid.x + end_x, grid.y + y, 1);
-      draw_buf(cur_start, bot_right, state->attr_for_id(prev_hl_id), cur_font_idx);
-    }
-  }
-  
-  template<typename T>
-  int draw_text_and_bg(
-    const QString& text,
-    IDWriteTextFormat* format,
-    const HLAttr& attr,
-    const HLAttr& def_clrs,
-    const D2D1_POINT_2F start,
-    const D2D1_POINT_2F end,
-    T* target
-  )
-  {
-    IDWriteTextLayout1* t_layout = nullptr;
-    factory->CreateTextLayout((LPCWSTR)text.utf16(), text.size(), format, end.x - start.x, end.y - start.y, reinterpret_cast<IDWriteTextLayout**>(&t_layout));
-    DWRITE_TEXT_RANGE text_range {0, (std::uint32_t) text.size()};
-    if (charspace)
-    {
-      t_layout->SetCharacterSpacing(0, float(charspace), 0, text_range);
-    }
-    if (attr.font_opts & FontOpts::Italic)
-    {
-      t_layout->SetFontStyle(DWRITE_FONT_STYLE_ITALIC, text_range);
-    }
-    if (attr.font_opts & FontOpts::Bold)
-    {
-      t_layout->SetFontWeight(DWRITE_FONT_WEIGHT_BOLD, text_range);
-    }
-    if (attr.font_opts & FontOpts::Underline)
-    {
-      t_layout->SetUnderline(true, text_range);
-    }
-    Color fg = attr.fg().value_or(*def_clrs.fg());
-    Color bg = attr.bg().value_or(*def_clrs.bg());
-    if (attr.reverse)
-    {
-      std::swap(fg, bg);
-    }
-    // cur_pos's y-value should be the bottom
-    D2D1_RECT_F bg_rect = D2D1::RectF(start.x, start.y, end.x, end.y);
-    ID2D1SolidColorBrush* fg_brush = nullptr;
-    ID2D1SolidColorBrush* bg_brush = nullptr;
-    target->CreateSolidColorBrush(d2clr(fg.to_uint32()), &fg_brush);
-    target->CreateSolidColorBrush(d2clr(bg.to_uint32()), &bg_brush);
-    //target->PushAxisAlignedClip(bg_rect, D2D1_ANTIALIAS_MODE_ALIASED);
-    target->FillRectangle(bg_rect, bg_brush);
-    const float offset = float(linespace) / 2.f;
-    D2D1_POINT_2F text_pt = {start.x, start.y + offset};
-    target->DrawTextLayout(text_pt, t_layout, fg_brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
-    //target->PopAxisAlignedClip();
-    SafeRelease(&fg_brush);
-    SafeRelease(&bg_brush);
-    SafeRelease(&t_layout);
-    return end.x - start.x;
-  }
-
-  inline void clear_grid(const GridBase& grid, const QRect& rect, ID2D1RenderTarget* target)
-  {
-    const HLAttr& def_clrs = state->default_colors_get();
-    ID2D1SolidColorBrush* bg_brush = nullptr;
-    Color bg = *def_clrs.background;
-    target->CreateSolidColorBrush(d2clr(bg.to_uint32()), &bg_brush);
-    D2D1_RECT_F bg_rect {
-      .left = (float) (grid.x + rect.left()) * font_width,
-      .top = (float) (grid.y + rect.top()) * font_height,
-      .right = (float) (grid.x + rect.right()) * font_width,
-      .bottom = (float) (grid.y + rect.bottom()) * font_height
-    };
-    target->FillRectangle(bg_rect, bg_brush);
-    SafeRelease(&bg_brush);
-  }
-
-  void clear_old_cursor(ID2D1RenderTarget* target)
-  {
-    const auto old_rect_opt = neovim_cursor.old_rect(font_width_f, font_height_f);
-    if (!old_rect_opt.has_value()) return;
-    const CursorRect old_rect = old_rect_opt.value();
-    ID2D1SolidColorBrush* bg_brush = nullptr;
-    const Color& bg = *state->default_colors_get().background;
-    target->CreateSolidColorBrush(d2clr(bg.to_uint32()), &bg_brush);
-    const QRectF& r = old_rect.rect;
-    auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());
-    target->FillRectangle(fill_rect, bg_brush);
-    SafeRelease(&bg_brush);
-  }
-
   void draw_cursor(ID2D1RenderTarget* target)
   {
-    const auto pos_opt = neovim_cursor.pos();
-    if (!pos_opt) return;
-    const auto pos = pos_opt.value();
-    GridBase* grid = find_grid(pos.grid_num);
-    if (!grid) return;
-    std::size_t idx = pos.row * grid->cols + pos.col;
-    if (idx >= grid->area.size()) return;
-    const auto& gc = grid->area[idx];
-    float scale_factor = 1.0f;
-    if (gc.double_width) scale_factor = 2.0f;
-    const CursorRect rect = *neovim_cursor.rect(font_width_f, font_height_f, scale_factor);
-    ID2D1SolidColorBrush* bg_brush = nullptr;
-    const HLAttr& def_clrs = state->default_colors_get();
-    HLAttr attr = state->attr_for_id(rect.hl_id);
-    Color bg;
-    if (rect.hl_id == 0) bg = *def_clrs.foreground;
-    else
+    auto grid_num = neovim_cursor.grid_num();
+    if (grid_num < 0) return;
+    if (auto* grid = static_cast<D2DPaintGrid*>(find_grid(grid_num)))
     {
-      if (attr.reverse)
-      {
-        bg = attr.fg().value_or(*def_clrs.fg());
-      }
-      else
-      {
-        bg = attr.bg().value_or(*def_clrs.bg());
-      }
+      grid->draw_cursor(target, neovim_cursor);
     }
-    target->CreateSolidColorBrush(d2clr(bg.to_uint32()), &bg_brush);
-    const QRectF& r = rect.rect;
-    auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());
-    target->PushAxisAlignedClip(fill_rect, D2D1_ANTIALIAS_MODE_ALIASED);
-    target->FillRectangle(fill_rect, bg_brush);
-    target->PopAxisAlignedClip();
-    if (rect.should_draw_text)
-    {
-      // If the rect exists, the pos must exist as well.
-       std::uint32_t font_idx = font_for_ucs(gc.ucs);
-      assert(font_idx < text_formats.size());
-      if (rect.hl_id == 0) attr.reverse = true;
-      const auto start = D2D1::Point2F(fill_rect.left, fill_rect.top);
-      const auto end = D2D1::Point2F(fill_rect.right, fill_rect.bottom);
-      draw_text_and_bg(gc.text, text_formats[font_idx], attr, def_clrs, start, end, target);
-    }
-    SafeRelease(&bg_brush);
   }
-  
+
   /// Overrides the default (QPaintGrid) creation to make a D2DPaintGrid.
   /// In the paintEvent we cast the GridBase ptr to a D2DPaintGrid ptr and
   /// draw its contents to the screen (if it's not hidden).
@@ -507,37 +288,6 @@ protected:
       }
     }
     device_context->PopAxisAlignedClip();
-    /// ------------ Old Drawing Code ---------------------------
-    //device_context->EndDraw();
-    //Q_UNUSED(event);
-    //mtd_context->BeginDraw();
-    //while(!events.empty())
-    //{
-      //const PaintEventItem& event = events.front();
-      //const GridBase* grid = find_grid(event.grid_num);
-      //assert(grid);
-      //if (event.type == PaintKind::Clear)
-      //{
-        //clear_grid(*grid, event.rect, mtd_context);
-      //}
-      //else if (event.type == PaintKind::Redraw)
-      //{
-        //for(const auto& grid : grids)
-        //{
-          //if (grid->hidden) continue;
-          //draw_grid(*grid, QRect(0, 0, grid->cols, grid->rows), mtd_context);
-        //}
-      //}
-      //else
-      //{
-        //draw_grid(*grid, event.rect, mtd_context);
-      //}
-      //events.pop();
-    //}
-    //mtd_context->EndDraw();
-    //device_context->BeginDraw();
-    //device_context->DrawBitmap(dc_bitmap);
-    /// ------- Old Drawing Code End --------------------------------
     if (!neovim_cursor.hidden() && cmdline.isHidden())
     {
       draw_cursor(device_context);
@@ -551,7 +301,7 @@ protected:
   {
     auto sz = D2D1::SizeU(event->size().width(), event->size().height());
     hwnd_target->Resize(sz);
-    repaint();
+    update();
   }
 };
 

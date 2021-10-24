@@ -94,7 +94,18 @@ namespace hl
     }
     return attr;
   }
-}
+} // namespace hl
+
+namespace font
+{
+  void set_opts(QFont& font, const FontOptions opts)
+  {
+    font.setItalic(opts & FontOpts::Italic);
+    font.setBold(opts & FontOpts::Bold);
+    font.setStrikeOut(opts & FontOpts::Strikethrough);
+    font.setUnderline(opts & FontOpts::Underline);
+  }
+} // namespace font
 
 const HLAttr& HLState::attr_for_id(int id) const
 {
@@ -168,7 +179,6 @@ void HLState::define(const msgpack::object& obj)
   set_id_attr(attr.hl_id, std::move(attr));
 }
 
-
 void HLState::group_set(const msgpack::object &obj)
 {
   assert(obj.type == msgpack::type::ARRAY);
@@ -179,4 +189,9 @@ void HLState::group_set(const msgpack::object &obj)
   std::string hl_name = arr.ptr[0].as<std::string>();
   int hl_id = arr.ptr[1].as<int>();
   set_name_id(hl_name, hl_id);
+}
+
+HLAttr::ColorPair HLState::colors_for(const HLAttr& attr) const
+{
+  return attr.colors(default_colors);
 }

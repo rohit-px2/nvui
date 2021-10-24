@@ -41,6 +41,35 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
   if (!move_update_timer.isActive()) move_update_timer.start();
 }
 
+void QPaintGrid::draw_text(
+  QPainter& painter,
+  const QString& text,
+  Color fg,
+  const QRectF& rect,
+  const FontOptions font_opts,
+  QFont& font,
+  double font_height
+)
+{
+  using key_type = decltype(text_cache)::key_type;
+  key_type key = {text, font_opts};
+  font::set_opts(font, font_opts);
+  painter.setFont(font);
+  QStaticText* static_text = text_cache.get(key);
+  if (!static_text)
+  {
+    static_text = &text_cache.put(std::move(key), QStaticText {text});
+    static_text->setTextFormat(Qt::PlainText);
+    static_text->setPerformanceHint(QStaticText::AggressiveCaching);
+    static_text->prepare(QTransform(), font);
+  }
+  double y = rect.y();
+  y -= (static_text->size().height() - font_height);
+  painter.setClipRect(rect);
+  painter.setPen(fg.qcolor());
+  painter.drawStaticText(QPointF {rect.x(), y}, *static_text);
+}
+
 void QPaintGrid::draw_text_and_bg(
   QPainter& painter,
   const QString& text,
@@ -49,35 +78,17 @@ void QPaintGrid::draw_text_and_bg(
   const QPointF& start,
   const QPointF& end,
   const int offset,
-  QFont font
+  QFont font,
+  double font_height
 )
 {
   Q_UNUSED(offset);
-  const QStaticText* static_text = nullptr;
-  using key_type = decltype(text_cache)::key_type;
-  key_type key = {text, attr.font_opts};
-  font.setItalic(attr.font_opts & FontOpts::Italic);
-  font.setBold(attr.font_opts & FontOpts::Bold);
-  font.setUnderline(attr.font_opts & FontOpts::Underline);
-  font.setStrikeOut(attr.font_opts & FontOpts::Strikethrough);
-  painter.setFont(font);
-  static_text = text_cache.get(key);
-  if (!static_text)
-  {
-    QStaticText temp {text};
-    temp.setTextFormat(Qt::PlainText);
-    temp.setPerformanceHint(QStaticText::AggressiveCaching);
-    temp.prepare(QTransform(), font);
-    static_text = text_cache.put(key, std::move(temp));
-  }
-  Color fg = attr.fg().value_or(*def_clrs.fg());
-  Color bg = attr.bg().value_or(*def_clrs.bg());
-  if (attr.reverse) std::swap(fg, bg);
-  const QRectF rect = {start, end};
+  auto [fg, bg] = attr.colors(def_clrs);
+  QRectF rect = {start, end};
   painter.setClipRect(rect);
-  painter.fillRect(rect, QColor(bg.r, bg.g, bg.b));
-  painter.setPen(QColor(fg.r, fg.g, fg.b));
-  painter.drawStaticText(start, *static_text);
+  painter.fillRect(rect, bg.qcolor());
+  rect.setWidth(rect.width() * 3.);
+  draw_text(painter, text, fg, rect, attr.font_opts, font, font_height);
 }
 
 void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
@@ -98,9 +109,10 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
   u32 cur_font_idx = 0;
   const auto draw_buf = [&](const HLAttr& main, QPointF start, QPointF end) {
     if (buffer.isEmpty()) return;
+    reverse_qstring(buffer);
     draw_text_and_bg(
       p, buffer, main, def_clrs, start, end,
-      offset, fonts[cur_font_idx].font()
+      offset, fonts[cur_font_idx].font(), font_height
     );
     buffer.clear();
   };
@@ -111,30 +123,35 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
   };
   for(int y = start_y; y <= end_y && y < rows; ++y)
   {
-    QPointF start = {(double) x * font_width, (double) (y) * font_height};
-    std::uint16_t prev_hl_id = UINT16_MAX;
-    cur_font_idx = 0;
-    for(int cur_x = 0; cur_x < cols; ++cur_x)
+    QPointF end = {cols * font_width, (y + 1) * font_height};
+    int prev_hl_id = INT_MAX;
+    /// Reverse iteration. This prevents text from clipping
+    for(int x = cols - 1; x >= 0; --x)
     {
-      const auto& gc = area[y * cols + cur_x];
-      auto font_idx = editor_area->font_for_ucs(gc.ucs);
-      if (font_idx != cur_font_idx
-          && !(gc.text.isEmpty() || gc.text.at(0).isSpace()))
+      const auto& gc = area[y * cols + x];
+      const auto font_idx = editor_area->font_for_ucs(gc.ucs);
+      if (gc.text.isEmpty())
       {
-        auto [top_left, bot_right] = get_pos(cur_x, y, 1);
-        QPointF buf_end = {top_left.x(), top_left.y() + font_height};
-        draw_buf(s->attr_for_id(prev_hl_id), start, buf_end);
-        start = top_left;
+        const auto [tl, br] = get_pos(x + 1, y, 0);
+        draw_buf(s->attr_for_id(prev_hl_id), tl, end);
+        end = br;
+      }
+      if (font_idx != cur_font_idx
+          && !(gc.text.isEmpty() || gc.text[0].isSpace()))
+      {
+        const auto [tl, br] = get_pos(x, y, 1);
+        QPointF buf_start = {br.x(), br.y() - font_height};
+        draw_buf(s->attr_for_id(prev_hl_id), buf_start, end);
+        end = br;
         cur_font_idx = font_idx;
       }
       if (gc.double_width)
       {
-        auto [top_left, bot_right] = get_pos(cur_x, y, 2);
-        QPointF buf_end = {top_left.x(), top_left.y() + font_height};
-        draw_buf(s->attr_for_id(prev_hl_id), start, buf_end);
+        // Assume previous buffer already drawn.
+        const auto [tl, br] = get_pos(x, y, 2);
         buffer.append(gc.text);
-        draw_buf(s->attr_for_id(gc.hl_id), top_left, bot_right);
-        start = {bot_right.x(), bot_right.y() - font_height};
+        draw_buf(s->attr_for_id(gc.hl_id), tl, br);
+        end = {tl.x(), tl.y() + font_height};
         prev_hl_id = gc.hl_id;
       }
       else if (gc.hl_id == prev_hl_id)
@@ -144,15 +161,16 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
       }
       else
       {
-        auto [top_left, bot_right] = get_pos(cur_x, y, 1);
-        draw_buf(s->attr_for_id(prev_hl_id), start, bot_right);
-        start = top_left;
+        const auto [tl, br] = get_pos(x, y, 1);
+        QPointF start = {br.x(), br.y() - font_height};
+        draw_buf(s->attr_for_id(prev_hl_id), start, end);
+        end = br;
         buffer.append(gc.text);
         prev_hl_id = gc.hl_id;
       }
     }
-    QPointF bot_right(cols * font_width, (y + 1) * font_height);
-    draw_buf(s->attr_for_id(prev_hl_id), start, bot_right);
+    QPointF start = {0, y * font_height};
+    draw_buf(s->attr_for_id(prev_hl_id), start, end);
   }
 }
 
@@ -322,4 +340,39 @@ void QPaintGrid::initialize_move_animation()
     }
     editor_area->update();
   });
+}
+
+void QPaintGrid::draw_cursor(QPainter& painter, const Cursor& cursor)
+{
+  const auto [font_width, font_height] = editor_area->font_dimensions();
+  const HLState* hl = editor_area->hl_state();
+  auto pos_opt = cursor.pos();
+  if (!pos_opt) return;
+  auto pos = pos_opt.value();
+  std::size_t idx = pos.row * cols + pos.col;
+  if (idx >= area.size()) return;
+  const auto& gc = area[idx];
+  float scale_factor = 1.0f;
+  if (gc.double_width) scale_factor = 2.0f;
+  auto rect_opt = cursor.rect(font_width, font_height, scale_factor);
+  if (!rect_opt) return;
+  auto [rect, hl_id, should_draw_text] = rect_opt.value();
+  const HLAttr& cursor_attr = hl->attr_for_id(hl_id);
+  Color fg = cursor_attr.fg().value_or(hl->default_fg());
+  Color bg = cursor_attr.bg().value_or(hl->default_bg());
+  if (hl_id == 0 || cursor_attr.reverse) std::swap(fg, bg);
+  painter.fillRect(rect, bg.qcolor());
+  if (should_draw_text)
+  {
+    float left = (x + pos.col) * font_width;
+    float top = (y + pos.row) * font_height;
+    const QPointF bot_left {left, top};
+    auto font_idx = editor_area->font_for_ucs(gc.ucs);
+    QFont chosen_font = editor_area->fallback_list()[font_idx].font();
+    QRectF rect(left, top, font_width * scale_factor * 5., font_height);
+    draw_text(
+      painter, gc.text, fg, rect,
+      cursor_attr.font_opts, chosen_font, font_height
+    );
+  }
 }

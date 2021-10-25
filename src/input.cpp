@@ -242,11 +242,20 @@ static std::string convertKey(const QKeyEvent& ev) noexcept
     { Qt::Key_9, "9" },
   };
 
+#ifdef Q_OS_WIN
+  /// Windows sends Ctrl+Alt when AltGr is pressed,
+  /// but the text already factors in AltGr. Solution: Ignore Ctrl and Alt
+  if ((mod & Qt::ControlModifier) && (mod & Qt::AltModifier))
+  {
+    mod &= ~Qt::ControlModifier;
+    mod &= ~Qt::AltModifier;
+  }
+#endif // Q_OS_WIN
+
   if (mod & Qt::KeypadModifier && keypadKeys.contains(key))
   {
     return fmt::format("<{}{}>", mod_prefix(mod), keypadKeys.at(key));
   }
-
 
   // Issue#917: On Linux, Control + Space sends text as "\u0000"
   if (key == Qt::Key_Space && text.size() > 0 && !text.at(0).isPrint())

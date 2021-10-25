@@ -98,12 +98,19 @@ namespace hl
 
 namespace font
 {
-  void set_opts(QFont& font, const FontOptions opts)
+  template<>
+  void set_opts<true>(QFont& font, const FontOptions opts)
   {
     font.setItalic(opts & FontOpts::Italic);
     font.setBold(opts & FontOpts::Bold);
     font.setStrikeOut(opts & FontOpts::Strikethrough);
     font.setUnderline(opts & FontOpts::Underline);
+  }
+  template<>
+  void set_opts<false>(QFont& font, const FontOptions opts)
+  {
+    font.setItalic(opts & FontOpts::Italic);
+    font.setBold(opts & FontOpts::Bold);
   }
 } // namespace font
 
@@ -193,5 +200,5 @@ void HLState::group_set(const msgpack::object &obj)
 
 HLAttr::ColorPair HLState::colors_for(const HLAttr& attr) const
 {
-  return attr.colors(default_colors);
+  return attr.fg_bg(default_colors);
 }

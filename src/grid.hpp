@@ -361,16 +361,19 @@ private:
     const QPointF& end,
     const int offset,
     QFont font,
-    double font_height
+    float font_width,
+    float font_height
   );
   void draw_text(
     QPainter& painter,
     const QString& text,
-    Color fg,
+    const Color& fg,
+    const std::optional<Color>& sp,
     const QRectF& rect,
     const FontOptions font_opts,
     QFont& font,
-    double font_height
+    float font_width,
+    float font_height
   );
   /// Update the pixmap size
   void update_pixmap_size();

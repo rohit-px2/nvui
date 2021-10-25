@@ -1,6 +1,7 @@
 #include "editor.hpp"
 #include "grid.hpp"
 #include "utils.hpp"
+#include <QPainterPath>
 
 scalers::time_scaler GridBase::scroll_scaler = scalers::oneminusexpo2negative10;
 scalers::time_scaler GridBase::move_scaler = scalers::oneminusexpo2negative10;
@@ -41,19 +42,88 @@ void QPaintGrid::set_pos(u16 new_x, u16 new_y)
   if (!move_update_timer.isActive()) move_update_timer.start();
 }
 
+struct FontDecorationPaintPath
+{
+  QPainterPath path;
+  double line_thickness;
+};
+
+static FontDecorationPaintPath calculate_path(
+  const QRectF& rect,
+  const FontOpts opt,
+  const float font_width,
+  const float font_height
+)
+{
+  Q_UNUSED(font_height);
+  FontDecorationPaintPath paint_path;
+  auto& p = paint_path.path;
+  auto& thickness = paint_path.line_thickness;
+  /// Lines always go for the length of the rectangle.
+  switch(opt)
+  {
+    case FontOpts::Underline:
+    {
+      thickness = 1.f;
+      const float offset = std::round(font_height * 0.1f);
+      p.moveTo(rect.x(), rect.bottom() - offset - (thickness / 2.f));
+      p.lineTo(rect.right(), rect.bottom() - offset - (thickness / 2.f));
+      break;
+    }
+    case FontOpts::Undercurl:
+    {
+      // Squiggly undercurl
+      thickness = 1.f;
+      float path_height = std::min(font_height / 5.0f, 3.0f);
+      p.moveTo(rect.x(), rect.bottom() - path_height);
+      bool top = false;
+      /// Ensure each character gets at least one triangle-shape
+      /// so that it doesn't look awkward
+      const double inc = font_width / 2.f;
+      for(double x = rect.x() + inc;; x += inc)
+      {
+        using namespace std;
+        p.lineTo(min(x, rect.right()), rect.bottom() - (path_height * top));
+        top = !top;
+        if (x >= rect.right()) break;
+      }
+      break;
+    }
+    case FontOpts::Strikethrough:
+    {
+      thickness = 1.f;
+      double mid_y = rect.y() + (rect.height() / 2.);
+      p.moveTo(rect.x(), mid_y);
+      p.lineTo(rect.right(), mid_y);
+      break;
+    }
+    default: break;
+  }
+  return paint_path;
+}
+
+void set_pen_width(QPainter& painter, double w)
+{
+  auto pen = painter.pen();
+  pen.setWidthF(w);
+  painter.setPen(pen);
+}
+
 void QPaintGrid::draw_text(
   QPainter& painter,
   const QString& text,
-  Color fg,
+  const Color& fg,
+  const std::optional<Color>& sp,
   const QRectF& rect,
   const FontOptions font_opts,
   QFont& font,
-  double font_height
+  float font_width,
+  float font_height
 )
 {
   using key_type = decltype(text_cache)::key_type;
   key_type key = {text, font_opts};
-  font::set_opts(font, font_opts);
+  font::set_opts<false>(font, font_opts);
   painter.setFont(font);
   QStaticText* static_text = text_cache.get(key);
   if (!static_text)
@@ -68,6 +138,20 @@ void QPaintGrid::draw_text(
   painter.setClipRect(rect);
   painter.setPen(fg.qcolor());
   painter.drawStaticText(QPointF {rect.x(), y}, *static_text);
+  QRectF line_clip_rect {
+    rect.x(), rect.y(),
+    static_text->size().width(), font_height
+  };
+  if (!sp) return;
+  painter.setPen(sp.value().qcolor());
+  const auto draw_path = [&](const FontOpts fo) {
+    auto [path, pen_w] = calculate_path(line_clip_rect, fo, font_width, font_height);
+    set_pen_width(painter, pen_w);
+    painter.drawPath(path);
+  };
+  if (font_opts & FontOpts::Underline) draw_path(FontOpts::Underline);
+  if (font_opts & FontOpts::Undercurl) draw_path(FontOpts::Undercurl);
+  if (font_opts & FontOpts::Strikethrough) draw_path(FontOpts::Strikethrough);
 }
 
 void QPaintGrid::draw_text_and_bg(
@@ -79,16 +163,19 @@ void QPaintGrid::draw_text_and_bg(
   const QPointF& end,
   const int offset,
   QFont font,
-  double font_height
+  float font_width,
+  float font_height
 )
 {
   Q_UNUSED(offset);
-  auto [fg, bg] = attr.colors(def_clrs);
+  auto [fg, bg, sp] = attr.fg_bg_sp(def_clrs);
   QRectF rect = {start, end};
   painter.setClipRect(rect);
   painter.fillRect(rect, bg.qcolor());
   rect.setWidth(rect.width() * 3.);
-  draw_text(painter, text, fg, rect, attr.font_opts, font, font_height);
+  draw_text(
+    painter, text, fg, sp, rect, attr.font_opts, font, font_width, font_height
+  );
 }
 
 void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
@@ -112,7 +199,7 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
     reverse_qstring(buffer);
     draw_text_and_bg(
       p, buffer, main, def_clrs, start, end,
-      offset, fonts[cur_font_idx].font(), font_height
+      offset, fonts[cur_font_idx].font(), font_width, font_height
     );
     buffer.clear();
   };
@@ -198,7 +285,6 @@ void QPaintGrid::process_events()
     evt_q.pop();
   }
 }
-
 
 void QPaintGrid::render(QPainter& p)
 {
@@ -369,10 +455,10 @@ void QPaintGrid::draw_cursor(QPainter& painter, const Cursor& cursor)
     const QPointF bot_left {left, top};
     auto font_idx = editor_area->font_for_ucs(gc.ucs);
     QFont chosen_font = editor_area->fallback_list()[font_idx].font();
-    QRectF rect(left, top, font_width * scale_factor * 5., font_height);
+    QRectF text_rect(left, top, font_width * scale_factor * 5., font_height);
     draw_text(
-      painter, gc.text, fg, rect,
-      cursor_attr.font_opts, chosen_font, font_height
+      painter, gc.text, fg, cursor_attr.sp(), text_rect,
+      cursor_attr.font_opts, chosen_font, font_width, font_height
     );
   }
 }

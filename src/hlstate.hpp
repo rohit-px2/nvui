@@ -78,6 +78,12 @@ public:
     Color fg;
     Color bg;
   };
+  struct ColorTriplet
+  {
+    Color fg;
+    Color bg;
+    Color sp;
+  };
   std::optional<Color> fg() const { return foreground; }
   std::optional<Color> bg() const { return background; }
   std::optional<Color> sp() const { return special; }
@@ -86,7 +92,7 @@ public:
   bool strikethrough() const { return font_opts & FontOpts::Strikethrough; }
   bool underline() const { return font_opts & FontOpts::Underline; }
   bool undercurl() const { return font_opts & FontOpts::Undercurl; }
-  ColorPair colors(const HLAttr& fallback) const
+  ColorPair fg_bg(const HLAttr& fallback) const
   {
     ColorPair cp = {
       foreground.value_or(fallback.foreground.value()),
@@ -94,6 +100,13 @@ public:
     };
     if (reverse) std::swap(cp.fg, cp.bg);
     return cp;
+  }
+  ColorTriplet fg_bg_sp(const HLAttr& fallback) const
+  {
+    auto&& [fg, bg] = fg_bg(fallback);
+    return {
+      fg, bg, special.value_or(fallback.special.value())
+    };
   }
   int hl_id = 0;
   FontOptions font_opts = FontOpts::Normal;
@@ -177,6 +190,7 @@ namespace hl
 
 namespace font
 {
+  template<bool set_stul = true>
   void set_opts(QFont& font, const FontOptions options);
 }
 

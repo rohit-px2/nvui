@@ -2,6 +2,7 @@
 #include "object.hpp"
 #include <iostream>
 #include <span>
+#include <sstream>
 #include <stack>
 #include <fmt/core.h>
 #include <fmt/format.h>

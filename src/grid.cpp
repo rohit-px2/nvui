@@ -201,12 +201,12 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
       p, buffer, main, def_clrs, start, end,
       offset, fonts[cur_font_idx].font(), font_width, font_height
     );
-    buffer.clear();
+    buffer.resize(0);
   };
   const auto get_pos = [&](int x, int y, int num_chars) {
     QPointF tl(x * font_width, y * font_height);
     QPointF br((x + num_chars) * font_width, (y + 1) * font_height);
-    return std::tuple {tl, br};
+    return std::pair {tl, br};
   };
   for(int y = start_y; y <= end_y && y < rows; ++y)
   {

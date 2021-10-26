@@ -278,9 +278,9 @@ void D2DPaintGrid::draw(
   const auto& def_clrs = s->default_colors_get();
   u32 cur_font_idx = 0;
   const auto get_pos = [&](int x, int y, int num_chars) {
-    d2pt tl = {x * font_width, y * font_height};
-    d2pt br = {(x + num_chars) * font_width, (y + 1) * font_height};
-    return std::tuple {tl, br};
+    d2pt tl = {std::floor(x * font_width), y * font_height};
+    d2pt br = {std::ceil((x + num_chars) * font_width), (y + 1) * font_height};
+    return std::pair {tl, br};
   };
   const auto draw_buf = [&](const HLAttr& main, d2pt start, d2pt end) {
     if (buffer.isEmpty()) return;
@@ -290,7 +290,7 @@ void D2DPaintGrid::draw(
       context, buffer, main, def_clrs, start, end, font_width, font_height,
       tf, fg_brush, bg_brush
     );
-    buffer.clear();
+    buffer.resize(0);
   };
   for(int y = start_y; y <= end_y && y < rows; ++y)
   {

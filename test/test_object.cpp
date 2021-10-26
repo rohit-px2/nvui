@@ -108,7 +108,7 @@ TEST_CASE("Extracting types from Object")
     // Should be able to convert to int(5)
     try
     {
-      int x = o;
+      int x = (int) o;
       REQUIRE(x == 5);
     }
     catch(...) { REQUIRE(!"Could not convert o = 5 to int."); }
@@ -119,7 +119,7 @@ TEST_CASE("Extracting types from Object")
     bool caught = false;
     try
     {
-      std::string s = o;
+      std::string s = (std::string) o;
       REQUIRE(false);
     }
     catch(...) { caught = true; }

@@ -91,7 +91,7 @@ void CmdLine::cmdline_cursor_pos(std::span<const Object> objs)
     auto* arr = obj.array();
     assert(arr && arr->size() >= 2);
     assert(arr->at(0).u64() && arr->at(1).u64());
-    cursor_pos = arr->at(0);
+    cursor_pos = (int) arr->at(0);
     // const auto level = arr->at(1).get<u64>();
   }
   update();
@@ -250,7 +250,7 @@ void CmdLine::add_line(const ObjectArray& new_line)
     assert(line_obj.has<ObjectArray>());
     auto& arr = line_obj.get<ObjectArray>();
     assert(arr.size() == 2);
-    int hl_id = arr.at(0).get_as<int>().value_or(0);
+    int hl_id = arr.at(0).try_convert<int>().value_or(0);
     const QString& text = arr.at(1).get<QString>();
     line.emplace_back(text, hl_id);
   }

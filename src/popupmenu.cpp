@@ -145,10 +145,10 @@ void PopupMenu::pum_show(std::span<const Object> objs)
     auto* arr = obj.array();
     assert(arr && arr->size() >= 5);
     auto* items = arr->at(0).array();
-    cur_selected = arr->at(1);
-    row = arr->at(2);
-    col = arr->at(3);
-    grid_num = arr->at(4);
+    cur_selected = (int) arr->at(1);
+    row = (int) arr->at(2);
+    col = (int) arr->at(3);
+    grid_num = (int) arr->at(4);
     assert(items);
     add_items(*items);
     if (cur_selected >= 0 && cur_selected < int(completion_items.size()))

@@ -68,7 +68,7 @@ static std::function<void (const ObjectArray&)> paramify(Func f)
     std::size_t idx = 0;
     for_each_in_tuple(t, [&](auto& p) {
       using val_type = std::remove_reference_t<decltype(p)>;
-      std::optional<val_type> v = arg_list.at(idx).get_as<val_type>();
+      std::optional<val_type> v = arg_list.at(idx).try_convert<val_type>();
       if (!v) { valid = false; return; }
       p = *v;
       ++idx;

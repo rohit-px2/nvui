@@ -12,7 +12,7 @@ namespace hl
     const auto* arr = obj.array();
     assert(arr && arr->size() >= 4);
     assert(arr->at(0).convertible<int>());
-    const int id = arr->at(0);
+    const int id = (int) arr->at(0);
     auto* map_ptr = arr->at(1).map();
     if (!map_ptr) return {};
     const ObjectMap& map = *map_ptr;
@@ -25,7 +25,7 @@ namespace hl
     if (map.contains("background"))
     {
       assert(map.at("background").convertible<u32>());
-      attr.background = map.at("background");
+      attr.background = (u32) map.at("background");
     }
     if (map.contains("reverse")) attr.reverse = true;
     if (map.contains("special"))
@@ -69,7 +69,7 @@ namespace hl
       }
       if (state_map->contains("id"))
       {
-        auto id = state_map->at("id").get_as<int>();
+        auto id = state_map->at("id").try_convert<int>();
         if (id) state.id = *id;
       }
       attr.state.push_back(std::move(state));
@@ -121,9 +121,9 @@ void HLState::default_colors_set(const Object& obj)
   // and ctermbg, which we don't care about)
   auto* arr = obj.array();
   if (!arr || arr->size() < 3) return;
-  auto fg = arr->at(0).get_as<uint32>();
-  auto bg = arr->at(1).get_as<uint32>();
-  auto sp = arr->at(2).get_as<uint32>();
+  auto fg = arr->at(0).try_convert<uint32>();
+  auto bg = arr->at(1).try_convert<uint32>();
+  auto sp = arr->at(2).try_convert<uint32>();
   assert(fg && bg && sp);
   default_colors.foreground = *fg;
   default_colors.background = *bg;

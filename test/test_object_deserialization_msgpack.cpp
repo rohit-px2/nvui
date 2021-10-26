@@ -19,7 +19,7 @@ TEST_CASE("Object correctly deserialies from msgpack")
     const auto& arr = parsed.get<ObjectArray>();
     for(std::size_t i = 0; i < arr.size(); ++i)
     {
-      auto opt = arr[i].get_as<decltype(x)::value_type>();
+      auto opt = arr[i].try_convert<decltype(x)::value_type>();
       REQUIRE(opt);
       REQUIRE(*opt == x[i]);
     }

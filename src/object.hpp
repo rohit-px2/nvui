@@ -18,7 +18,7 @@
 struct NeovimExt
 {
   std::int8_t type;
-  std::string data; // Preserve byte layout
+  QByteArray data;
 };
 
 struct Error
@@ -28,7 +28,7 @@ struct Error
 
 struct Object
 {
-  using Map = boost::container::flat_map<std::string, Object>;
+  using Map = boost::container::flat_map<std::string, Object, std::less<>>;
   using Array = std::vector<Object>;
   using variant_type = std::variant<
     std::monostate,
@@ -88,7 +88,7 @@ struct Object
     return std::holds_alternative<T>(v);
   }
   template<typename T>
-  operator T() const
+  explicit operator T() const
   {
     return std::visit([](const auto& val) -> T {
       if constexpr(std::is_convertible_v<decltype(val), T>)
@@ -123,7 +123,7 @@ struct Object
   }
 
   template<typename T>
-  std::optional<T> get_as() const
+  std::optional<T> try_convert() const
   {
     using type = std::optional<T>;
     return std::visit([](const auto& arg) -> type {
@@ -141,7 +141,7 @@ struct Object
   /// If type conversion fails for any value, std::nullopt
   /// is returned.
   template<typename... T>
-  std::optional<std::tuple<T...>> decompose() const
+  std::optional<std::tuple<T...>> try_decompose() const
   {
     if (!has<Array>()) return std::nullopt;
     //using opt_tuple_type = std::optional<std::tuple<T...>>;
@@ -152,13 +152,32 @@ struct Object
     if (sizeof...(T) > arr.size()) return {};
     for_each_in_tuple(t, [&](auto& elem) {
       using elem_type = std::remove_reference_t<decltype(elem)>;
-      auto v = arr.at(idx).get_as<elem_type>();
+      auto v = arr.at(idx).try_convert<elem_type>();
       if (!v) { valid = false; }
       else elem = *v;
       ++idx;
     });
     if (valid) return t;
     return {};
+  }
+
+  std::optional<std::reference_wrapper<const Object>>
+  try_at(std::string_view s) const
+  {
+    if (!has<Map>()) return {};
+    const auto& mp = get<Map>();
+    const auto it = mp.find(s);
+    if (it == mp.cend()) return {};
+    return it->second;
+  }
+
+  std::optional<std::reference_wrapper<const Object>>
+  try_at(std::size_t idx) const
+  {
+    if (!has<Array>()) return {};
+    const auto& arr = get<Array>();
+    if (idx >= arr.size()) return {};
+    return arr.at(idx);
   }
 
 private:

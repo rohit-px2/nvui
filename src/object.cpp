@@ -6,59 +6,6 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
-Object Object::parse(const msgpack::object& obj)
-{
-  using namespace msgpack::type;
-  switch(obj.type)
-  {
-    case NIL:
-      return std::monostate {};
-    case msgpack::type::BOOLEAN:
-      return obj.via.boolean;
-    case POSITIVE_INTEGER:
-      return obj.via.u64;
-    case NEGATIVE_INTEGER:
-      return obj.via.i64;
-    case STR:
-      return obj.as<QString>();
-    case BIN:
-      return obj.as<std::string>();
-    case EXT:
-    {
-      const auto& obj_ext = obj.via.ext;
-      NeovimExt ext;
-      ext.type = obj_ext.type();
-      ext.data = std::string(obj_ext.data(), obj_ext.size);
-      return ext;
-    }
-    case FLOAT32:
-    case FLOAT64:
-      return obj.as<double>();
-    case ARRAY:
-    {
-      ObjectArray vo;
-      vo.reserve(obj.via.array.size);
-      std::span s {obj.via.array.ptr, obj.via.array.size};
-      for(const auto& o : s) vo.emplace_back(parse(o));
-      return vo;
-    }
-    case MAP:
-    {
-      ObjectMap mp;
-      const auto& obj_map = obj.via.map;
-      mp.reserve(obj_map.size);
-      std::span<msgpack::object_kv> aop {obj_map.ptr, obj_map.size};
-      for(const auto& kv : aop)
-      {
-        assert(kv.key.type == msgpack::type::STR);
-        mp.emplace(kv.key.as<std::string>(), parse(kv.val));
-      }
-      return mp;
-    }
-  }
-  return std::monostate {};
-}
-
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
@@ -209,7 +156,7 @@ struct MsgpackVisitor
   bool visit_ext(const char* v, std::uint32_t size)
   {
     std::int8_t type = static_cast<int8_t>(*v);
-    place(NeovimExt {type, std::string(v + 1, size - 1)});
+    place(NeovimExt {type, QByteArray(v + 1, size - 1)});
     return true;
   }
 
@@ -300,4 +247,12 @@ Object Object::from_msgpack(std::string_view sv, std::size_t& offset)
     default:
       return Error {""};
   }
+}
+
+Object Object::parse(const msgpack::object& obj)
+{
+  Object o;
+  MsgpackVisitor v {o};
+  msgpack::object_parser(obj).parse(v);
+  return o;
 }

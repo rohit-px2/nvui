@@ -128,7 +128,7 @@ TEST_CASE("Extracting types from Object")
   SECTION("Optional function works")
   {
     Object o = QString("hello world");
-    auto qstr_opt = o.get_as<QString>();
+    auto qstr_opt = o.try_convert<QString>();
     REQUIRE(qstr_opt);
     REQUIRE(*qstr_opt == "hello world");
   }
@@ -136,7 +136,7 @@ TEST_CASE("Extracting types from Object")
   {
     Object o = std::uint64_t(5);
     // Optional returns nullopt if not convertible
-    auto str_opt = o.get_as<std::string>();
+    auto str_opt = o.try_convert<std::string>();
     REQUIRE(!str_opt);
   }
 }

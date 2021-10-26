@@ -111,15 +111,15 @@ void Cursor::mode_info_set(std::span<const Object> objs)
         }
         else if (key == "cell_percentage")
         {
-          mode.cell_percentage = val;
+          mode.cell_percentage = (int) val;
         }
         else if (key == "attr_id")
         {
-          mode.attr_id = val;
+          mode.attr_id = (int) val;
         }
         else if (key == "attr_id_lm")
         {
-          mode.attr_id_lm = val;
+          mode.attr_id_lm = (int) val;
         }
         else if (key == "short_name")
         {
@@ -131,15 +131,15 @@ void Cursor::mode_info_set(std::span<const Object> objs)
         }
         else if (key == "blinkwait")
         {
-          mode.blinkwait = val;
+          mode.blinkwait = (int) val;
         }
         else if (key == "blinkon")
         {
-          mode.blinkon = val;
+          mode.blinkon = (int) val;
         }
         else if (key == "blinkoff")
         {
-          mode.blinkoff = val;
+          mode.blinkoff = (int) val;
         }
       }
       mode_info.push_back(std::move(mode));

@@ -25,7 +25,7 @@ TEST_CASE("nvim_set_var sets variables properly", "[nvim_set_var]")
     // so we can get the result from an nvim_eval command.
     nvim.eval_cb("g:uniquevariable", [&](Object res, Object err) {
       REQUIRE(err.is_null());
-      auto result = res.get_as<int>();
+      auto result = res.try_convert<int>();
       REQUIRE(result);
       REQUIRE(*result == 253);
       done = true;

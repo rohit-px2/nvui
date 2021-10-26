@@ -19,8 +19,8 @@ TEST_CASE("nvim_eval callbacks work", "[eval_cb]")
     std::atomic<bool> done = false;
     nvim.eval_cb("1 + 2", [&](Object res, Object err) {
       REQUIRE(err.is_null());
-      REQUIRE(res.get_as<int>());
-      REQUIRE(*res.get_as<int>() == 3);
+      REQUIRE(res.try_convert<int>());
+      REQUIRE(*res.try_convert<int>() == 3);
       done = true;
     });
     wait_for_value(done, true);

@@ -137,7 +137,7 @@ void EditorArea::grid_resize(std::span<NeovimObj> objs)
   // Should only run once
   for(const auto& obj : objs)
   {
-    auto vars = obj.decompose<u64, u64, u64>();
+    auto vars = obj.try_decompose<u64, u64, u64>();
     if (!vars) continue;
     auto [grid_num, width, height] = *vars;
     assert(grid_num != 0);
@@ -161,7 +161,7 @@ void EditorArea::grid_resize(std::span<NeovimObj> objs)
 
 void EditorArea::grid_line(std::span<NeovimObj> objs)
 {
-  std::uint16_t hl_id = 0;
+  int hl_id = 0;
   //std::cout << "Received grid line.\nNum params: " << size << '\n';
   for(auto& grid_cmd : objs)
   {
@@ -172,8 +172,8 @@ void EditorArea::grid_line(std::span<NeovimObj> objs)
     if (!grid_ptr) continue;
     if (!grid_ptr) return;
     GridBase& g = *grid_ptr;
-    int start_row = arr->at(1);
-    int start_col = arr->at(2);
+    int start_row = (int) arr->at(1);
+    int start_col = (int) arr->at(2);
     int col = start_col;
     auto cells = arr->at(3).array();
     assert(cells);
@@ -203,11 +203,11 @@ void EditorArea::grid_line(std::span<NeovimObj> objs)
       switch(cell_arr.size())
       {
         case 2:
-          hl_id = cell_arr.at(1);
+          hl_id = (int) cell_arr.at(1);
           break;
         case 3:
-          hl_id = cell_arr.at(1);
-          repeat = cell_arr.at(2);
+          hl_id = (int) cell_arr.at(1);
+          repeat = (int) cell_arr.at(2);
           break;
       }
       //std::cout << "Code point: " << c << "\n";
@@ -227,7 +227,7 @@ void EditorArea::grid_cursor_goto(std::span<NeovimObj> objs)
 {
   if (objs.empty()) return;
   const auto& obj = objs.back();
-  auto vars = obj.decompose<u16, int, int>();
+  auto vars = obj.try_decompose<u16, int, int>();
   if (!vars) return;
   auto [grid_num, row, col] = *vars;
   GridBase* grid = find_grid(grid_num);
@@ -276,7 +276,7 @@ void EditorArea::option_set(std::span<NeovimObj> objs)
     }
     else if (opt == "linespace")
     {
-      auto int_opt = arr->at(1).get_as<int>();
+      auto int_opt = arr->at(1).try_convert<int>();
       assert(int_opt);
       linespace = *int_opt;
       update_font_metrics();
@@ -302,7 +302,7 @@ void EditorArea::win_pos(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto vars = obj.decompose<u64, NeovimExt, u64, u64, u64, u64>();
+    auto vars = obj.try_decompose<u64, NeovimExt, u64, u64, u64, u64>();
     if (!vars) continue;
     const auto& [grid_num, win, sr, sc, width, height] = *vars;
     GridBase* grid = find_grid(grid_num);
@@ -335,7 +335,7 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto vars = obj.decompose<u64, NeovimExt, QString, u64, int, int>();
+    auto vars = obj.try_decompose<u64, NeovimExt, QString, u64, int, int>();
     if (!vars) continue;
     auto [grid_num, win, anchor_dir, anchor_grid_num, anchor_row, anchor_col] = *vars;
     QPoint anchor_rel = {anchor_col, anchor_row};
@@ -396,7 +396,7 @@ void EditorArea::win_viewport(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto vars = obj.decompose<u64, NeovimExt, u32, u32, u32, u32>();
+    auto vars = obj.try_decompose<u64, NeovimExt, u32, u32, u32, u32>();
     if (!vars) continue;
     auto [grid_num, ext, topline, botline, curline, curcol] = *vars;
     Viewport vp = {topline, botline, curline, curcol};
@@ -422,7 +422,7 @@ void EditorArea::msg_set_pos(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto vars = obj.decompose<u64, u64>();
+    auto vars = obj.try_decompose<u64, u64>();
     if (!vars) continue;
     auto [grid_num, row] = *vars;
     //auto scrolled = arr.ptr[2].as<bool>();
@@ -761,7 +761,7 @@ void EditorArea::grid_scroll(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto vars = obj.decompose<u16, u16, u16, u16, u16, int>();
+    auto vars = obj.try_decompose<u16, u16, u16, u16, u16, int>();
     if (!vars) continue;
     const auto [grid_num, top, bot, left, right, rows] = *vars;
     // const int cols = arr->at(6);

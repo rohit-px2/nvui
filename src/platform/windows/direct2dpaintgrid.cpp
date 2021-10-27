@@ -112,6 +112,8 @@ void D2DPaintGrid::process_events()
         break;
       }
       case PaintKind::Redraw:
+        bg_brush->SetColor(D2D1::ColorF(bg));
+        context->FillRectangle(source_rect(), bg_brush);
         draw(context, {0, 0, cols, rows}, fg_brush, bg_brush);
         clear_event_queue();
         break;
@@ -278,8 +280,8 @@ void D2DPaintGrid::draw(
   const auto& def_clrs = s->default_colors_get();
   u32 cur_font_idx = 0;
   const auto get_pos = [&](int x, int y, int num_chars) {
-    d2pt tl = {std::floor(x * font_width), y * font_height};
-    d2pt br = {std::ceil((x + num_chars) * font_width), (y + 1) * font_height};
+    d2pt tl = {x * font_width, y * font_height};
+    d2pt br = {(x + num_chars) * font_width, (y + 1) * font_height};
     return std::pair {tl, br};
   };
   const auto draw_buf = [&](const HLAttr& main, d2pt start, d2pt end) {

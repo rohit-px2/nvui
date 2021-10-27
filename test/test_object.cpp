@@ -2,6 +2,7 @@
 #include "object.hpp"
 #include <catch2/catch.hpp>
 #include <iostream>
+#include <sstream>
 
 template<typename T>
 msgpack::object_handle pack_unpack(const T& t)

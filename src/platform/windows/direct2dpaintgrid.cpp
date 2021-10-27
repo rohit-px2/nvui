@@ -112,8 +112,6 @@ void D2DPaintGrid::process_events()
         break;
       }
       case PaintKind::Redraw:
-        bg_brush->SetColor(D2D1::ColorF(bg));
-        context->FillRectangle(source_rect(), bg_brush);
         draw(context, {0, 0, cols, rows}, fg_brush, bg_brush);
         clear_event_queue();
         break;
@@ -239,10 +237,9 @@ void D2DPaintGrid::draw_text_and_bg(
     layout_cache.put(key, text_layout);
   }
   auto [fg, bg, sp] = attr.fg_bg_sp(fallback);
-  D2D1_RECT_F bg_rect = {start.x, start.y, end.x, end.y};
   fg_brush->SetColor(D2D1::ColorF(fg.to_uint32()));
   bg_brush->SetColor(D2D1::ColorF(bg.to_uint32()));
-  context->FillRectangle(bg_rect, bg_brush);
+  context->FillRectangle({start.x, start.y, end.x, end.y}, bg_brush);
   auto offset = float(editor_area->linespacing()) / 2.f;
   D2D1_POINT_2F text_pt = {start.x, start.y + offset};
   context->DrawTextLayout(
@@ -280,7 +277,7 @@ void D2DPaintGrid::draw(
   const auto& def_clrs = s->default_colors_get();
   u32 cur_font_idx = 0;
   const auto get_pos = [&](int x, int y, int num_chars) {
-    d2pt tl = {x * font_width, y * font_height};
+    d2pt tl = {std::floor(x * font_width), y * font_height};
     d2pt br = {(x + num_chars) * font_width, (y + 1) * font_height};
     return std::pair {tl, br};
   };
@@ -296,8 +293,12 @@ void D2DPaintGrid::draw(
   };
   for(int y = start_y; y <= end_y && y < rows; ++y)
   {
-    d2pt end = {cols * font_width, (y + 1) * font_height};
-    int prev_hl_id = INT_MAX;
+    d2pt end = {context->GetSize().width, (y + 1) * font_height};
+    int prev_hl_id = 0;
+    if (y * cols + (cols - 1) < (int) area.size())
+    {
+      prev_hl_id = area[y * cols + cols - 1].hl_id;
+    }
     /// Reverse iteration. This prevents text from clipping
     for(int x = cols - 1; x >= 0; --x)
     {
@@ -315,9 +316,8 @@ void D2DPaintGrid::draw(
       }
       if (font_idx != cur_font_idx && !gc.text[0].isSpace())
       {
-        const auto [tl, br] = get_pos(x, y, 1);
-        d2pt buf_start = {br.x, br.y - font_height};
-        draw_buf(s->attr_for_id(prev_hl_id), buf_start, end);
+        const auto [tl, br] = get_pos(x + 1, y, 0);
+        draw_buf(s->attr_for_id(prev_hl_id), tl, end);
         end = br;
         cur_font_idx = font_idx;
       }
@@ -327,7 +327,7 @@ void D2DPaintGrid::draw(
         const auto [tl, br] = get_pos(x, y, 2);
         buffer.append(gc.text);
         draw_buf(s->attr_for_id(gc.hl_id), tl, br);
-        end = {tl.x, tl.y + font_height};
+        end = get_pos(x, y, 0).second;
         prev_hl_id = gc.hl_id;
       }
       else if (gc.hl_id == prev_hl_id)
@@ -337,9 +337,8 @@ void D2DPaintGrid::draw(
       }
       else
       {
-        const auto [tl, br] = get_pos(x, y, 1);
-        d2pt start = {br.x, br.y - font_height};
-        draw_buf(s->attr_for_id(prev_hl_id), start, end);
+        const auto [tl, br] = get_pos(x + 1, y, 0);
+        draw_buf(s->attr_for_id(prev_hl_id), tl, end);
         end = br;
         buffer.append(gc.text);
         prev_hl_id = gc.hl_id;

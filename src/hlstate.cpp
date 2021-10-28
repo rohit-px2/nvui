@@ -76,7 +76,25 @@ namespace hl
     }
     return attr;
   }
-}
+} // namespace hl
+
+namespace font
+{
+  template<>
+  void set_opts<true>(QFont& font, const FontOptions opts)
+  {
+    font.setItalic(opts & FontOpts::Italic);
+    font.setBold(opts & FontOpts::Bold);
+    font.setStrikeOut(opts & FontOpts::Strikethrough);
+    font.setUnderline(opts & FontOpts::Underline);
+  }
+  template<>
+  void set_opts<false>(QFont& font, const FontOptions opts)
+  {
+    font.setItalic(opts & FontOpts::Italic);
+    font.setBold(opts & FontOpts::Bold);
+  }
+} // namespace font
 
 const HLAttr& HLState::attr_for_id(int id) const
 {
@@ -153,7 +171,6 @@ void HLState::define(const Object& obj)
   set_id_attr(attr.hl_id, std::move(attr));
 }
 
-
 void HLState::group_set(const Object& obj)
 {
   auto* arr = obj.array();
@@ -164,4 +181,9 @@ void HLState::group_set(const Object& obj)
   auto hl_name = name->toStdString();
   auto hl_id = static_cast<int>(*id);
   set_name_id(std::move(hl_name), hl_id);
+}
+
+HLAttr::ColorPair HLState::colors_for(const HLAttr& attr) const
+{
+  return attr.fg_bg(default_colors);
 }

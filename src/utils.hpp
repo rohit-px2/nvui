@@ -147,7 +147,6 @@ void wait_for_value(std::atomic<T>& v, T val)
   while(v != val) {}
 }
 
-
 // find or default for map containers
 template<typename Map, typename K, typename V>
 V find_or_default(const Map& m, const K& k, const V& v)
@@ -165,6 +164,29 @@ void for_each_in_tuple(std::tuple<Types...>& t, Func&& f)
   if constexpr(idx != sizeof...(Types) - 1)
   {
     for_each_in_tuple<idx + 1>(t, std::forward<Func>(f));
+
+/// UCS2-aware string reversal
+inline void reverse_qstring(QString& s)
+{
+  const int len = s.size();
+  for(int i = 0; i < len / 2; ++i)
+  {
+    if (s.at(i).isHighSurrogate())
+    {
+      QChar hi = s[i];
+      QChar low = s[i + 1];
+      s[i] = s[len - i - 2];
+      s[i + 1] = s[len - i - 1];
+      s[len - i - 2] = hi;
+      s[len - i - 1] = low;
+      i += 2;
+    }
+    else
+    {
+      QChar temp = s[i];
+      s[i] = s[len - i - 1];
+      s[len - i - 1] = temp;
+    }
   }
 }
 

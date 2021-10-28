@@ -13,6 +13,7 @@
 #include <dwrite_3.h>
 #include "grid.hpp"
 #include "hlstate.hpp"
+#include "cursor.hpp"
 
 class WinEditorArea;
 
@@ -47,6 +48,8 @@ public:
   using d2pt = D2D1_POINT_2F;
   using d2rect = D2D1_RECT_F;
   using d2color = D2D1::ColorF;
+  using cache_type =
+    LRUCache<QPair<QString, FontOptions>, IDWriteTextLayout1*, TextLayoutDeleter>;
 public:
   template<typename... GridBaseArgs>
   D2DPaintGrid(WinEditorArea* wea, GridBaseArgs... args)
@@ -83,6 +86,8 @@ public:
   void update_position(double x, double y);
   /// Render this grid to a render target
   void render(ID2D1RenderTarget* render_target);
+  /// Draw the given cursor to the render target at the appropriate position
+  void draw_cursor(ID2D1RenderTarget* target, const Cursor& cursor);
 private:
   std::vector<Snapshot> snapshots;
   WinEditorArea* editor_area = nullptr;
@@ -106,8 +111,7 @@ private:
   using FontOptions = decltype(HLAttr::font_opts);
   /// A lot of time is spent text shaping, we cache the created text
   /// layouts
-  LRUCache<QPair<QString, FontOptions>, IDWriteTextLayout1*, TextLayoutDeleter>
-  layout_cache;
+  cache_type layout_cache;
   /// Update the size of the bitmap to match the
   /// grid size
   void update_bitmap_size();
@@ -138,9 +142,38 @@ private:
     const HLAttr& fallback,
     D2D1_POINT_2F start,
     D2D1_POINT_2F end,
+    float font_width,
+    float font_height,
     IDWriteTextFormat* text_format,
     ID2D1SolidColorBrush* fg_brush,
     ID2D1SolidColorBrush* bg_brush
+  );
+  void draw_text(
+    ID2D1RenderTarget& target,
+    const QString& text,
+    const Color& fg,
+    const Color& sp,
+    const FontOptions font_opts,
+    D2D1_POINT_2F top_left,
+    D2D1_POINT_2F bot_right,
+    float font_width,
+    float font_height,
+    ID2D1SolidColorBrush& fg_brush,
+    IDWriteTextFormat* text_format,
+    bool clip = false
+  );
+  void draw_bg(
+    ID2D1RenderTarget& target,
+    const Color& bg,
+    D2D1_POINT_2F top_left,
+    D2D1_POINT_2F bot_right,
+    ID2D1SolidColorBrush& brush
+  );
+  void draw_bg(
+    ID2D1RenderTarget& target,
+    const Color& bg,
+    D2D1_RECT_F rect,
+    ID2D1SolidColorBrush& brush
   );
   /// Returns a copy of src.
   /// NOTE: Must be released.

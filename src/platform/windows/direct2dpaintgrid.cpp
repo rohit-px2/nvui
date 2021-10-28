@@ -1,5 +1,6 @@
 #include "wineditor.hpp"
 #include "direct2dpaintgrid.hpp"
+#include "utils.hpp"
 #include <d2d1.h>
 
 void D2DPaintGrid::set_size(u16 w, u16 h)
@@ -27,6 +28,7 @@ void D2DPaintGrid::initialize_context()
 {
   editor_area->create_context(&context, &bitmap, 0, 0);
   context->SetTarget(bitmap);
+  context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
 }
 
 void D2DPaintGrid::initialize_cache()
@@ -97,7 +99,6 @@ void D2DPaintGrid::process_events()
   u32 bg = editor_area->default_bg().rgb();
   context->CreateSolidColorBrush(d2color(fg), &fg_brush);
   context->CreateSolidColorBrush(d2color(bg), &bg_brush);
-  auto&& [font_width, font_height] = editor_area->font_dimensions();
   while(!evt_q.empty())
   {
     const auto& evt = evt_q.front();
@@ -105,7 +106,7 @@ void D2DPaintGrid::process_events()
     {
       case PaintKind::Clear:
       {
-        d2rect r = {0, 0, cols * font_width, rows * font_height};
+        d2rect r = source_rect();
         bg_brush->SetColor(d2color(bg));
         context->FillRectangle(r, bg_brush);
         break;
@@ -125,22 +126,86 @@ void D2DPaintGrid::process_events()
   context->EndDraw();
 }
 
-void D2DPaintGrid::draw_text_and_bg(
+static void draw_text_decorations(
   ID2D1RenderTarget* context,
-  const QString& buf,
-  const HLAttr& attr,
-  const HLAttr& fallback,
-  D2D1_POINT_2F start,
-  D2D1_POINT_2F end,
-  IDWriteTextFormat* text_format,
-  ID2D1SolidColorBrush* fg_brush,
-  ID2D1SolidColorBrush* bg_brush
+  const FontOpts fo,
+  D2D1_POINT_2F seq_start,
+  D2D1_POINT_2F seq_end,
+  float font_width,
+  float font_height,
+  ID2D1SolidColorBrush& brush
 )
 {
+  using d2pt = D2DPaintGrid::d2pt;
+  switch(fo)
+  {
+    case FontOpts::Underline:
+    {
+      const float line_thickness = 1.0f;
+      const float line_mid = seq_end.y
+        - std::round(font_height * 0.1f)
+        - (line_thickness / 2.f);
+      context->DrawLine(
+        {seq_start.x, line_mid}, {seq_end.x, line_mid}, &brush, line_thickness
+      );
+      break;
+    }
+    case FontOpts::Strikethrough:
+    {
+      float line_thickness = 1.0f;
+      float line_mid = seq_start.y + (font_height - line_thickness) / 2.f;
+      context->DrawLine(
+        {seq_start.x, line_mid}, {seq_end.x, line_mid}, &brush, line_thickness
+      );
+      break;
+    }
+    case FontOpts::Undercurl:
+    {
+      float line_thickness = 1.0f;
+      float line_height = std::min(font_height / 5.0f, 3.0f);
+      const double inc = font_width / 2.f;
+      d2pt prev_pos = {seq_start.x, seq_end.y - line_height};
+      bool top = false;
+      for(float x = seq_start.x + inc;; x += inc)
+      {
+        d2pt cur_pos = {std::min(x, seq_end.x), seq_end.y - (line_height * top)};
+        context->DrawLine(prev_pos, cur_pos, &brush, line_thickness);
+        prev_pos = cur_pos;
+        top = !top;
+        if (x >= seq_end.x) break;
+      }
+      break;
+    }
+    default: break;
+  }
+}
+
+void D2DPaintGrid::draw_text(
+  ID2D1RenderTarget& target,
+  const QString& text,
+  const Color& fg,
+  const Color& sp,
+  const FontOptions font_opts,
+  D2D1_POINT_2F top_left,
+  D2D1_POINT_2F bot_right,
+  float font_width,
+  float font_height,
+  ID2D1SolidColorBrush& fg_brush,
+  IDWriteTextFormat* text_format,
+  bool clip
+)
+{
+  if (clip)
+  {
+    target.PushAxisAlignedClip({
+      top_left.x, top_left.y, bot_right.x, bot_right.y
+    }, D2D1_ANTIALIAS_MODE_ALIASED);
+  }
+  fg_brush.SetColor(d2color(fg.to_uint32()));
   using key_type = decltype(layout_cache)::key_type;
   IDWriteTextLayout* old_text_layout = nullptr;
   IDWriteTextLayout1* text_layout = nullptr;
-  key_type key = {buf, attr.font_opts};
+  key_type key = {text, font_opts};
   auto objptr = layout_cache.get(key);
   if (objptr) text_layout = *objptr;
   else
@@ -148,57 +213,101 @@ void D2DPaintGrid::draw_text_and_bg(
     HRESULT hr;
     auto* factory = editor_area->dwrite_factory();
     hr = factory->CreateTextLayout(
-      (LPCWSTR) buf.utf16(),
-      buf.size(),
+      (LPCWSTR) text.utf16(),
+      text.size(),
       text_format,
       // Sometimes the text clips weirdly & adding
       // to the width solves it. It's probably because
       // the text is just a little wider than the max width we set
       // so we increase the max width by a little here.
-      end.x - start.x + 1.f,
-      end.y - start.y,
+      bot_right.x - top_left.x + 1000.f,
+      bot_right.y - top_left.y,
       &old_text_layout
     );
     if (FAILED(hr)) return;
     // IDWriteTextLayout1 can set char spacing
     hr = old_text_layout->QueryInterface(&text_layout);
     if (FAILED(hr)) { SafeRelease(&old_text_layout); return; }
-    DWRITE_TEXT_RANGE text_range {0, (UINT32) buf.size()};
+    DWRITE_TEXT_RANGE text_range {0, (UINT32) text.size()};
     auto charspace = editor_area->charspacing();
     if (charspace)
     {
       text_layout->SetCharacterSpacing(0, float(charspace), 0, text_range);
     }
-    if (attr.italic())
+    if (font_opts & FontOpts::Italic)
     {
       text_layout->SetFontStyle(DWRITE_FONT_STYLE_ITALIC, text_range);
     }
-    if (attr.bold())
+    if (font_opts & FontOpts::Bold)
     {
       text_layout->SetFontWeight(DWRITE_FONT_WEIGHT_BOLD, text_range);
     }
-    if (attr.underline())
-    {
-      text_layout->SetUnderline(true, text_range);
-    }
     layout_cache.put(key, text_layout);
   }
-  auto fg = attr.fg().value_or(*fallback.fg()).to_uint32();
-  auto bg = attr.bg().value_or(*fallback.bg()).to_uint32();
-  if (attr.reverse) std::swap(fg, bg);
-  D2D1_RECT_F bg_rect = {start.x, start.y, end.x, end.y};
-  fg_brush->SetColor(D2D1::ColorF(fg));
-  bg_brush->SetColor(D2D1::ColorF(bg));
-  context->FillRectangle(bg_rect, bg_brush);
   auto offset = float(editor_area->linespacing()) / 2.f;
-  D2D1_POINT_2F text_pt = {start.x, start.y + offset};
-  context->DrawTextLayout(
+  D2D1_POINT_2F text_pt = {top_left.x, top_left.y + offset};
+  target.DrawTextLayout(
     text_pt,
     text_layout,
-    fg_brush,
-    D2D1_DRAW_TEXT_OPTIONS_NONE
+    &fg_brush,
+    D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT
   );
+  fg_brush.SetColor(D2D1::ColorF(sp.to_uint32()));
   SafeRelease(&old_text_layout);
+  const auto draw_path = [&](const FontOpts fo) {
+    draw_text_decorations(
+      context, fo, top_left, bot_right, font_width, font_height, fg_brush
+    );
+  };
+  if (font_opts & FontOpts::Underline) draw_path(FontOpts::Underline);
+  if (font_opts & FontOpts::Undercurl) draw_path(FontOpts::Undercurl);
+  if (font_opts & FontOpts::Strikethrough) draw_path(FontOpts::Strikethrough);
+  if (clip) target.PopAxisAlignedClip();
+}
+
+void D2DPaintGrid::draw_bg(
+  ID2D1RenderTarget& target,
+  const Color& bg,
+  D2D1_POINT_2F top_left,
+  D2D1_POINT_2F bot_right,
+  ID2D1SolidColorBrush& brush
+)
+{
+  brush.SetColor(D2D1::ColorF(bg.to_uint32()));
+  target.FillRectangle({top_left.x, top_left.y, bot_right.x, bot_right.y}, &brush);
+}
+
+void D2DPaintGrid::draw_bg(
+  ID2D1RenderTarget& target,
+  const Color& bg,
+  D2D1_RECT_F rect,
+  ID2D1SolidColorBrush& brush
+)
+{
+  draw_bg(target, bg, {rect.left, rect.top}, {rect.right, rect.bottom}, brush);
+}
+
+void D2DPaintGrid::draw_text_and_bg(
+  ID2D1RenderTarget* context,
+  const QString& buf,
+  const HLAttr& attr,
+  const HLAttr& fallback,
+  D2D1_POINT_2F start,
+  D2D1_POINT_2F end,
+  float font_width,
+  float font_height,
+  IDWriteTextFormat* text_format,
+  ID2D1SolidColorBrush* fg_brush,
+  ID2D1SolidColorBrush* bg_brush
+)
+{
+  auto [fg, bg, sp] = attr.fg_bg_sp(fallback);
+  auto bg_tl = D2D1::Point2F(std::floor(start.x), start.y);
+  draw_bg(*context, bg, bg_tl, end, *bg_brush);
+  draw_text(
+    *context, buf, fg, sp, attr.font_opts, start, end,
+    font_width, font_height, *fg_brush, text_format
+  );
 }
 
 void D2DPaintGrid::draw(
@@ -208,56 +317,70 @@ void D2DPaintGrid::draw(
   ID2D1SolidColorBrush* bg_brush
 )
 {
-  auto target_size = context->GetPixelSize();
+  auto target_size = context->GetSize();
   const auto& fonts = editor_area->fallback_list();
   //const int start_x = r.left(), end_x = r.right();
   const int start_y = r.top(), end_y = r.bottom();
   const auto font_dims = editor_area->font_dimensions();
   const float font_width = std::get<0>(font_dims);
   const float font_height = std::get<1>(font_dims);
+  const HLState* s = editor_area->hl_state();
   QString buffer;
   buffer.reserve(100);
-  const HLState* s = editor_area->hl_state();
   const auto& def_clrs = s->default_colors_get();
   u32 cur_font_idx = 0;
   const auto get_pos = [&](int x, int y, int num_chars) {
     d2pt tl = {x * font_width, y * font_height};
     d2pt br = {(x + num_chars) * font_width, (y + 1) * font_height};
-    return std::tuple {tl, br};
+    return std::pair {tl, br};
   };
   const auto draw_buf = [&](const HLAttr& main, d2pt start, d2pt end) {
     if (buffer.isEmpty()) return;
     const auto& tf = fonts[cur_font_idx];
+    reverse_qstring(buffer);
     draw_text_and_bg(
-      context, buffer, main, def_clrs, start, end,
+      context, buffer, main, def_clrs, start, end, font_width, font_height,
       tf, fg_brush, bg_brush
     );
-    buffer.clear();
+    buffer.resize(0);
   };
   for(int y = start_y; y <= end_y && y < rows; ++y)
   {
-    d2pt start = {0, y * font_height};
-    std::uint16_t prev_hl_id = UINT16_MAX;
-    for(int x = 0; x < cols; ++x)
+    d2pt end = {target_size.width, (y + 1) * font_height};
+    int prev_hl_id = 0;
+    if (y * cols + (cols - 1) < (int) area.size())
+    {
+      prev_hl_id = area[y * cols + cols - 1].hl_id;
+    }
+    /// Reverse iteration. This prevents text from clipping
+    for(int x = cols - 1; x >= 0; --x)
     {
       const auto& gc = area[y * cols + x];
       const auto font_idx = editor_area->font_for_ucs(gc.ucs);
-      if (font_idx != cur_font_idx
-          && !(gc.text.isEmpty() || gc.text.at(0).isSpace()))
+      /// Neovim double-width characters have an empty string after them.
+      /// Iterating from right to left we see the empty string first,
+      /// then the double width character, which is why we have to draw
+      /// the buffer as soon as we see the empty string.
+      if (gc.text.isEmpty())
       {
-        auto&& [tl, br] = get_pos(x, y, 0);
-        draw_buf(s->attr_for_id(prev_hl_id), start, br);
-        start = tl;
+        const auto [tl, br] = get_pos(x + 1, y, 0);
+        draw_buf(s->attr_for_id(prev_hl_id), tl, end);
+        end = br;
+      }
+      if (font_idx != cur_font_idx && !gc.text[0].isSpace())
+      {
+        const auto [tl, br] = get_pos(x + 1, y, 0);
+        draw_buf(s->attr_for_id(prev_hl_id), tl, end);
+        end = br;
         cur_font_idx = font_idx;
       }
       if (gc.double_width)
       {
-        auto&& [tl, br] = get_pos(x, y, 2);
-        d2pt buf_end = {tl.x, tl.y + font_height};
-        draw_buf(s->attr_for_id(prev_hl_id), start, buf_end);
+        // Assume previous text has already been drawn.
+        const auto [tl, br] = get_pos(x, y, 2);
         buffer.append(gc.text);
         draw_buf(s->attr_for_id(gc.hl_id), tl, br);
-        start = {br.x, br.y - font_height};
+        end = get_pos(x, y, 0).second;
         prev_hl_id = gc.hl_id;
       }
       else if (gc.hl_id == prev_hl_id)
@@ -267,15 +390,15 @@ void D2DPaintGrid::draw(
       }
       else
       {
-        auto&& [tl, br] = get_pos(x, y, 1);
-        draw_buf(s->attr_for_id(prev_hl_id), start, br);
-        start = tl;
-        prev_hl_id = gc.hl_id;
+        const auto [tl, br] = get_pos(x + 1, y, 0);
+        draw_buf(s->attr_for_id(prev_hl_id), tl, end);
+        end = br;
         buffer.append(gc.text);
+        prev_hl_id = gc.hl_id;
       }
     }
-    d2pt br = D2D1::Point2F(target_size.width, (y + 1) * font_height);
-    draw_buf(s->attr_for_id(prev_hl_id), start, br);
+    d2pt start = {0, y * font_height};
+    draw_buf(s->attr_for_id(prev_hl_id), start, end);
   }
 }
 
@@ -378,6 +501,7 @@ void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
   auto&& [font_width, font_height] = editor_area->font_dimensions();
   auto sz = bitmap->GetPixelSize();
   d2rect r = rect();
+  QRectF rect {top_left.x(), top_left.y(), (qreal) sz.width, (qreal) sz.height};
   if (!editor_area->animations_enabled() || !is_scrolling)
   {
     render_target->DrawBitmap(
@@ -421,6 +545,44 @@ void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
     D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
   );
   render_target->PopAxisAlignedClip();
+}
+
+void D2DPaintGrid::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
+{
+  const auto& text_formats = editor_area->fallback_list();
+  const HLState* hl = editor_area->hl_state();
+  const auto [font_width, font_height] = editor_area->font_dimensions();
+  const auto pos_opt = cursor.pos();
+  if (!pos_opt) return;
+  const auto pos = pos_opt.value();
+  std::size_t idx = pos.row * cols + pos.col;
+  if (idx >= area.size()) return;
+  const auto& gc = area[idx];
+  float scale_factor = 1.0f;
+  if (gc.double_width) scale_factor = 2.0f;
+  const CursorRect rect = *cursor.rect(font_width, font_height, scale_factor);
+  ID2D1SolidColorBrush* brush = nullptr;
+  const HLAttr& attr = hl->attr_for_id(rect.hl_id);
+  auto [fg, bg, sp] = attr.fg_bg_sp(hl->default_colors_get());
+  target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &brush);
+  const QRectF& r = rect.rect;
+  auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());
+  // Draw cursor background
+  draw_bg(*target, bg, fill_rect, *brush);
+  if (rect.should_draw_text)
+  {
+    fill_rect.right = std::max(fill_rect.right, fill_rect.left + font_width);
+    // If the rect exists, the pos must exist as well.
+    auto font_idx = editor_area->font_for_ucs(gc.ucs);
+    assert(font_idx < text_formats.size());
+    const auto start = D2D1::Point2F(fill_rect.left, fill_rect.top);
+    const auto end = D2D1::Point2F(fill_rect.right, fill_rect.bottom);
+    draw_text(
+      *target, gc.text, fg, sp, attr.font_opts, start, end,
+      font_width, font_height, *brush, text_formats[font_idx], true
+    );
+  }
+  SafeRelease(&brush);
 }
 
 D2DPaintGrid::~D2DPaintGrid()

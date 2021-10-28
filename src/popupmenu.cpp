@@ -102,10 +102,7 @@ void PopupMenuInfo::paintEvent(QPaintEvent* event)
   auto offset = std::ceil(parent_menu->border_width / 2.f);
   QPainter p(this);
   QFont p_font = font();
-  p_font.setBold(current_attr.font_opts & FontOpts::Bold);
-  p_font.setItalic(current_attr.font_opts & FontOpts::Italic);
-  p_font.setUnderline(current_attr.font_opts & FontOpts::Underline);
-  p_font.setStrikeOut(current_attr.font_opts & FontOpts::Strikethrough);
+  font::set_opts(p_font, current_attr.font_opts);
   p.setFont(p_font);
   p.fillRect(rect(), current_attr.bg().value_or(QColor(Qt::white).rgb()).qcolor());
   p.setPen({parent_menu->border_color, parent_menu->border_width});
@@ -260,9 +257,7 @@ void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem&
   Color fg = attr.fg().value_or(*def_clrs.fg());
   Color bg = attr.bg().value_or(*def_clrs.bg());
   if (attr.reverse) std::swap(fg, bg);
-  pmenu_font.setBold(attr.font_opts & FontOpts::Bold);
-  pmenu_font.setItalic(attr.font_opts & FontOpts::Italic);
-  pmenu_font.setUnderline(attr.font_opts & FontOpts::Underline);
+  font::set_opts(pmenu_font, attr.font_opts);
   p.setFont(pmenu_font);
   const QPixmap* icon_ptr = icon_manager.icon_for_kind(item.kind);
   const QColor* icon_bg = icon_manager.bg_for_kind(item.kind);

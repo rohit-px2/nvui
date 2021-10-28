@@ -9,6 +9,8 @@
 #include <queue>
 #include "hlstate.hpp"
 #include "utils.hpp"
+#include "scalers.hpp"
+#include "cursor.hpp"
 
 using grid_char = QString;
 
@@ -77,7 +79,7 @@ public:
     map.reserve(static_cast<int>(max_size));
   }
 
-  V* put(K k, V v)
+  V& put(K k, V v)
   {
     V* ptr = nullptr;
     auto it = map.find(k);
@@ -102,10 +104,10 @@ public:
       map.erase(erase_it);
       keys.pop_back();
     }
-    return ptr;
+    return *ptr;
   }
 
-  const V* get(const K& k)
+  V* get(const K& k)
   {
     auto it = map.find(k);
     if (it != map.end())
@@ -143,55 +145,6 @@ private:
   QHash<K, QPair<V, typename std::list<K>::iterator>> map;
   std::list<K> keys;
 };
-
-namespace scalers
-{
-  // Follows the same idea
-  // as Neovide's "ease" functions. time is between 0 - 1,
-  // we can use some exponents to change the delta time so that
-  // transition speed is not the same throughout.
-  using time_scaler = float (*)(float);
-  inline float oneminusexpo2negative10(float t)
-  {
-    // Taken from Neovide's "animation_utils.rs",
-    // (specifically the "ease_out_expo" function).
-    return 1.0f - std::pow(2.0, -10.0f * t);
-  }
-  inline float cube(float t)
-  {
-    return t * t * t;
-  }
-  inline float accel_continuous(float t)
-  {
-    return t * t * t * t;
-  }
-  inline float fast_start(float t)
-  {
-    return std::pow(t, 1.0/9.0);
-  }
-  inline float quadratic(float t)
-  {
-    return t * t;
-  }
-  inline float identity(float t)
-  {
-    return t;
-  }
-  /// Update this when a new scaler is added.
-  inline const std::unordered_map<std::string, time_scaler>&
-  scalers()
-  {
-    static const std::unordered_map<std::string, time_scaler> scaler_map {
-      {"expo", oneminusexpo2negative10},
-      {"cube", cube},
-      {"fourth", accel_continuous},
-      {"fast_start", fast_start},
-      {"quad", quadratic},
-      {"identity", identity}
-    };
-    return scaler_map;
-  }
-}
 
 /// The base grid object, no rendering functionality.
 /// Contains some convenience functions for setting text,
@@ -392,6 +345,9 @@ public:
   QPointF pos() const { return top_left; }
   /// Renders to the painter.
   void render(QPainter& painter);
+  /// Draws the cursor on the painter, relative to the grid's
+  /// current position (see pos())
+  void draw_cursor(QPainter& painter, const Cursor& cursor);
 private:
   /// Draw the grid range given by the rect.
   void draw(QPainter& p, QRect r, const double font_offset);
@@ -405,7 +361,20 @@ private:
     const QPointF& start,
     const QPointF& end,
     const int offset,
-    QFont font
+    QFont font,
+    float font_width,
+    float font_height
+  );
+  void draw_text(
+    QPainter& painter,
+    const QString& text,
+    const Color& fg,
+    const std::optional<Color>& sp,
+    const QRectF& rect,
+    const FontOptions font_opts,
+    QFont& font,
+    float font_width,
+    float font_height
   );
   /// Update the pixmap size
   void update_pixmap_size();

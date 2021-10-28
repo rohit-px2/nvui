@@ -164,6 +164,8 @@ void for_each_in_tuple(std::tuple<Types...>& t, Func&& f)
   if constexpr(idx != sizeof...(Types) - 1)
   {
     for_each_in_tuple<idx + 1>(t, std::forward<Func>(f));
+  }
+}
 
 /// UCS2-aware string reversal
 inline void reverse_qstring(QString& s)

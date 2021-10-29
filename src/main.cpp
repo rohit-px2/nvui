@@ -11,6 +11,7 @@
 #include <vector>
 #include <thread>
 #include <ios>
+#include <fstream>
 #include <iostream>
 #include "nvim.hpp"
 #include "window.hpp"
@@ -44,13 +45,20 @@ vector<string> neovim_args(const vector<string>& listofargs)
   vector<string> args;
   for(std::size_t i = 0; i < listofargs.size(); ++i)
   {
-    if (listofargs[i] == "--")
+    const auto& arg = listofargs[i];
+    if (arg == "--")
     {
       for(std::size_t j = i + 1; j < listofargs.size(); ++j)
       {
         args.push_back(listofargs[j]);
       }
       return args;
+    }
+    /// Add it to the list if it's a filename that actually exists.
+    /// Doesn't work for anything that starts with "--"
+    else if (std::ifstream f {arg}; f && !arg.starts_with("--"))
+    {
+      args.push_back(arg);
     }
   }
   return args;

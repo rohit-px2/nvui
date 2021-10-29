@@ -35,7 +35,7 @@ TEST_CASE("Object correctly deserialies from msgpack")
     std::string_view sv(sbuf.data(), sbuf.size() - 1);
     std::size_t offset = 0;
     Object o = Object::from_msgpack(sv, offset);
-    REQUIRE(o.has_err());
+    REQUIRE(o.is_err());
     REQUIRE(o.get<Error>().msg == "Insufficient Bytes");
   }
 }

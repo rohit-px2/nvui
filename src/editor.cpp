@@ -693,7 +693,6 @@ void EditorArea::grid_scroll(std::span<NeovimObj> objs)
     // const int cols = arr->at(6);
     GridBase* grid = find_grid(grid_num);
     if (!grid) return;
-    assert(grid);
     if (rows > 0)
     {
       for(int y = top; y < (bot - rows); ++y)

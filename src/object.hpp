@@ -30,6 +30,16 @@ struct Object
 {
   using Map = boost::container::flat_map<std::string, Object, std::less<>>;
   using Array = std::vector<Object>;
+  using null_type = std::monostate;
+  using string_type = QString;
+  using signed_type = std::int64_t;
+  using unsigned_type = std::uint64_t;
+  using array_type = Array;
+  using map_type = Map;
+  using bool_type = bool;
+  using ext_type = NeovimExt;
+  using float_type = double;
+  using err_type = Error;
   using variant_type = std::variant<
     std::monostate,
     int64_t,
@@ -54,36 +64,43 @@ struct Object
   /// Note: This doesn't support the full messagepack specification,
   /// since map keys are always strings, but Neovim always specifies
   /// keys as strings, so it works.
-  static Object from_msgpack(std::string_view sv, std::size_t& offset);
+  static Object from_msgpack(std::string_view sv, std::size_t& offset) noexcept;
   /// Parse from a msgpack::object from the msgpack-cpp library.
   /// This is recursive and can get slow.
   /// For a faster solution parse the object directly
   /// from the serialized string using Object::from_msgpack.
   static Object parse(const msgpack::object&);
-  std::string to_string() const;
-  auto* array() { return std::get_if<Array>(&v); }
-  auto* string() { return std::get_if<QString>(&v); }
-  auto* i64() { return std::get_if<int64_t>(&v); }
-  auto* u64() { return std::get_if<uint64_t>(&v); }
-  auto* map() { return std::get_if<Map>(&v); }
-  auto* boolean() { return std::get_if<bool>(&v); }
-  auto* f64() { return std::get_if<double>(&v); }
-  auto* ext() { return std::get_if<NeovimExt>(&v); }
-  auto* err() { return std::get_if<Error>(&v); }
+  std::string to_string() const noexcept;
+  auto* array() noexcept { return std::get_if<Array>(&v); }
+  auto* string() noexcept { return std::get_if<QString>(&v); }
+  auto* i64() noexcept { return std::get_if<int64_t>(&v); }
+  auto* u64() noexcept { return std::get_if<uint64_t>(&v); }
+  auto* map() noexcept { return std::get_if<Map>(&v); }
+  auto* boolean() noexcept { return std::get_if<bool>(&v); }
+  auto* f64() noexcept { return std::get_if<double>(&v); }
+  auto* ext() noexcept { return std::get_if<NeovimExt>(&v); }
+  auto* err() noexcept { return std::get_if<Error>(&v); }
   // Const versions
-  auto* array() const { return std::get_if<Array>(&v); }
-  auto* string() const { return std::get_if<QString>(&v); }
-  auto* i64() const { return std::get_if<int64_t>(&v); }
-  auto* u64() const { return std::get_if<uint64_t>(&v); }
-  auto* map() const { return std::get_if<Map>(&v); }
-  auto* boolean() const { return std::get_if<bool>(&v); }
-  auto* f64() const { return std::get_if<double>(&v); }
-  auto* ext() const { return std::get_if<NeovimExt>(&v); }
-  auto* err() const { return std::get_if<Error>(&v); }
-  bool is_null() const { return has<std::monostate>(); }
-  bool has_err() const { return has<Error>(); }
+  auto* array() const noexcept { return std::get_if<Array>(&v); }
+  auto* string() const noexcept { return std::get_if<QString>(&v); }
+  auto* i64() const noexcept { return std::get_if<int64_t>(&v); }
+  auto* u64() const noexcept { return std::get_if<uint64_t>(&v); }
+  auto* map() const noexcept { return std::get_if<Map>(&v); }
+  auto* boolean() const noexcept { return std::get_if<bool>(&v); }
+  auto* f64() const noexcept { return std::get_if<double>(&v); }
+  auto* ext() const noexcept { return std::get_if<NeovimExt>(&v); }
+  auto* err() const noexcept { return std::get_if<Error>(&v); }
+  bool is_null() const noexcept { return has<null_type>(); }
+  bool is_err() const noexcept { return has<err_type>(); }
+  bool is_string() const noexcept { return has<string_type>(); }
+  bool is_array() const noexcept { return has<array_type>(); }
+  bool is_map() const noexcept { return has<map_type>(); }
+  bool is_signed() const { return has<signed_type>(); }
+  bool is_unsigned() const { return has<unsigned_type>(); }
+  bool is_float() const { return has<float_type>(); }
+  bool is_ext() const { return has<ext_type>(); }
   template<typename T>
-  bool has() const
+  bool has() const noexcept
   {
     return std::holds_alternative<T>(v);
   }
@@ -103,10 +120,10 @@ struct Object
   }
 
   template<typename T>
-  bool convertible() const
+  bool convertible() const noexcept
   {
     return std::visit([](const auto& val) -> bool {
-      return std::is_convertible_v<decltype(val), T>;
+        return std::is_convertible_v<decltype(val), T>;
     }, v);
   }
 
@@ -123,7 +140,7 @@ struct Object
   }
 
   template<typename T>
-  std::optional<T> try_convert() const
+  std::optional<T> try_convert() const noexcept
   {
     using type = std::optional<T>;
     return std::visit([](const auto& arg) -> type {
@@ -141,7 +158,7 @@ struct Object
   /// If type conversion fails for any value, std::nullopt
   /// is returned.
   template<typename... T>
-  std::optional<std::tuple<T...>> try_decompose() const
+  std::optional<std::tuple<T...>> try_decompose() const noexcept
   {
     if (!has<Array>()) return std::nullopt;
     //using opt_tuple_type = std::optional<std::tuple<T...>>;
@@ -161,23 +178,21 @@ struct Object
     return {};
   }
 
-  std::optional<std::reference_wrapper<const Object>>
-  try_at(std::string_view s) const
+  const Object* try_at(std::string_view s) const noexcept
   {
-    if (!has<Map>()) return {};
+    if (!has<Map>()) return nullptr;
     const auto& mp = get<Map>();
     const auto it = mp.find(s);
-    if (it == mp.cend()) return {};
-    return it->second;
+    if (it == mp.cend()) return nullptr;
+    return &it->second;
   }
 
-  std::optional<std::reference_wrapper<const Object>>
-  try_at(std::size_t idx) const
+  const Object* try_at(std::size_t idx) const noexcept
   {
-    if (!has<Array>()) return {};
+    if (!has<Array>()) return nullptr;
     const auto& arr = get<Array>();
-    if (idx >= arr.size()) return {};
-    return arr.at(idx);
+    if (idx >= arr.size()) return nullptr;
+    return &arr.at(idx);
   }
 
 private:

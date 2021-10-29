@@ -136,7 +136,9 @@ public:
 class HLState
 {
 public:
-  HLState() = default;
+  HLState() {
+    id_to_attr.reserve(1000);
+  }
   /**
    * Maps name to hl_id.
    * This function maps to "hl_group_set".

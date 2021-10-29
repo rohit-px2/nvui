@@ -50,7 +50,7 @@ void Object::to_stream(std::stringstream& ss) const
   }, v);
 }
 
-std::string Object::to_string() const
+std::string Object::to_string() const noexcept
 {
   std::stringstream ss;
   ss << std::boolalpha;
@@ -69,8 +69,8 @@ struct MsgpackVisitor
   enum Error
   {
     None,
-    InsufficentBytes,
-    Parse
+    InsufficientBytesError,
+    ParseError
   };
   MsgpackVisitor(Object& o): result(o), stack() {}
   Object& result;
@@ -175,13 +175,13 @@ struct MsgpackVisitor
   void parse_error(std::size_t, std::size_t)
   {
     // Log?
-    error = Error::Parse;
+    error = ParseError;
   }
 
   void insufficient_bytes(std::size_t, std::size_t)
   {
     // Log?
-    error = Error::InsufficentBytes;
+    error = InsufficientBytesError;
   }
 
 private:
@@ -232,18 +232,18 @@ private:
   }
 };
 
-Object Object::from_msgpack(std::string_view sv, std::size_t& offset)
+Object Object::from_msgpack(std::string_view sv, std::size_t& offset) noexcept
 {
   Object obj;
   MsgpackVisitor v {obj};
   msgpack::parse(sv.data(), sv.size(), offset, v);
   switch(v.error)
   {
-    case MsgpackVisitor::Error::None:
+    case MsgpackVisitor::None:
       return obj;
-    case MsgpackVisitor::Error::InsufficentBytes:
+    case MsgpackVisitor::InsufficientBytesError:
       return Error {"Insufficient Bytes"};
-    case MsgpackVisitor::Error::Parse:
+    case MsgpackVisitor::ParseError:
       return Error {"Parse error"};
     default:
       return Error {""};

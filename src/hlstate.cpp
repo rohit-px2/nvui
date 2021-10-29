@@ -46,31 +46,23 @@ namespace hl
     for(const auto& o : *info_arr)
     {
       AttrState state;
-      auto* state_map = o.map();
-      if (!state_map) continue;
-      if (state_map->contains("hi_name"))
+      if (auto* hi_name = o.try_at("hi_name"); hi_name && hi_name->is_string())
       {
-        auto* hi_name_qstr = state_map->at("hi_name").string();
-        assert(hi_name_qstr);
-        state.hi_name = hi_name_qstr->toStdString();
+        state.hi_name = hi_name->get<QString>().toStdString();
       }
-      if (state_map->contains("ui_name"))
+      if (auto* ui_name = o.try_at("ui_name"); ui_name && ui_name->is_string())
       {
-        auto* qstr = state_map->at("ui_name").string();
-        assert(qstr);
-        state.ui_name = qstr->toStdString();
+        state.ui_name = ui_name->string()->toStdString();
       }
-      if (state_map->contains("kind"))
+      if (auto* kind = o.try_at("kind"); kind && kind->is_string())
       {
-        assert(state_map->at("kind").string());
-        state.hi_name = *state_map->at("kind").string() == "syntax"
+        state.hi_name = kind->get<QString>() == "syntax"
           ? Kind::Syntax
           : Kind::UI;
       }
-      if (state_map->contains("id"))
+      if (auto* id = o.try_at("id"); id && id->convertible<int>())
       {
-        auto id = state_map->at("id").try_convert<int>();
-        if (id) state.id = *id;
+        state.id = (int) *id;
       }
       attr.state.push_back(std::move(state));
     }

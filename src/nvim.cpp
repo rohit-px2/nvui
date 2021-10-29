@@ -164,7 +164,6 @@ void Nvim::read_output_sync()
           const auto msgid = arr->at(1).u64();
           assert(msgid);
           if (!msgid) continue;
-          assert(*msgid < is_blocking.size());
           response_cb_mutex.lock();
           const auto cb_it = singleshot_callbacks.find(*msgid);
           if (cb_it != singleshot_callbacks.end())

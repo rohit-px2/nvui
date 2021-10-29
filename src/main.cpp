@@ -99,13 +99,8 @@ bool is_executable(std::string_view path)
   return file_info.exists() && file_info.isExecutable();
 }
 
-Q_DECLARE_METATYPE(msgpack::object)
-Q_DECLARE_METATYPE(msgpack::object_handle*)
-
 int main(int argc, char** argv)
 {
-  qRegisterMetaType<msgpack::object>();
-  qRegisterMetaType<msgpack::object_handle*>();
   const auto args = get_args(argc, argv);
 #ifdef Q_OS_LINUX
   // See issue #21

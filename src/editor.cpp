@@ -151,6 +151,7 @@ void EditorArea::grid_resize(std::span<NeovimObj> objs)
       create_grid(0, 0, width, height, grid_num);
       grid = find_grid(grid_num);
       // Created grid appears above all others
+      move_to_top(grid);
     }
     if (grid)
     {
@@ -314,6 +315,7 @@ void EditorArea::win_pos(std::span<NeovimObj> objs)
     grid->hidden = false;
     grid->win_pos(sc, sr);
     grid->set_size(width, height);
+    move_to_top(grid);
     grid->winid = get_win(win);
   }
   send_redraw();
@@ -374,6 +376,7 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
     bool were_animations_enabled = animations_enabled();
     set_animations_enabled(false);
     grid->winid = get_win(win);
+    move_to_top(grid);
     grid->float_pos(anchor_pos.x(), anchor_pos.y());
     set_animations_enabled(were_animations_enabled);
   }
@@ -430,6 +433,7 @@ void EditorArea::msg_set_pos(std::span<NeovimObj> objs)
     if (GridBase* grid = find_grid(grid_num))
     {
       grid->set_pos(grid->x, row);
+      move_to_top(grid);
     }
   }
   send_redraw();

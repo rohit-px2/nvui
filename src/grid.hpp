@@ -292,6 +292,7 @@ public:
   u16 cols;
   u16 rows;
   u16 id;
+  std::size_t z_index = 0;
   std::int64_t winid = 0;
   std::vector<GridChar> area; // Size = rows * cols
   bool hidden = false;

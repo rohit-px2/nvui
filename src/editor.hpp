@@ -572,11 +572,26 @@ protected:
   void send_clear(std::uint16_t grid_num, QRect r = {});
   /// Draw a portion of the grid
   void send_draw(std::uint16_t grid_num, QRect r);
+  void move_to_top(GridBase* grid)
+  {
+    if (grid->z_index == grids.size() - 1) return;
+    shift_z(grid->z_index);
+    grid->z_index = grids.size() - 1;
+  }
+  /// Shift down all grids with a z index greater than idx
+  /// by 1.
+  void shift_z(std::size_t idx)
+  {
+    for(auto& g : grids)
+    {
+      if (g->z_index > idx) --g->z_index;
+    }
+  }
   /// Sorts grids in order of their z index.
   void sort_grids_by_z_index()
   {
     std::sort(grids.begin(), grids.end(), [](const auto& g1, const auto& g2) {
-      return g1->winid < g2->winid;
+      return g1->z_index < g2->z_index;
     });
   }
   /// Returns an integer identifier for the window.

@@ -296,7 +296,7 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto vars = obj.try_decompose<u64, NeovimExt, QString, u64, int, int>();
+    auto vars = obj.try_decompose<u64, NeovimExt, std::string, u64, int, int>();
     if (!vars) continue;
     auto [grid_num, win, anchor_dir, anchor_grid_num, anchor_row, anchor_col] = *vars;
     QPoint anchor_rel = {anchor_col, anchor_row};

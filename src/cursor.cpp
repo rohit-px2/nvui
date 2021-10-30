@@ -61,46 +61,41 @@ Cursor::Cursor(EditorArea* ea)
   });
 }
 
-void Cursor::mode_change(const msgpack::object* obj, std::uint32_t size)
+void Cursor::mode_change(std::span<const Object> objs)
 {
-  Q_UNUSED(size);
-  assert(obj->type == msgpack::type::ARRAY);
-  const auto& arr = obj->via.array;
-  assert(arr.size == 2);
-  const std::string mode_name = arr.ptr[0].as<std::string>();
-  // Save the old position
-  if (cur_pos.has_value()) old_mode_idx = cur_mode_idx;
-  cur_mode_idx = arr.ptr[1].as<std::size_t>();
-  if (cur_mode_idx >= mode_info.size())
+  for(const auto& o : objs)
   {
-    return;
+    auto* arr = o.array();
+    if (!(arr && arr->size() >= 2)) continue;
+    const auto mode_name = arr->at(0).get<std::string>();
+    if (cur_pos) old_mode_idx = cur_mode_idx;
+    if (!arr->at(1).u64()) continue;
+    cur_mode_idx = *arr->at(1).u64();
+    cur_mode = mode_info.at(cur_mode_idx);
   }
-  cur_mode = mode_info.at(cur_mode_idx);
   reset_timers();
 }
 
-void Cursor::mode_info_set(const msgpack::object* obj, std::uint32_t size)
+void Cursor::mode_info_set(std::span<const Object> objs)
 {
   mode_info.clear();
-  for(std::uint32_t i = 0; i < size; ++i)
+  for(const auto& o : objs)
   {
-    const msgpack::object& o = obj[i];
-    assert(o.type == msgpack::type::ARRAY);
-    const auto& arr = o.via.array;
-    assert(arr.size == 2);
-    // const bool cursor_style_enabled = arr.ptr[0].as<bool>();
-    const auto& modes_arr = arr.ptr[1].via.array;
-    for(std::uint32_t j = 0; j < modes_arr.size; ++j)
+    auto* arr = o.array();
+    if (!(arr && arr->size() >= 2)) continue;
+    const auto modes_arr = arr->at(1).array();
+    if (!modes_arr) continue;
+    for(const auto& m : *modes_arr)
     {
-      const msgpack::object_map& map = modes_arr.ptr[j].via.map;
+      if (!m.has<ObjectMap>()) continue;
+      const auto& map = *m.map();
       ModeInfo mode {};
-      for(std::uint32_t k = 0; k < map.size; ++k)
+      for(const auto& [key, val] : map)
       {
-        const msgpack::object_kv kv = map.ptr[k];
-        const std::string key = kv.key.as<std::string>();
         if (key == "cursor_shape")
         {
-          const std::string shape = kv.val.as<std::string>();
+          if (!val.string()) continue;
+          const auto shape = *val.string();
           if (shape == "horizontal")
           {
             mode.cursor_shape = CursorShape::Horizontal;
@@ -116,35 +111,35 @@ void Cursor::mode_info_set(const msgpack::object* obj, std::uint32_t size)
         }
         else if (key == "cell_percentage")
         {
-          mode.cell_percentage = kv.val.as<int>();
+          mode.cell_percentage = (int) val;
         }
         else if (key == "attr_id")
         {
-          mode.attr_id = kv.val.as<int>();
+          mode.attr_id = (int) val;
         }
         else if (key == "attr_id_lm")
         {
-          mode.attr_id_lm = kv.val.as<int>();
+          mode.attr_id_lm = (int) val;
         }
         else if (key == "short_name")
         {
-          mode.short_name = kv.val.as<std::string>();
+          mode.short_name = *val.string();
         }
         else if (key == "name")
         {
-          mode.name = kv.val.as<std::string>();
+          mode.name = *val.string();
         }
         else if (key == "blinkwait")
         {
-          mode.blinkwait = kv.val.as<int>();
+          mode.blinkwait = (int) val;
         }
         else if (key == "blinkon")
         {
-          mode.blinkon = kv.val.as<int>();
+          mode.blinkon = (int) val;
         }
         else if (key == "blinkoff")
         {
-          mode.blinkoff = kv.val.as<int>();
+          mode.blinkoff = (int) val;
         }
       }
       mode_info.push_back(std::move(mode));

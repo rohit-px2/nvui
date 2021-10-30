@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <queue>
+#include <span>
 #include <msgpack.hpp>
 #include <QFont>
 #include <QObject>
@@ -20,9 +21,7 @@
 #include "cmdline.hpp"
 #include "font.hpp"
 #include "grid.hpp"
-
-// For easily changing the type of 'char' in a cell
-using grid_char = QString;
+#include "object.hpp"
 
 /// UI Capabilities (Extensions)
 struct ExtensionCapabilities
@@ -90,7 +89,8 @@ class EditorArea : public QWidget
 {
   Q_OBJECT
 public:
-  using NeovimObj = const msgpack::object*;
+  using NeovimObj = const Object;
+  using u64 = std::uint64_t;
   using u32 = std::uint32_t;
   using u16 = std::uint16_t;
   EditorArea(
@@ -101,19 +101,19 @@ public:
   /**
    * Handles a Neovim "grid_resize" event.
    */
-  void grid_resize(NeovimObj obj, u32 size);
+  void grid_resize(std::span<NeovimObj> objs);
   /**
    * Handles a Neovim "grid_line" event.
    */
-  void grid_line(NeovimObj obj, u32 size);
+  void grid_line(std::span<NeovimObj> objs);
   /**
    * Paints the grid cursor at the given grid, row, and column.
    */
-  void grid_cursor_goto(NeovimObj obj, u32 size);
+  void grid_cursor_goto(std::span<NeovimObj> objs);
   /**
    * Handles a Neovim "option_set" event.
    */
-  void option_set(NeovimObj obj, u32 size);
+  void option_set(std::span<NeovimObj> objs);
   /**
    * Handles a Neovim "flush" event.
    * This paints the internal buffer onto the window.
@@ -122,27 +122,27 @@ public:
   /**
    * Handles a Neovim "win_pos" event.
    */
-  void win_pos(NeovimObj obj, u32 size);
+  void win_pos(std::span<NeovimObj> objs);
   /**
    * Handles a Neovim "win_hide" event.
    */
-  void win_hide(NeovimObj obj, u32 size);
+  void win_hide(std::span<NeovimObj> objs);
   /**
    * Handles a Neovim "win_float_pos" event.
    */
-  void win_float_pos(NeovimObj obj, u32 size);
+  void win_float_pos(std::span<NeovimObj> objs);
   /**
    * Handles a Neovim "win_close" event.
    */
-  void win_close(NeovimObj obj, u32 size);
+  void win_close(std::span<NeovimObj> objs);
   /**
    * Handles a Neovim "win_viewport" event.
    */
-  void win_viewport(NeovimObj obj, u32 size);
+  void win_viewport(std::span<NeovimObj> objs);
   /// Handles a Neovim "grid_destroy" event.
-  void grid_destroy(NeovimObj obj, u32 size);
+  void grid_destroy(std::span<NeovimObj> objs);
   /// Handles a Neovim "msg_set_pos" event.
-  void msg_set_pos(NeovimObj obj, u32 size);
+  void msg_set_pos(std::span<NeovimObj> objs);
   /**
    * Returns the font width and font height.
    */
@@ -155,11 +155,11 @@ public:
   /**
    * Handles a Neovim "grid_clear" event
    */
-  void grid_clear(NeovimObj obj, u32 size);
+  void grid_clear(std::span<NeovimObj> objs);
   /**
    * Handles a Neovim "grid_scroll" event
    */
-  void grid_scroll(NeovimObj obj, u32 size);
+  void grid_scroll(std::span<NeovimObj> objs);
   /**
    * Notify the editor area when resizing is enabled/disabled.
    */
@@ -168,12 +168,12 @@ public:
    * Handles a "mode_info_set" Neovim redraw event.
    * Internally sends the data to neovim_cursor.
    */
-  void mode_info_set(NeovimObj obj, u32 size);
+  void mode_info_set(std::span<NeovimObj> objs);
   /**
    * Handles a "mode_change" Neovim event.
    * Internally sends the data to neovim_cursor.
    */
-  void mode_change(NeovimObj obj, u32 size);
+  void mode_change(std::span<NeovimObj> objs);
   /**
    * Handles a "busy_start" event, passing it to the Neovim cursor
    */
@@ -207,19 +207,19 @@ public:
   inline void set_caret_top(float top) { neovim_cursor.set_caret_extend_top(top); }
   inline void set_caret_bottom(float bot) { neovim_cursor.set_caret_extend_bottom(bot); }
 
-  inline void popupmenu_show(NeovimObj obj, u32 size)
+  inline void popupmenu_show(std::span<NeovimObj> objs)
   {
-    popup_menu.pum_show(obj, size);
+    popup_menu.pum_show(objs);
   }
 
-  inline void popupmenu_hide(NeovimObj obj, u32 size)
+  inline void popupmenu_hide(std::span<NeovimObj> objs)
   {
-    popup_menu.pum_hide(obj, size);
+    popup_menu.pum_hide(objs);
   }
 
-  inline void popupmenu_select(NeovimObj obj, u32 size)
+  inline void popupmenu_select(std::span<NeovimObj> objs)
   {
-    popup_menu.pum_sel(obj, size);
+    popup_menu.pum_sel(objs);
   }
 
   inline void popupmenu_icons_toggle()
@@ -272,21 +272,21 @@ public:
 
   inline void popupmenu_set_icons_right(bool right) { popup_menu.set_icons_on_right(right); }
 
-  inline void cmdline_show(NeovimObj obj, u32 size)
+  inline void cmdline_show(std::span<NeovimObj> objs)
   {
-    cmdline.cmdline_show(obj, size);
+    cmdline.cmdline_show(objs);
     popup_menu.attach_cmdline(cmdline.width());
   }
-  inline void cmdline_hide(NeovimObj obj, u32 size)
+  inline void cmdline_hide(std::span<NeovimObj> objs)
   {
-    cmdline.cmdline_hide(obj, size);
+    cmdline.cmdline_hide(objs);
     popup_menu.detach_cmdline();
   }
-  inline void cmdline_cursor_pos(NeovimObj obj, u32 size) { cmdline.cmdline_cursor_pos(obj, size); }
-  inline void cmdline_special_char(NeovimObj obj, u32 size) { cmdline.cmdline_special_char(obj, size); }
-  inline void cmdline_block_show(NeovimObj obj, u32 size) { cmdline.cmdline_block_show(obj, size); }
-  inline void cmdline_block_append(NeovimObj obj, u32 size) { cmdline.cmdline_block_append(obj, size); }
-  inline void cmdline_block_hide(NeovimObj obj, u32 size) { cmdline.cmdline_block_hide(obj, size); }
+  inline void cmdline_cursor_pos(std::span<NeovimObj> objs) { cmdline.cmdline_cursor_pos(objs); }
+  inline void cmdline_special_char(std::span<NeovimObj> objs) { cmdline.cmdline_special_char(objs); }
+  inline void cmdline_block_show(std::span<NeovimObj> objs) { cmdline.cmdline_block_show(objs); }
+  inline void cmdline_block_append(std::span<NeovimObj> objs) { cmdline.cmdline_block_append(objs); }
+  inline void cmdline_block_hide(std::span<NeovimObj> objs) { cmdline.cmdline_block_hide(objs); }
   inline void reposition_cmdline()
   {
     QPointF rel_pos = cmdline.relative_pos();
@@ -454,19 +454,6 @@ protected:
    */
   void set_guifont(QString new_font);
   /**
-   * Adds text to the given grid number at the given row and col number,
-   * overwriting the previous text a the position.
-   */
-  void set_text(
-    GridBase& g,
-    grid_char c,
-    std::uint16_t row,
-    std::uint16_t col,
-    std::uint16_t hl_id,
-    std::uint16_t repeat = 1,
-    bool is_dbl_width = false
-  );
-  /**
    * Returns a grid with the matching grid_num
    */
   GridBase* find_grid(const std::uint16_t grid_num);
@@ -569,6 +556,12 @@ protected:
   void send_clear(std::uint16_t grid_num, QRect r = {});
   /// Draw a portion of the grid
   void send_draw(std::uint16_t grid_num, QRect r);
+  void move_to_top(GridBase* grid)
+  {
+    if (grid->z_index == grids.size() - 1) return;
+    shift_z(grid->z_index);
+    grid->z_index = grids.size() - 1;
+  }
   /// Shift down all grids with a z index greater than idx
   /// by 1.
   void shift_z(std::size_t idx)
@@ -578,13 +571,43 @@ protected:
       if (g->z_index > idx) --g->z_index;
     }
   }
-  /// Sorts grids in order of their z index, from
-  /// lowest to highest.
+  /// Sorts grids in order of their z index.
   void sort_grids_by_z_index()
   {
     std::sort(grids.begin(), grids.end(), [](const auto& g1, const auto& g2) {
       return g1->z_index < g2->z_index;
     });
+  }
+  /// Returns an integer identifier for the window.
+  /// Translated version of
+  /// https://github.com/neovim/go-client/blob/e3638e2a1819d9a5fc7238a89dd3ad5c48abc5ab/nvim/nvim.go#L723
+  std::int64_t get_win(const NeovimExt& ext)
+  {
+    using namespace std;
+    vector<uint8_t> data;
+    for(const auto& c : ext.data) data.push_back(static_cast<uint8_t>(c));
+    const auto size = ext.data.size();
+    if (size == 1 && data[0] <= 0x7f) return (int) data[0];
+    else if (size == 1 && data[0] >= 0xe0)
+    {
+      return int8_t(data[0]);
+    }
+    else if (size == 2 && data[0] == 0xcc) return (int) data[1];
+    else if (size == 2 && data[0] == 0xd0) return int8_t(data[1]);
+    else if (size == 3 && data[0] == 0xcd)
+    {
+      return u16(data[2]) | u16(data[1]) << 8;
+    }
+    else if (size == 3 && data[0] == 0xd1)
+    {
+      return int16_t(uint16_t(data[2])) | uint16_t(data[1]) << 8;
+    }
+    else if (size == 5 && data[0] == 0xce)
+    {
+      return u32(data[4] | u32(data[3]) << 8
+           | u32(data[2]) << 16 | u32(data[1]) << 24);
+    }
+    return numeric_limits<int>::min();
   }
 public slots:
   /**

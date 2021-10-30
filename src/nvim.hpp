@@ -11,6 +11,9 @@
 #include <unordered_map>
 #include <vector>
 #include <msgpack.hpp>
+#include <atomic>
+#include <optional>
+#include "object.hpp"
 #include <fmt/format.h>
 #include <fmt/core.h>
 
@@ -22,14 +25,14 @@ enum Type : std::uint64_t
 };
 enum Notifications : std::uint8_t;
 enum Request : std::uint8_t;
-using msgpack_callback = std::function<void (msgpack::object_handle*)>;
+using msgpack_callback = std::function<void (Object)>;
 /// The Nvim class contains an embedded Neovim instance and
 /// some useful functions to receive output and send input
 /// using the msgpack-rpc protocol.
 class Nvim
 {
 private:
-  using response_cb = std::function<void (msgpack::object, msgpack::object)>;
+  using response_cb = std::function<void (Object, Object)>;
 public:
   ~Nvim();
   /**
@@ -88,7 +91,7 @@ public:
    * Note: Only defined for values of type std::string and int.
    */
   template<typename T>
-  void set_var(const std::string& name, const T& val);
+  void set_var(const std::string& name, T&& val);
   /**
    * Sets the notification handler for the given method.
    * When a notification is sent, and the method matches the name
@@ -136,7 +139,7 @@ public:
   template<typename T>
   void send_request_cb(
     const std::string& method,
-    const T& params,
+    T&& params,
     response_cb cb
   );
   /**
@@ -178,8 +181,8 @@ public:
   template<typename Res, typename Err>
   void send_response(
     std::uint64_t msgid,
-    const Res& res,
-    const Err& err
+    Res&& res,
+    Err&& err
   );
 
   /**
@@ -211,12 +214,6 @@ private:
   std::thread out_reader;
   // Condition variable to check if we are closing
   std::atomic<bool> closed;
-  // This and last_response, along with response_mutex, are meant for
-  // performing a blocking request for the data of the response.
-  std::vector<std::uint8_t> is_blocking;
-  std::atomic<bool> response_received;
-  msgpack::object last_response;
-  std::mutex response_mutex;
   std::mutex input_mutex;
   std::mutex notification_handlers_mutex;
   std::mutex request_handlers_mutex;
@@ -230,21 +227,22 @@ private:
   boost::process::pipe stdin_pipe;
   boost::process::ipstream error;
   template<typename T>
-  void send_request(const std::string& method, const T& params, bool blocking = false);
+  void send_request(const std::string& method, T&& params);
   template<typename T>
-  void send_notification(const std::string& method, const T& params);
+  void send_notification(const std::string& method, T&& params);
   void read_output_sync();
   void read_error_sync();
 };
 
 template<typename T>
-void Nvim::send_request(const std::string& method, const T& params, bool blocking)
+void Nvim::send_request(const std::string& method, T&& params)
 {
-  is_blocking.push_back(blocking);
   std::unique_lock<std::mutex> lock {input_mutex};
   const std::uint64_t msg_type = Type::Request;
   msgpack::sbuffer sbuf;
-  const auto msg = std::make_tuple(msg_type, current_msgid, method, params);
+  const auto msg = std::tuple {
+    msg_type, current_msgid, method, std::forward<T>(params)
+  };
   msgpack::pack(sbuf, msg);
   // Potential for an exception when calling below code
   try
@@ -259,13 +257,13 @@ void Nvim::send_request(const std::string& method, const T& params, bool blockin
 }
 
 template<typename T>
-void Nvim::send_notification(const std::string& method, const T& params)
+void Nvim::send_notification(const std::string& method, T&& params)
 {
   // Same deal as Nvim::send_request, but for a notification this time
   std::unique_lock<std::mutex> lock {input_mutex};
   const std::uint64_t msg_type = Type::Notification;
   msgpack::sbuffer sbuf;
-  const auto msg = std::make_tuple(msg_type, method, params);
+  const auto msg = std::tuple {msg_type, method, std::forward<T>(params)};
   msgpack::pack(sbuf, msg);
   try
   {
@@ -280,13 +278,15 @@ void Nvim::send_notification(const std::string& method, const T& params)
 template<typename Res, typename Err>
 void Nvim::send_response(
   std::uint64_t msgid,
-  const Res& res,
-  const Err& err
+  Res&& res,
+  Err&& err
 )
 {
   std::unique_lock<std::mutex> lock {input_mutex};
   const std::uint64_t type = Type::Response;
-  const auto msg = std::tuple {type, msgid, err, res};
+  const auto msg = std::tuple {
+    type, msgid, std::forward<Err>(err), std::forward<Res>(res)
+  };
   msgpack::sbuffer sbuf;
   msgpack::pack(sbuf, msg);
   try
@@ -302,19 +302,19 @@ void Nvim::send_response(
 template<typename T>
 void Nvim::send_request_cb(
   const std::string& method,
-  const T& params,
+  T&& params,
   response_cb cb
 )
 {
   std::unique_lock<std::mutex> lock {response_cb_mutex};
   singleshot_callbacks[current_msgid] = std::move(cb);
-  send_request(method, params, false);
+  send_request(method, std::forward<T>(params));
 }
 
 template<typename T>
-void Nvim::set_var(const std::string& name, const T& val)
+void Nvim::set_var(const std::string& name, T&& val)
 {
-  send_notification("nvim_set_var", std::tuple {name, val});
+  send_notification("nvim_set_var", std::tuple {name, std::forward<T>(val)});
 }
 
 #endif

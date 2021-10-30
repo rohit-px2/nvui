@@ -7,6 +7,7 @@
     "qt5-base",
     "qt5-svg",
     "boost-process",
+    "boost-container",
     "catch2"
   ]
 }

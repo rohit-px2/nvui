@@ -50,30 +50,26 @@ void CmdLine::update_metrics()
   std::tie(big_font_width, big_font_height) = get_font_dimensions_for(big_font);
 }
 
-void CmdLine::cmdline_show(NvimObj obj, msg_size size)
+void CmdLine::cmdline_show(std::span<const Object> objs)
 {
-  assert(obj);
   // Clear the previous text
   lines.clear();
-  if (size < 1) return;
-  const msgpack::object& o = obj[size - 1];
-  assert(o.type == msgpack::type::ARRAY);
-  const msgpack::object_array& arr = o.via.array;
-  assert(arr.size == 6);
-  assert(arr.ptr[0].type == msgpack::type::ARRAY);
-  assert(arr.ptr[1].type == msgpack::type::POSITIVE_INTEGER);
-  assert(arr.ptr[2].type == msgpack::type::STR);
-  assert(arr.ptr[3].type == msgpack::type::STR);
-  assert(arr.ptr[4].type == msgpack::type::POSITIVE_INTEGER);
-  assert(arr.ptr[5].type == msgpack::type::POSITIVE_INTEGER);
-  const auto& content = arr.ptr[0].via.array;
-  add_line(content, lines);
-  const int c_pos = arr.ptr[1].as<int>();
-  cursor_pos = c_pos;
-  QString firstc = arr.ptr[2].as<QString>();
-  if (!firstc.isEmpty()) first_char = std::move(firstc);
+  if (objs.empty()) return;
+  auto& obj = objs.back();
+  auto* arr = obj.array();
+  assert(arr && arr->size() >= 6);
+  if (!arr->at(0).has<ObjectArray>()) return;
+  const ObjectArray& content = *arr->at(0).array();
+  add_line(content);
+  auto* c_pos = arr->at(1).u64();
+  auto* firstc = arr->at(2).string();
+  //auto* prompt = arr->at(3).string();
+  //auto* indent = arr->at(4).u64();
+  //auto* level = arr->at(5).u64();
+  if (!c_pos || !firstc) return;
+  cursor_pos = static_cast<int>(*c_pos);
+  if (!firstc->empty()) first_char = QString::fromStdString(*firstc);
   else first_char.reset();
-  QString prompt = arr.ptr[3].as<QString>();
   // int indent = arr.ptr[4].as<int>();
   // int level = arr.ptr[5].as<int>();
   int new_height = padded(fitting_height());
@@ -82,40 +78,38 @@ void CmdLine::cmdline_show(NvimObj obj, msg_size size)
   setVisible(true);
 }
 
-void CmdLine::cmdline_hide(NvimObj obj, msg_size size)
+void CmdLine::cmdline_hide(std::span<const Object> objs)
 {
-  Q_UNUSED(obj);
-  Q_UNUSED(size);
+  Q_UNUSED(objs);
   setVisible(false);
 }
 
-void CmdLine::cmdline_cursor_pos(NvimObj obj, msg_size size)
+void CmdLine::cmdline_cursor_pos(std::span<const Object> objs)
 {
-  Q_UNUSED(size);
-  assert(obj->type == msgpack::type::ARRAY);
-  const auto& arr = obj->via.array;
-  assert(arr.size == 2);
-  assert(arr.ptr[0].type == msgpack::type::POSITIVE_INTEGER);
-  assert(arr.ptr[1].type == msgpack::type::POSITIVE_INTEGER);
-  const int pos = arr.ptr[0].as<int>();
-  // const int level = arr.ptr[1].as<int>();
-  cursor_pos = pos;
+  for(auto& obj : objs)
+  {
+    auto* arr = obj.array();
+    assert(arr && arr->size() >= 2);
+    assert(arr->at(0).u64() && arr->at(1).u64());
+    cursor_pos = (int) arr->at(0);
+    // const auto level = arr->at(1).get<u64>();
+  }
   update();
 }
 
-void CmdLine::cmdline_special_char(NvimObj, msg_size)
+void CmdLine::cmdline_special_char(std::span<const Object>)
 {
 }
 
-void CmdLine::cmdline_block_show(NvimObj, msg_size)
+void CmdLine::cmdline_block_show(std::span<const Object>)
 {
 }
 
-void CmdLine::cmdline_block_append(NvimObj, msg_size)
+void CmdLine::cmdline_block_append(std::span<const Object>)
 {
 }
 
-void CmdLine::cmdline_block_hide(NvimObj, msg_size)
+void CmdLine::cmdline_block_hide(std::span<const Object>)
 {
 }
 
@@ -152,6 +146,7 @@ void CmdLine::paintEvent(QPaintEvent* event)
     pt.x += p.fontMetrics().horizontalAdvance(first_char.value());
   }
   p.setFont(font);
+  const QFontMetrics& font_metrics = p.fontMetrics();
   int cur_char = 0;
   bool cursor_drawn = false;
   QRect inner = inner_rect();
@@ -161,7 +156,7 @@ void CmdLine::paintEvent(QPaintEvent* event)
     {
       for(const QChar& c : seq.first)
       {
-        int text_width = p.fontMetrics().horizontalAdvance(c);
+        int text_width = font_metrics.horizontalAdvance(c);
         if (pt.x + text_width > inner.width())
         {
           pt.x = base_x;
@@ -244,24 +239,19 @@ void CmdLine::draw_text_and_bg(
   painter.drawText(text_start, text);
 }
 
-void CmdLine::add_line(
-  const msgpack::object_array& new_line,
-  std::vector<line>& line_arr
-)
+void CmdLine::add_line(const ObjectArray& new_line)
 {
   line line;
-  for(msg_size i = 0; i < new_line.size; ++i)
+  for(auto& line_obj : new_line)
   {
-    assert(new_line.ptr[i].type == msgpack::type::ARRAY);
-    const auto& arr = new_line.ptr[i].via.array;
-    assert(arr.size == 2);
-    assert(arr.ptr[0].type == msgpack::type::POSITIVE_INTEGER);
-    assert(arr.ptr[1].type == msgpack::type::STR);
-    int hl_id = arr.ptr[0].as<int>();
-    QString text = arr.ptr[1].as<QString>();
-    line.push_back({std::move(text), hl_id});
+    assert(line_obj.has<ObjectArray>());
+    auto& arr = line_obj.get<ObjectArray>();
+    assert(arr.size() == 2);
+    int hl_id = arr.at(0).try_convert<int>().value_or(0);
+    const QString& text = QString::fromStdString(arr.at(1).get<std::string>());
+    line.emplace_back(text, hl_id);
   }
-  line_arr.push_back(std::move(line));
+  lines.push_back(std::move(line));
 }
 
 

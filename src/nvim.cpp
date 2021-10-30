@@ -15,6 +15,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <QtCore>
+#include "object.hpp"
 
 #ifdef _WIN32
 #include <boost/process/windows.hpp>
@@ -95,121 +96,86 @@ static const std::unordered_map<std::string, bool> default_capabilities {
   {"ext_hlstate", true}
 };
 
-/// Although this is synchronous, it will be performed on another thread.
+// Although this is synchronous, it will be performed on another thread.
 void Nvim::read_output_sync()
 {
-  using std::cout;
-  cout << std::dec;
-  // buffer_maxsize of 1MB
   constexpr int buffer_maxsize = 1024 * 1024;
   auto buffer = std::make_unique<char[]>(buffer_maxsize);
   char* buf = buffer.get();
   while(!closed && running())
   {
-    int msg_size = stdout_pipe.read(buf, buffer_maxsize);
-    msgpack::unpacker unpacker;
-    unpacker.reserve_buffer(msg_size);
-    memcpy(unpacker.buffer(), buf, msg_size);
-    unpacker.buffer_consumed(msg_size);
-    // There can be multiple messages inside of the buffer
-    //std::size_t offset = 0;
-    msgpack::object_handle oh;
-    while(unpacker.next(oh))
+    using std::size_t;
+    auto msg_size = static_cast<size_t>(stdout_pipe.read(buf, buffer_maxsize));
+    if (!msg_size) continue;
+    std::string_view sv {buf, msg_size};
+    std::size_t offset = 0;
+    while(offset < msg_size)
     {
-      //oh = msgpack::unpack(buf, msg_size, offset);
-      const msgpack::object& obj = oh.get();
-      // According to msgpack-rpc spec, this must be an array
-      if (obj.type != msgpack::type::ARRAY) continue;
-      const msgpack::object_array& arr = obj.via.array;
-      // Size of the array is either 3 (Notificaion) or 4 (Request / Response)
-      if (!(arr.size == 3 || arr.size == 4)) continue;
-      if (!(arr.ptr[0].type == msgpack::type::POSITIVE_INTEGER)) continue;
-      const std::uint32_t type = arr.ptr[0].as<std::uint32_t>();
-      // The type should only ever be one of Request, Notification, or Response.
-      if (!(type == Type::Notification
-          || type == Type::Response
-          || type == Type::Request)) continue;
-      switch(type)
+      auto parsed = Object::from_msgpack(sv, offset);
+      auto* arr = parsed.array();
+      if (!(arr && (arr->size() == 3 || arr->size() == 4))) continue;
+      const auto msg_type = arr->at(0).u64();
+      if (!msg_type) continue;
+      switch(*msg_type)
       {
-        case Type::Request:
+        case Type::Notification:
         {
-          if (!(arr.size == 4)) continue;
-          if (!(arr.ptr[2].type == msgpack::type::STR)) continue;
-          const std::string method = arr.ptr[2].as<std::string>();
-          // Lock while reading
-          Lock read_lock {request_handlers_mutex};
-          const auto func_it = request_handlers.find(method);
-          if (func_it != request_handlers.end())
+          assert(arr->size() == 3);
+          const auto method_str = arr->at(1).string();
+          if (!method_str) continue;
+          notification_handlers_mutex.lock();
+          const auto func_it = notification_handlers.find(*method_str);
+          if (func_it == notification_handlers.end())
           {
-            // Params is the last element in the 4-long array
-            func_it->second(&oh);
+            notification_handlers_mutex.unlock();
+          }
+          else
+          {
+            const auto func = func_it->second;
+            notification_handlers_mutex.unlock();
+            func(std::move(parsed));
           }
           break;
         }
-        case Type::Notification:
+        case Type::Request:
         {
-          if (!(arr.size == 3)) continue;
-          if (!(arr.ptr[1].type == msgpack::type::STR)) continue;
-          const std::string method = arr.ptr[1].as<std::string>();
-          // Lock while reading
-          Lock read_lock {notification_handlers_mutex};
-          const auto func_it = notification_handlers.find(method);
-          if (func_it != notification_handlers.end())
+          assert(arr->size() == 4);
+          const auto* method_str = arr->at(2).string();
+          if (!method_str) continue;
+          request_handlers_mutex.lock();
+          const auto func_it = request_handlers.find(*method_str);
+          if (func_it == request_handlers.end())
           {
-            // Call handler on the 3rd object (params)
-            func_it->second(&oh);
+            request_handlers_mutex.unlock();
+          }
+          else
+          {
+            const auto func = func_it->second;
+            request_handlers_mutex.unlock();
+            func(std::move(parsed));
           }
           break;
         }
         case Type::Response:
         {
-          if (!(arr.size == 4)) continue;
-          if (!(arr.ptr[0].type == msgpack::type::POSITIVE_INTEGER)) continue;
-          const std::uint32_t msgid = arr.ptr[1].as<std::uint32_t>();
-          //cout << "Message id: " << msgid << '\n';
-          if (!(msgid < is_blocking.size())) continue;
-          // If it's a blocking request, the other thread is waiting for
-          // response_received
-          if (is_blocking[msgid])
+          assert(arr->size() == 4);
+          const auto msgid = arr->at(1).u64();
+          assert(msgid);
+          if (!msgid) continue;
+          response_cb_mutex.lock();
+          const auto cb_it = singleshot_callbacks.find(*msgid);
+          if (cb_it != singleshot_callbacks.end())
           {
-            // We'll lock just to be safe.
-            // I think if we set response_received = true after
-            // setting the data, it might allow for thread-safe behaviour
-            // without locking, but we'll t(h)read on the safe side for now
-            Lock lock {response_mutex};
-            // Check if we got an error
-            response_received = true;
-            if (!arr.ptr[2].is_nil())
-            {
-              cout << "There was an error\n";
-              last_response = arr.ptr[2];
-            }
-            else
-            {
-              cout << "No error!\n";
-              last_response = arr.ptr[3];
-            }
+            const auto cb = cb_it->second;
+            response_cb_mutex.unlock();
+            cb(std::move(arr->at(3)), std::move(arr->at(2)));
           }
-          else
-          {
-            Lock lock {response_cb_mutex};
-            if (singleshot_callbacks.contains(msgid))
-            {
-              const auto& cb = singleshot_callbacks.at(msgid);
-              if (!arr.ptr[2].is_nil())
-              {
-                cb(msgpack::object(), arr.ptr[2]);
-              }
-              else
-              {
-                cb(arr.ptr[3], msgpack::object());
-              }
-              singleshot_callbacks.erase(msgid);
-            }
-          }
+          else response_cb_mutex.unlock();
           break;
         }
-        default: continue;
+        default:
+          qWarning() << "Received an invalid msgpack message type: " << *msg_type << '\n';
+          continue;
       }
     }
   }

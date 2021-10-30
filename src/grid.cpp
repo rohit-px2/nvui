@@ -6,6 +6,11 @@
 scalers::time_scaler GridBase::scroll_scaler = scalers::oneminusexpo2negative10;
 scalers::time_scaler GridBase::move_scaler = scalers::oneminusexpo2negative10;
 
+grid_char GridChar::grid_char_from_str(const std::string& s)
+{
+  return QString::fromStdString(s);
+}
+
 void QPaintGrid::update_pixmap_size()
 {
   auto&& [font_width, font_height] = editor_area->font_dimensions();

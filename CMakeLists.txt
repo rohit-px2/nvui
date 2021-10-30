@@ -64,6 +64,8 @@ file(GLOB SOURCES
   src/font.hpp
   src/grid.cpp
   src/grid.hpp
+  src/object.hpp
+  src/object.cpp
   src/decide_renderer.hpp
   src/input.cpp
   src/input.hpp
@@ -133,6 +135,8 @@ file(GLOB TEST_SOURCES
   src/font.hpp
   src/grid.cpp
   src/grid.hpp
+  src/object.hpp
+  src/object.cpp
   src/decide_renderer.hpp
   src/input.cpp
   src/input.hpp

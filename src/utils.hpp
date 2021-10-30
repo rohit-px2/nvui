@@ -147,6 +147,26 @@ void wait_for_value(std::atomic<T>& v, T val)
   while(v != val) {}
 }
 
+// find or default for map containers
+template<typename Map, typename K, typename V>
+V find_or_default(const Map& m, const K& k, const V& v)
+{
+  auto it = m.find(k);
+  if (it == m.end()) return v;
+  return it->second;
+}
+
+template<std::size_t idx = 0, typename... Types, typename Func>
+void for_each_in_tuple(std::tuple<Types...>& t, Func&& f)
+{
+  constexpr auto s = std::integral_constant<std::size_t, idx> {};
+  f(std::get<s>(t));
+  if constexpr(idx != sizeof...(Types) - 1)
+  {
+    for_each_in_tuple<idx + 1>(t, std::forward<Func>(f));
+  }
+}
+
 /// UCS2-aware string reversal
 inline void reverse_qstring(QString& s)
 {

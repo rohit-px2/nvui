@@ -6,8 +6,10 @@
 #include <QDebug>
 #include <QPaintEvent>
 #include <QStringBuilder>
+#include <span>
 #include <msgpack.hpp>
 #include "hlstate.hpp"
+#include "object.hpp"
 #include "utils.hpp"
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -87,6 +89,13 @@ public:
     return vs;
   }
 
+  const QColor* bg_for_kind(const QString& kind) const
+  {
+    if (!colors.contains(kind)) return nullptr;
+    const auto& clr = colors[kind].second;
+    if (!clr) return &default_bg;
+    return &*clr;
+  }
 private:
   QPixmap load_icon(const QString& iname, int width);
   void load_icons(int width);
@@ -197,17 +206,17 @@ public:
    * Handles a Neovim "popupmenu_show" event, showing the popupmenu with the
    * given items.
    */
-  void pum_show(const msgpack::object* obj, std::uint32_t size);
+  void pum_show(std::span<const Object> objs);
   /**
    * Hides the popupmenu.
    */
-  void pum_hide(const msgpack::object* obj, std::uint32_t size = 1);
+  void pum_hide(std::span<const Object> objs);
   /**
    * Handles a Neovim "popupmenu_select" event, selecting the
    * popupmenu item at the given index,
    * or selecting nothing if the index is -1.
    */
-  void pum_sel(const msgpack::object* obj, std::uint32_t size = 1);
+  void pum_sel(std::span<const Object> objs);
   /**
    * Update the highlight attributes used for drawing the popup menu.
    */
@@ -354,7 +363,7 @@ private:
   /**
    * Add the given popupmenu items to the popup menu.
    */
-  void add_items(const msgpack::object_array& items);
+  void add_items(const ObjectArray& items);
   /**
    * Redraw the popupmenu.
    */

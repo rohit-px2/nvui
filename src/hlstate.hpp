@@ -9,13 +9,14 @@
 #include <optional>
 #include <vector>
 #include <string>
-#include <msgpack.hpp>
-#include <QColor>
 #include <type_traits>
+#include <QColor>
+#include "object.hpp"
 
 using uint8 = std::uint8_t;
 using uint16 = std::uint16_t;
 using uint32 = std::uint32_t;
+using uint64 = std::uint64_t;
 
 enum Kind
 {
@@ -35,6 +36,8 @@ struct Color
       b((clr & 0x000000ff))
   {
   }
+  Color(int clr) : Color(static_cast<uint32>(clr)) {}
+  Color(uint64 clr) : Color(static_cast<uint32>(clr)) {}
   /**
    * Converts a Color back to a uint32
    */
@@ -47,6 +50,12 @@ struct Color
   {
     return {r, g, b};
   }
+  
+  bool operator==(const Color& other) const
+  {
+    return r == other.r && b == other.b && g == other.g;
+  }
+private:
 };
 
 struct AttrState
@@ -54,7 +63,7 @@ struct AttrState
   Kind kind;
   std::string hi_name;
   std::string ui_name;
-  uint16 id;
+  int id;
 };
 
 enum FontOpts : std::uint8_t
@@ -127,7 +136,9 @@ public:
 class HLState
 {
 public:
-  HLState() = default;
+  HLState() {
+    id_to_attr.reserve(1000);
+  }
   /**
    * Maps name to hl_id.
    * This function maps to "hl_group_set".
@@ -149,16 +160,16 @@ public:
    * Manages an "hl_attr_define" call, with obj
    * being the parameters of the call.
    */
-  void define(const msgpack::object& obj);
+  void define(const Object& obj);
   /**
    * Sets the default colors.
    */
-  void default_colors_set(const msgpack::object& obj);
+  void default_colors_set(const Object& obj);
   /**
    * Sets the given highlight group. This should be called with
    * the parameters of an "hl_group_set" call.
    */
-  void group_set(const msgpack::object& obj);
+  void group_set(const Object& obj);
   /**
    * Returns the default colors.
    */
@@ -185,7 +196,7 @@ namespace hl
    * that were the parameters of an "hl_attr_define"
    * call.
    */
-  HLAttr hl_attr_from_object(const msgpack::object& obj);
+  HLAttr hl_attr_from_object(const Object& obj);
 }
 
 namespace font

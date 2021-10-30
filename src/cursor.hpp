@@ -5,8 +5,10 @@
 #include <QRect>
 #include <QTimer>
 #include <cstdint>
+#include <span>
 #include <msgpack.hpp>
 #include "hlstate.hpp"
+#include "object.hpp"
 #include "scalers.hpp"
 
 enum class CursorShape : std::uint8_t
@@ -71,11 +73,11 @@ public:
   /**
    * Handles a 'mode_info_set' Neovim redraw event.
    */
-  void mode_info_set(const msgpack::object* obj, std::uint32_t size);
+  void mode_info_set(std::span<const Object> objs);
   /**
    * Handles a 'mode_change' Neovim redraw event.
    */
-  void mode_change(const msgpack::object* obj, std::uint32_t size);
+  void mode_change(std::span<const Object> objs);
   /**
    * Set the current position to pos, and refresh the cursor.
    */

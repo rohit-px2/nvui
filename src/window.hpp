@@ -14,6 +14,7 @@
 #include "hlstate.hpp"
 #include <iostream>
 #include <memory>
+#include <span>
 #include <msgpack.hpp>
 #include <QEvent>
 #include <unordered_map>
@@ -26,7 +27,7 @@ class Window;
 
 constexpr int tolerance = 10; //10px tolerance for resizing
 
-using obj_ref_cb = std::function<void (const msgpack::object*, std::uint32_t size)>;
+using obj_ref_cb = void (*)(Window*, std::span<const Object>);
 
 /// The main window class which holds the rest of the GUI components.
 /// Fundamentally, the Neovim area is just 1 big text box.
@@ -39,7 +40,7 @@ class Window : public QMainWindow
   using handler_func =
     std::function<
       std::tuple<std::optional<R>, std::optional<E>>
-      (const msgpack::object_array&)>;
+      (const ObjectArray&)>;
 public:
   Window(
     QWidget* parent = nullptr,
@@ -65,7 +66,7 @@ public slots:
    * TODO: Decide parameter type and how this will be called
    * (signals etc.)
    */
-  void handle_redraw(msgpack::object_handle* dir_args);
+  void handle_redraw(Object dir_args);
   /**
    * Starts a resizing or moving operation depending on the coordinates
    * of p.
@@ -85,30 +86,13 @@ public slots:
   void maximize();
 private:
   /**
-   * Wraps func around a blocking semaphore.
-   * When the returned function is called, the executing thread
-   * will be paused until the semaphore is released on a separate thread.
-   * (This is executed on the Neovim thread so that Qt thread has time to copy data)
-   * See nvim.hpp for msgpack_callback
-   */
-  msgpack_callback sem_block(msgpack_callback func);
-  /**
-   * Deep-copies obj, returning its object handle, and releases the
-   * semaphore.
-   * Inside of the function called by the notification handler,
-   * this should be the FIRST thing called, since the Nvim thread is
-   * waiting for the semaphore to release to continue its execution.
-   */
-  msgpack::object_handle safe_copy(msgpack::object_handle* obj);
-  /**
    * Listen for a notification with the method call "method",
    * and invoke the corresponding callback on the main (Qt) thread.
-   * msgpack::object_handle moving is already done, so the lambdas
-   * passed just have to deal with their logic.
+   * cb is passed the arguments array.
    */
   void listen_for_notification(
     std::string method,
-    std::function<void (const msgpack::object_array&)> cb
+    std::function<void (const ObjectArray&)> cb
   );
   /**
    * Listens for a request with the given name,

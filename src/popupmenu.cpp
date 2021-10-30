@@ -186,8 +186,7 @@ void PopupMenu::add_items(const ObjectArray& items)
     auto word = QString::fromStdString(*arr->at(0).string());
     auto kind = QString::fromStdString(*arr->at(1).string());
     auto menu = QString::fromStdString(*arr->at(2).string());
-    auto info = QString::fromStdString(arr->at(3).get<std::string>());
-    assert(word && kind && menu && info);
+    auto info = QString::fromStdString(*arr->at(3).string());
     completion_items.push_back({
       false, std::move(word), std::move(kind), std::move(menu), std::move(info)
     });

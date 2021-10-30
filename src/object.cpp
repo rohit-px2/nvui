@@ -251,3 +251,47 @@ Object Object::parse(const msgpack::object& obj)
   msgpack::object_parser(obj).parse(v);
   return o;
 }
+
+std::size_t Object::children() const noexcept
+{
+  if (auto* arr = array()) { return arr->size(); }
+  else if (auto* mp = map()) { return mp->size(); }
+  else return 0;
+}
+
+Object::~Object()
+{
+  std::stack<Object*, std::vector<Object*>> stack;
+  Object* cur = this;
+  while(children() > 0)
+  {
+    if (cur->children() == 0)
+    {
+      cur = stack.top();
+      stack.pop();
+    }
+    if (auto* arr = cur->array())
+    {
+      auto* obj = &arr->back();
+      if (obj->children() > 0)
+      {
+        stack.push(cur);
+        cur = obj;
+      }
+      else arr->pop_back();
+    }
+    else if (auto* map = cur->map())
+    {
+      // Keys are strings, no need to worry
+      // Meanwhile values need to be checked
+      auto it = map->end() - 1;
+      auto* obj = &it->second;
+      if (obj->children() > 0)
+      {
+        stack.push(cur);
+        cur = obj;
+      }
+      else map->erase(map->end() - 1);
+    }
+  }
+}

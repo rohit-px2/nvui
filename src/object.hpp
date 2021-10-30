@@ -59,6 +59,7 @@ struct Object
   Object(const Object&) = default;
   Object& operator=(const Object&) = default;
   Object& operator=(Object&&) = default;
+  ~Object();
   /// Parses an Object from a msgpack string.
   /// Note: This doesn't support the full messagepack specification,
   /// since map keys are always strings, but Neovim always specifies
@@ -195,6 +196,7 @@ struct Object
   }
 
 private:
+  std::size_t children() const noexcept;
   void to_stream(std::stringstream& ss) const;
   variant_type v;
 };

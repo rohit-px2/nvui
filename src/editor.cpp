@@ -152,7 +152,7 @@ void EditorArea::grid_line(std::span<NeovimObj> objs)
       assert(cell_arr.size() >= 1 && cell_arr.size() <= 3);
       // [text, (hl_id, repeat)]
       int repeat = 1;
-      assert(cell_arr.at(0).has<QString>());
+      assert(cell_arr.at(0).is_string());
       grid_char text = GridChar::grid_char_from_str(cell_arr[0].get<std::string>());
       // If the previous char was a double-width char,
       // the current char is an empty string.

@@ -19,8 +19,8 @@ TEST_CASE("hl_attr_from_object works", "[hl_attr_from_object]")
       ObjectMap {},
       ObjectArray {
         ObjectMap {
-          {"kind", QString("syntax")},
-          {"hi_name", QString("TSParameter")},
+          {"kind", std::string("syntax")},
+          {"hi_name", std::string("TSParameter")},
           {"id", uint64(107)}
         }
       }

@@ -68,7 +68,7 @@ void CmdLine::cmdline_show(std::span<const Object> objs)
   //auto* level = arr->at(5).u64();
   if (!c_pos || !firstc) return;
   cursor_pos = static_cast<int>(*c_pos);
-  if (!firstc->isEmpty()) first_char = std::move(*firstc);
+  if (!firstc->empty()) first_char = QString::fromStdString(*firstc);
   else first_char.reset();
   // int indent = arr.ptr[4].as<int>();
   // int level = arr.ptr[5].as<int>();
@@ -248,7 +248,7 @@ void CmdLine::add_line(const ObjectArray& new_line)
     auto& arr = line_obj.get<ObjectArray>();
     assert(arr.size() == 2);
     int hl_id = arr.at(0).try_convert<int>().value_or(0);
-    const QString& text = arr.at(1).get<QString>();
+    const QString& text = QString::fromStdString(arr.at(1).get<std::string>());
     line.emplace_back(text, hl_id);
   }
   lines.push_back(std::move(line));

@@ -23,9 +23,6 @@
 #include "grid.hpp"
 #include "object.hpp"
 
-// For easily changing the type of 'char' in a cell
-using grid_char = QString;
-
 /// UI Capabilities (Extensions)
 struct ExtensionCapabilities
 {
@@ -456,19 +453,6 @@ protected:
    * uses a default font given by default_font_family() in utils.hpp.
    */
   void set_guifont(QString new_font);
-  /**
-   * Adds text to the given grid number at the given row and col number,
-   * overwriting the previous text a the position.
-   */
-  void set_text(
-    GridBase& g,
-    grid_char c,
-    std::uint16_t row,
-    std::uint16_t col,
-    std::uint16_t hl_id,
-    std::uint16_t repeat = 1,
-    bool is_dbl_width = false
-  );
   /**
    * Returns a grid with the matching grid_num
    */

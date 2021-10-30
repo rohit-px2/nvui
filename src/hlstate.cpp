@@ -48,15 +48,15 @@ namespace hl
       AttrState state;
       if (auto* hi_name = o.try_at("hi_name"); hi_name && hi_name->is_string())
       {
-        state.hi_name = hi_name->get<QString>().toStdString();
+        state.hi_name = hi_name->get<std::string>();
       }
       if (auto* ui_name = o.try_at("ui_name"); ui_name && ui_name->is_string())
       {
-        state.ui_name = ui_name->string()->toStdString();
+        state.ui_name = ui_name->get<std::string>();
       }
       if (auto* kind = o.try_at("kind"); kind && kind->is_string())
       {
-        state.hi_name = kind->get<QString>() == "syntax"
+        state.hi_name = kind->get<std::string>() == "syntax"
           ? Kind::Syntax
           : Kind::UI;
       }
@@ -170,7 +170,7 @@ void HLState::group_set(const Object& obj)
   auto* name = arr->at(0).string();
   auto* id = arr->at(1).u64();
   if (!name || !id) return;
-  auto hl_name = name->toStdString();
+  auto hl_name = *name;
   auto hl_id = static_cast<int>(*id);
   set_name_id(std::move(hl_name), hl_id);
 }

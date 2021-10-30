@@ -100,38 +100,6 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   });
 }
 
-void EditorArea::set_text(
-  GridBase& grid,
-  grid_char c,
-  std::uint16_t row,
-  std::uint16_t col,
-  std::uint16_t hl_id,
-  std::uint16_t repeat,
-  bool is_dbl_width
-)
-{
-  std::uint32_t ucs;
-  if (c.isEmpty()) ucs = 0;
-  else
-  {
-    if (c.at(0).isHighSurrogate())
-    {
-      assert(c.size() >= 2);
-      ucs = QChar::surrogateToUcs4(c.at(0), c.at(1));
-    }
-    else ucs = c.at(0).unicode();
-  }
-  //std::cout << "Set " << repeat << " texts at (" << row << ", " << col << ").\n";
-  // Neovim should make sure this isn't out-of-bounds
-  assert(col + repeat <= grid.cols);
-  for(std::uint16_t i = 0; i < repeat; ++i)
-  {
-    // row * grid.cols - get current row
-    assert(static_cast<std::size_t>(row * grid.cols + col + i) < grid.area.size());
-    grid.area[row * grid.cols + col + i] = {hl_id, c, is_dbl_width, ucs};
-  }
-}
-
 void EditorArea::grid_resize(std::span<NeovimObj> objs)
 {
   // Should only run once
@@ -163,7 +131,6 @@ void EditorArea::grid_resize(std::span<NeovimObj> objs)
 void EditorArea::grid_line(std::span<NeovimObj> objs)
 {
   int hl_id = 0;
-  //std::cout << "Received grid line.\nNum params: " << size << '\n';
   for(auto& grid_cmd : objs)
   {
     auto* arr = grid_cmd.array();
@@ -186,11 +153,10 @@ void EditorArea::grid_line(std::span<NeovimObj> objs)
       // [text, (hl_id, repeat)]
       int repeat = 1;
       assert(cell_arr.at(0).has<QString>());
-      grid_char text = std::move(cell_arr[0].get<QString>());
+      grid_char text = GridChar::grid_char_from_str(cell_arr[0].get<std::string>());
       // If the previous char was a double-width char,
       // the current char is an empty string.
       bool prev_was_dbl = text.isEmpty();
-      //bool is_dbl = !text.isEmpty() && fm.horizontalAdvance(text) != font_width;
       bool is_dbl = false;
       if (prev_was_dbl)
       {
@@ -200,7 +166,6 @@ void EditorArea::grid_line(std::span<NeovimObj> objs)
           grid_ptr->area[idx].double_width = true;
         }
       }
-      //ss << text.size() << ' ';
       switch(cell_arr.size())
       {
         case 2:
@@ -211,17 +176,11 @@ void EditorArea::grid_line(std::span<NeovimObj> objs)
           repeat = (int) cell_arr.at(2);
           break;
       }
-      //std::cout << "Code point: " << c << "\n";
       g.set_text(std::move(text), start_row, col, hl_id, repeat, is_dbl);
       col += repeat;
     }
-    //ss << '\n';
-    // Update the area that we modified
-    // Translating rows and cols to a pixel area
-    //QRect rect = to_pixels(grid_num, start_row, start_col, start_row + 1, col);
     send_draw(grid_num, {start_col, start_row, (col - start_col), 1});
   }
-  //update();
 }
 
 void EditorArea::grid_cursor_goto(std::span<NeovimObj> objs)
@@ -272,7 +231,7 @@ void EditorArea::option_set(std::span<NeovimObj> objs)
     }
     else if (opt == "guifont")
     {
-      set_guifont(arr->at(1).get<QString>());
+      set_guifont(QString::fromStdString(arr->at(1).get<std::string>()));
       font.setHintingPreference(QFont::PreferFullHinting);
     }
     else if (opt == "linespace")

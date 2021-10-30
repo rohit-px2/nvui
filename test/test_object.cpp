@@ -34,8 +34,8 @@ TEST_CASE("Object parsing works", "[Object]")
     msgpack::object_handle oh = pack_unpack(s);
     const auto& o = oh.get();
     auto parsed = Object::parse(o);
-    REQUIRE(parsed.has<QString>());
-    REQUIRE(parsed.get<QString>() == s.c_str());
+    REQUIRE(parsed.has<std::string>());
+    REQUIRE(parsed.get<std::string>() == s.c_str());
   }
   SECTION("Arrays")
   {
@@ -68,9 +68,9 @@ TEST_CASE("Object parsing works", "[Object]")
       const auto& omap = parsed.get<ObjectArray>();
       for(std::size_t i = 0; i < omap.size(); ++i)
       {
-        using val_type = QString;
+        using val_type = std::string;
         REQUIRE(omap.at(i).has<val_type>());
-        REQUIRE(omap.at(i).get<val_type>() == QString::fromStdString(v.at(i)));
+        REQUIRE(omap.at(i).get<val_type>() == v.at(i));
       }
     }
   }
@@ -94,8 +94,7 @@ TEST_CASE("Object parsing works", "[Object]")
     for(const auto& [key, val] : omap)
     {
       REQUIRE(mp.contains(key));
-      // string type gets parsed to QString
-      REQUIRE(val.has<QString>());
+      REQUIRE(val.has<std::string>());
     }
   }
 }
@@ -128,10 +127,10 @@ TEST_CASE("Extracting types from Object")
   }
   SECTION("Optional function works")
   {
-    Object o = QString("hello world");
-    auto qstr_opt = o.try_convert<QString>();
-    REQUIRE(qstr_opt);
-    REQUIRE(*qstr_opt == "hello world");
+    Object o = std::string("hello world");
+    auto str_opt = o.try_convert<std::string>();
+    REQUIRE(str_opt);
+    REQUIRE(*str_opt == "hello world");
   }
   SECTION("Optional function returns nullopt if could not convert")
   {

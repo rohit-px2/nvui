@@ -15,7 +15,6 @@ void Object::to_stream(std::stringstream& ss) const
   std::visit(overloaded {
     [&](const std::monostate&) { ss << "null"; },
     [&](const std::string& s) { ss << '"' << s << '"'; },
-    [&](const QString& q) { ss << '\"' << q.toStdString() << '\"'; },
     [&](const int64_t& i) { ss << i; },
     [&](const uint64_t& u) { ss << u; },
     [&](const ObjectArray& v) {
@@ -163,12 +162,7 @@ struct MsgpackVisitor
 
   bool visit_str(const char* v, std::uint32_t len)
   {
-    if (in_map && !map_key_ended)
-    {
-      place(std::string(v, len));
-      return true;
-    }
-    place(QString::fromUtf8(v, static_cast<int>(len)));
+    place(std::string(v, len));
     return true;
   }
 

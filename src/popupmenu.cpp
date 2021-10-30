@@ -183,13 +183,13 @@ void PopupMenu::add_items(const ObjectArray& items)
   {
     auto* arr = item.array();
     assert(arr && arr->size() >= 4);
-    auto* word = arr->at(0).string();
-    auto* kind = arr->at(1).string();
-    auto* menu = arr->at(2).string();
-    auto* info = arr->at(3).string();
+    auto word = QString::fromStdString(*arr->at(0).string());
+    auto kind = QString::fromStdString(*arr->at(1).string());
+    auto menu = QString::fromStdString(*arr->at(2).string());
+    auto info = QString::fromStdString(arr->at(3).get<std::string>());
     assert(word && kind && menu && info);
     completion_items.push_back({
-      false, *word, *kind, *menu,*info
+      false, std::move(word), std::move(kind), std::move(menu), std::move(info)
     });
   }
 }

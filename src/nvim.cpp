@@ -121,11 +121,10 @@ void Nvim::read_output_sync()
         case Type::Notification:
         {
           assert(arr->size() == 3);
-          const auto method_qstr = arr->at(1).string();
-          if (!method_qstr) continue;
-          auto method = method_qstr->toStdString();
+          const auto method_str = arr->at(1).string();
+          if (!method_str) continue;
           notification_handlers_mutex.lock();
-          const auto func_it = notification_handlers.find(method);
+          const auto func_it = notification_handlers.find(*method_str);
           if (func_it == notification_handlers.end())
           {
             notification_handlers_mutex.unlock();
@@ -141,11 +140,10 @@ void Nvim::read_output_sync()
         case Type::Request:
         {
           assert(arr->size() == 4);
-          const QString* method_qstr = arr->at(2).string();
-          if (!method_qstr) continue;
-          const auto method = method_qstr->toStdString();
+          const auto* method_str = arr->at(2).string();
+          if (!method_str) continue;
           request_handlers_mutex.lock();
-          const auto func_it = request_handlers.find(method);
+          const auto func_it = request_handlers.find(*method_str);
           if (func_it == request_handlers.end())
           {
             request_handlers_mutex.unlock();

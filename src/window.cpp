@@ -58,7 +58,7 @@ using u32 = std::uint32_t;
  * or exit if it doesn't match.
  */
 template<typename... T, typename Func>
-static std::function<void (const ObjectArray&)> paramify(Func f)
+static std::function<void (const ObjectArray&)> paramify(Func&& f)
 {
   return [f](const ObjectArray& arg_list) {
     std::tuple<T...> t;
@@ -68,9 +68,20 @@ static std::function<void (const ObjectArray&)> paramify(Func f)
     std::size_t idx = 0;
     for_each_in_tuple(t, [&](auto& p) {
       using val_type = std::remove_reference_t<decltype(p)>;
+      if constexpr(std::is_same_v<val_type, QString>)
+      {
+        std::optional<QString> s {};
+        if (auto* o_s = arg_list.at(idx).string())
+        {
+          s = QString::fromStdString(*o_s);
+        }
+        if (!s) { valid = false; ++idx; return; }
+        else p = std::move(s.value());
+        return;
+      }
       std::optional<val_type> v = arg_list.at(idx).try_convert<val_type>();
       if (!v) { valid = false; return; }
-      p = *v;
+      p = std::move(v.value());
       ++idx;
     });
     if (!valid) return;
@@ -127,10 +138,9 @@ void Window::handle_redraw(Object redraw_args)
   {
     auto* task = o.array();
     if (!task || task->size() == 0) continue;
-    auto* task_qstr = task->at(0).string();
-    if (!task_qstr) continue;
-    auto task_name = task_qstr->toStdString();
-    const auto func_it = handlers.find(task_name);
+    auto* task_name = task->at(0).string();
+    if (!task_name) continue;
+    const auto func_it = handlers.find(*task_name);
     if (func_it != handlers.end())
     {
       auto span = std::span {task->data() + 1, task->size() - 1};

@@ -67,7 +67,7 @@ void Cursor::mode_change(std::span<const Object> objs)
   {
     auto* arr = o.array();
     if (!(arr && arr->size() >= 2)) continue;
-    const auto mode_name = arr->at(0).string()->toStdString();
+    const auto mode_name = arr->at(0).get<std::string>();
     if (cur_pos) old_mode_idx = cur_mode_idx;
     if (!arr->at(1).u64()) continue;
     cur_mode_idx = *arr->at(1).u64();
@@ -95,7 +95,7 @@ void Cursor::mode_info_set(std::span<const Object> objs)
         if (key == "cursor_shape")
         {
           if (!val.string()) continue;
-          const QString shape = *val.string();
+          const auto shape = *val.string();
           if (shape == "horizontal")
           {
             mode.cursor_shape = CursorShape::Horizontal;
@@ -123,11 +123,11 @@ void Cursor::mode_info_set(std::span<const Object> objs)
         }
         else if (key == "short_name")
         {
-          mode.short_name = val.string()->toStdString();
+          mode.short_name = *val.string();
         }
         else if (key == "name")
         {
-          mode.name = val.string()->toStdString();
+          mode.name = *val.string();
         }
         else if (key == "blinkwait")
         {

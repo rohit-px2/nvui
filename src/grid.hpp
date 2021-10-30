@@ -22,6 +22,7 @@ struct GridChar
   grid_char text;
   bool double_width = false;
   std::uint32_t ucs;
+  static grid_char grid_char_from_str(const std::string& s);
 };
 
 // Differentiate between redrawing and clearing (since clearing is

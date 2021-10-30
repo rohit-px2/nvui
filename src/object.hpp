@@ -31,7 +31,7 @@ struct Object
   using Map = boost::container::flat_map<std::string, Object, std::less<>>;
   using Array = std::vector<Object>;
   using null_type = std::monostate;
-  using string_type = QString;
+  using string_type = std::string;
   using signed_type = std::int64_t;
   using unsigned_type = std::uint64_t;
   using array_type = Array;
@@ -41,17 +41,16 @@ struct Object
   using float_type = double;
   using err_type = Error;
   using variant_type = std::variant<
-    std::monostate,
-    int64_t,
-    uint64_t,
-    QString,
-    Array,
-    Map,
-    bool,
-    NeovimExt,
-    std::string,
-    double,
-    Error
+    null_type,
+    signed_type,
+    unsigned_type,
+    string_type,
+    array_type,
+    map_type,
+    bool_type,
+    ext_type,
+    float_type,
+    err_type
   >;
   template<typename T>
   Object(T&& t): v(std::forward<T>(t)) {}
@@ -72,7 +71,7 @@ struct Object
   static Object parse(const msgpack::object&);
   std::string to_string() const noexcept;
   auto* array() noexcept { return std::get_if<Array>(&v); }
-  auto* string() noexcept { return std::get_if<QString>(&v); }
+  auto* string() noexcept { return std::get_if<string_type>(&v); }
   auto* i64() noexcept { return std::get_if<int64_t>(&v); }
   auto* u64() noexcept { return std::get_if<uint64_t>(&v); }
   auto* map() noexcept { return std::get_if<Map>(&v); }
@@ -82,7 +81,7 @@ struct Object
   auto* err() noexcept { return std::get_if<Error>(&v); }
   // Const versions
   auto* array() const noexcept { return std::get_if<Array>(&v); }
-  auto* string() const noexcept { return std::get_if<QString>(&v); }
+  auto* string() const noexcept { return std::get_if<string_type>(&v); }
   auto* i64() const noexcept { return std::get_if<int64_t>(&v); }
   auto* u64() const noexcept { return std::get_if<uint64_t>(&v); }
   auto* map() const noexcept { return std::get_if<Map>(&v); }

@@ -77,6 +77,7 @@ static std::function<void (const ObjectArray&)> paramify(Func&& f)
         }
         if (!s) { valid = false; ++idx; return; }
         else p = std::move(s.value());
+        ++idx;
         return;
       }
       std::optional<val_type> v = arg_list.at(idx).try_convert<val_type>();

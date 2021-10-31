@@ -14,6 +14,7 @@
 #include "grid.hpp"
 #include "hlstate.hpp"
 #include "cursor.hpp"
+#include "lru.hpp"
 
 class WinEditorArea;
 

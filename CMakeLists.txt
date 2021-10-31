@@ -70,6 +70,10 @@ file(GLOB SOURCES
   src/input.cpp
   src/input.hpp
   src/scalers.hpp
+  src/mouse.hpp
+  src/qpaintgrid.hpp
+  src/qpaintgrid.cpp
+  src/lru.hpp
 )
 if (WIN32)
   message("Windows detected.")
@@ -141,6 +145,10 @@ file(GLOB TEST_SOURCES
   src/input.cpp
   src/input.hpp
   src/scalers.hpp
+  src/mouse.hpp
+  src/qpaintgrid.hpp
+  src/qpaintgrid.cpp
+  src/lru.hpp
 )
 if (WIN32)
   file(GLOB WINONLYTESTSOURCES

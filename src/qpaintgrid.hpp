@@ -61,7 +61,7 @@ private:
     const HLAttr& def_clrs,
     const QPointF& start,
     const QPointF& end,
-    const int offset,
+    const double offset,
     QFont font,
     float font_width,
     float font_height
@@ -75,7 +75,8 @@ private:
     const FontOptions font_opts,
     QFont& font,
     float font_width,
-    float font_height
+    float font_height,
+    double offset = 0.
   );
   /// Update the pixmap size
   void update_pixmap_size();

@@ -188,8 +188,8 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
   const auto& fonts = editor_area->fallback_list();
   QFont cur_font = editor_area->main_font();
   auto font_dims = editor_area->font_dimensions();
-  auto font_width = std::get<0>(font_dims);
-  auto font_height = std::get<1>(font_dims);
+  auto font_width = font_dims.width;
+  auto font_height = font_dims.height;
   //int start_x = r.left();
   //int end_x = r.right();
   int start_y = r.top();

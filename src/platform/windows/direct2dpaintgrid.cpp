@@ -322,8 +322,8 @@ void D2DPaintGrid::draw(
   //const int start_x = r.left(), end_x = r.right();
   const int start_y = r.top(), end_y = r.bottom();
   const auto font_dims = editor_area->font_dimensions();
-  const float font_width = std::get<0>(font_dims);
-  const float font_height = std::get<1>(font_dims);
+  const float font_width = font_dims.width;
+  const float font_height = font_dims.height;
   const HLState* s = editor_area->hl_state();
   QString buffer;
   buffer.reserve(100);

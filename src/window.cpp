@@ -104,8 +104,8 @@ Window::Window(QWidget* parent, Nvim* nv, int width, int height, bool custom_tit
   setMouseTracking(true);
   QObject::connect(this, &Window::resize_done, &editor_area, &EditorArea::resized);
   prev_state = windowState();
-  const auto font_dims = editor_area.font_dimensions();
-  resize(width * std::get<0>(font_dims), height * std::get<1>(font_dims));
+  const auto [font_width, font_height] = editor_area.font_dimensions();
+  resize(width * font_width, height * font_height);
   emit resize_done(size());
   if (custom_titlebar)
   {

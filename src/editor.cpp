@@ -326,10 +326,11 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
     }
     if (!popup_menu.hidden() && popup_menu.selected_idx() != -1)
     {
-      QPoint pum_tr = popupmenu_rect().topRight();
+      const auto [font_w, font_h] = font_dimensions();
+      const QPoint pum_tr = popupmenu_rect().topRight();
       // Don't let the grid get clipped by the popup menu
-      float pum_rx = std::round(pum_tr.x() / font_width);
-      float pum_ty = std::ceil(pum_tr.y() / font_height);
+      const float pum_rx = std::round(pum_tr.x() / font_w);
+      const float pum_ty = std::ceil(pum_tr.y() / font_h);
       anchor_pos = QPoint(pum_rx, pum_ty);
     }
     bool were_animations_enabled = animations_enabled();
@@ -575,9 +576,9 @@ void EditorArea::paintEvent(QPaintEvent* event)
   } else popup_menu.setVisible(false);
 }
 
-std::tuple<float, float> EditorArea::font_dimensions() const
+FontDimensions EditorArea::font_dimensions() const
 {
-  return std::make_tuple(font_width, font_height);
+  return {font_width, font_height};
 }
 
 void EditorArea::resized(QSize sz)

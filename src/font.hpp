@@ -27,4 +27,11 @@ private:
   QRawFont raw_;
 };
 
+/// Font dimensions of a monospace font,
+/// stores the width and height of a single character.
+struct FontDimensions
+{
+  float width;
+  float height;
+};
 #endif // NVUI_FONT_HPP

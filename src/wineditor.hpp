@@ -112,7 +112,7 @@ public:
     return nullptr;
   }
   
-  std::tuple<float, float> font_dimensions() const override
+  FontDimensions font_dimensions() const override
   {
     if (font_width_f <= 0.f)
     {

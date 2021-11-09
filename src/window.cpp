@@ -898,3 +898,16 @@ void Window::update_titlebar_colors()
   auto bg = titlebar_colors.second.value_or(def_clrs.bg()->qcolor());
   title_bar->set_color(fg, bg);
 }
+
+void Window::closeEvent(QCloseEvent* event)
+{
+  event->ignore();
+  if (nvim->exited())
+  {
+    QWidget::closeEvent(event);
+  }
+  else
+  {
+    nvim->command("confirm qa");
+  }
+}

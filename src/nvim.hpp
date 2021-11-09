@@ -76,11 +76,6 @@ public:
    */
   void send_input(std::string key);
   /**
-   * Sends a "nvim_ui_attach" message to the embedded Neovim instance with
-   * the rows and cols as the parameters, along with the default capabilities.
-   */
-  void attach_ui(const int rows, const int cols);
-  /**
    * Sends an "nvim_ui_attach" message to Neovim with the given rows, columns,
    * and client capabilities.
    */
@@ -205,6 +200,8 @@ public:
   {
     send_notification("nvim_err_write", std::tuple {str});
   }
+
+  bool exited() const { return did_exit; }
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
@@ -212,6 +209,7 @@ private:
   std::unordered_map<std::uint32_t, response_cb> singleshot_callbacks;
   std::thread err_reader;
   std::thread out_reader;
+  std::atomic<bool> did_exit = false;
   // Condition variable to check if we are closing
   std::atomic<bool> closed;
   std::mutex input_mutex;

@@ -261,6 +261,7 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
 void QPaintGrid::process_events()
 {
   QPainter p(&pixmap);
+  p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
   const QColor bg = editor_area->default_bg();
   const auto offset = editor_area->font_offset();
   while(!evt_q.empty())

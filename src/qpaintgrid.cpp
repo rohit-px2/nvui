@@ -115,30 +115,29 @@ void QPaintGrid::draw_text(
   const FontOptions font_opts,
   QFont& font,
   float font_width,
-  float font_height,
-  double offset
+  float font_height
 )
 {
-  //using key_type = decltype(text_cache)::key_type;
-  //key_type key = {text, font_opts};
+  using key_type = decltype(text_cache)::key_type;
+  key_type key = {text, font_opts};
   font::set_opts<false>(font, font_opts);
   painter.setFont(font);
-  //QStaticText* static_text = text_cache.get(key);
-  //if (!static_text)
-  //{
-    //static_text = &text_cache.put(std::move(key), QStaticText {text});
-    //static_text->setTextFormat(Qt::PlainText);
-    //static_text->setPerformanceHint(QStaticText::AggressiveCaching);
-    //static_text->prepare(QTransform(), font);
-  //}
-  //double y = rect.y();
-  //y -= (static_text->size().height() - font_height);
+  QStaticText* static_text = text_cache.get(key);
+  if (!static_text)
+  {
+    static_text = &text_cache.put(std::move(key), QStaticText {text});
+    static_text->setTextFormat(Qt::PlainText);
+    static_text->setPerformanceHint(QStaticText::AggressiveCaching);
+    static_text->prepare(QTransform(), font);
+  }
+  double y = rect.y();
+  y -= (static_text->size().height() - font_height);
   painter.setClipRect(rect);
   painter.setPen(fg.qcolor());
-  painter.drawText(QPointF {rect.x(), rect.y() + offset}, text);
+  painter.drawStaticText(QPointF {rect.x(), y}, *static_text);
   QRectF line_clip_rect {
     rect.x(), rect.y(),
-    rect.width(), font_height
+    static_text->size().width(), font_height
   };
   if (!sp) return;
   painter.setPen(sp.value().qcolor());
@@ -159,20 +158,20 @@ void QPaintGrid::draw_text_and_bg(
   const HLAttr& def_clrs,
   const QPointF& start,
   const QPointF& end,
-  const double offset,
+  const int offset,
   QFont font,
   float font_width,
   float font_height
 )
 {
+  Q_UNUSED(offset);
   auto [fg, bg, sp] = attr.fg_bg_sp(def_clrs);
   QRectF rect = {start, end};
   painter.setClipRect(rect);
   painter.fillRect(rect, bg.qcolor());
   rect.setWidth(rect.width() * 3.);
   draw_text(
-    painter, text, fg, sp, rect, attr.font_opts, font, font_width, font_height,
-    offset
+    painter, text, fg, sp, rect, attr.font_opts, font, font_width, font_height
   );
 }
 
@@ -456,8 +455,7 @@ void QPaintGrid::draw_cursor(QPainter& painter, const Cursor& cursor)
     QRectF text_rect(left, top, font_width * scale_factor * 5., font_height);
     draw_text(
       painter, gc.text, fg, cursor_attr.sp(), text_rect,
-      cursor_attr.font_opts, chosen_font, font_width, font_height,
-      editor_area->font_offset()
+      cursor_attr.font_opts, chosen_font, font_width, font_height
     );
   }
 }

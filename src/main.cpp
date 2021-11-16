@@ -94,7 +94,7 @@ std::optional<std::pair<int, int>> parse_geometry(std::string_view geom)
 {
   auto pos = geom.find('x');
   if (pos == std::string::npos) return std::nullopt;
-  int width, height;
+  int width=0, height=0;
   auto data = geom.data();
   auto res = std::from_chars(data, data + pos, width);
   res = std::from_chars(data + pos + 1, data + geom.size(), height);

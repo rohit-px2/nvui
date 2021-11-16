@@ -12,6 +12,7 @@
 :NvuiCmdPadding	nvui.txt	/*:NvuiCmdPadding*
 :NvuiCmdTopPos	nvui.txt	/*:NvuiCmdTopPos*
 :NvuiCmdWidth	nvui.txt	/*:NvuiCmdWidth*
+:NvuiCmdline	nvui.txt	/*:NvuiCmdline*
 :NvuiCursorAnimationDuration	nvui.txt	/*:NvuiCursorAnimationDuration*
 :NvuiCursorFrametime	nvui.txt	/*:NvuiCursorFrametime*
 :NvuiCursorHideWhileTyping	nvui.txt	/*:NvuiCursorHideWhileTyping*
@@ -38,6 +39,7 @@
 :NvuiPopupMenuInfoColumns	nvui.txt	/*:NvuiPopupMenuInfoColumns*
 :NvuiPopupMenuMaxChars	nvui.txt	/*:NvuiPopupMenuMaxChars*
 :NvuiPopupMenuMaxItems	nvui.txt	/*:NvuiPopupMenuMaxItems*
+:NvuiPopupmenu	nvui.txt	/*:NvuiPopupmenu*
 :NvuiScrollAnimationDuration	nvui.txt	/*:NvuiScrollAnimationDuration*
 :NvuiScrollFrametime	nvui.txt	/*:NvuiScrollFrametime*
 :NvuiScrollScaler	nvui.txt	/*:NvuiScrollScaler*

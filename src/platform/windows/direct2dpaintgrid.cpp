@@ -564,6 +564,7 @@ void D2DPaintGrid::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
   ID2D1SolidColorBrush* brush = nullptr;
   const HLAttr& attr = hl->attr_for_id(rect.hl_id);
   auto [fg, bg, sp] = attr.fg_bg_sp(hl->default_colors_get());
+  if (attr.hl_id == 0) std::swap(fg, bg);
   target->CreateSolidColorBrush(D2D1::ColorF(bg.to_uint32()), &brush);
   const QRectF& r = rect.rect;
   auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());

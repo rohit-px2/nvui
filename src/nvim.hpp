@@ -200,8 +200,9 @@ public:
   {
     send_notification("nvim_err_write", std::tuple {str});
   }
-
   bool exited() const { return did_exit; }
+  template<typename T>
+  void ui_set_option(const std::string& name, T&& val);
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
@@ -313,6 +314,14 @@ template<typename T>
 void Nvim::set_var(const std::string& name, T&& val)
 {
   send_notification("nvim_set_var", std::tuple {name, std::forward<T>(val)});
+}
+
+template<typename T>
+void Nvim::ui_set_option(const std::string& name, T&& val)
+{
+  send_notification("nvim_ui_set_option", std::tuple {
+    name, std::forward<T>(val)
+  });
 }
 
 #endif

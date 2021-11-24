@@ -519,13 +519,21 @@ void Window::register_handlers()
       editor_area.setAttribute(Qt::WA_InputMethodEnabled, enable);
   }));
   listen_for_notification("NVUI_IME_TOGGLE", [&](const auto&) {
-    constexpr auto attr = Qt::WA_InputMethodEnabled;
-    if (editor_area.testAttribute(attr))
+    constexpr auto ime = Qt::WA_InputMethodEnabled;
+    if (editor_area.testAttribute(ime))
     {
-      editor_area.setAttribute(attr, false);
+      editor_area.setAttribute(ime, false);
     }
-    else editor_area.setAttribute(attr, true);
+    else editor_area.setAttribute(ime, true);
   });
+  listen_for_notification("NVUI_EXT_POPUPMENU",
+    paramify<bool>([this](bool b) {
+      nvim->ui_set_option("ext_popupmenu", b);
+  }));
+  listen_for_notification("NVUI_EXT_CMDLINE",
+    paramify<bool>([this](bool b) {
+      nvim->ui_set_option("ext_cmdline", b);
+  }));
   /// Add request handlers
   handle_request<std::vector<std::string>, std::string>(
     "NVUI_POPUPMENU_ICON_NAMES", [&](const ObjectArray& arr) {

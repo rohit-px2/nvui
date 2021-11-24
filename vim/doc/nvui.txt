@@ -54,6 +54,18 @@ GENERAL				*nvui-general*
 
 	In Insert mode, extend the cursor by num_px pixels downward.
 
+:NvuiPopupmenu {enabled}				*:NvuiPopupmenu*
+	
+	{enabled} is a boolean.
+	Enable the external popup menu. Requires your Neovim to support
+	the "ext_popupmenu" feature (if you enable it).
+	
+:NvuiCmdline {enabled}				*:NvuiCmdline*
+
+	{enabled} is a boolean.
+	Enable the external command line. Requires your Neovim to support the
+	"ext_cmdline" feature (if you enable it).
+	
 ==============================================================================
 TITLEBAR			*nvui-titlebar*
 nvui implements a custom title bar by setting a frameless window.

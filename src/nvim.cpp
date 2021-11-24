@@ -314,10 +314,10 @@ Nvim::~Nvim()
 {
   // Close I/O Pipes and terminate process
   closed = true;
+  nvim.terminate();
   error.pipe().close();
   stdout_pipe.close();
   stdin_pipe.close();
-  nvim.terminate();
   out_reader.join();
   err_reader.join();
 }

@@ -363,7 +363,7 @@ private:
     const QPointF& start,
     const QPointF& end,
     const int offset,
-    QFont font,
+    const QFont& font,
     float font_width,
     float font_height
   );
@@ -374,7 +374,7 @@ private:
     const std::optional<Color>& sp,
     const QRectF& rect,
     const FontOptions font_opts,
-    QFont& font,
+    const QFont& font,
     float font_width,
     float font_height
   );

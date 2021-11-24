@@ -121,14 +121,13 @@ void QPaintGrid::draw_text(
   const std::optional<Color>& sp,
   const QRectF& rect,
   const FontOptions font_opts,
-  QFont& font,
+  const QFont& font,
   float font_width,
   float font_height
 )
 {
   using key_type = decltype(text_cache)::key_type;
   key_type key = {text, font_opts};
-  font::set_opts<false>(font, font_opts);
   painter.setFont(font);
   QStaticText* static_text = text_cache.get(key);
   if (!static_text)
@@ -167,7 +166,7 @@ void QPaintGrid::draw_text_and_bg(
   const QPointF& start,
   const QPointF& end,
   const int offset,
-  QFont font,
+  const QFont& font,
   float font_width,
   float font_height
 )
@@ -202,9 +201,10 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
   const auto draw_buf = [&](const HLAttr& main, QPointF start, QPointF end) {
     if (buffer.isEmpty()) return;
     reverse_qstring(buffer);
+    const auto& attr_font = fonts[cur_font_idx].font_for(main.font_opts);
     draw_text_and_bg(
       p, buffer, main, def_clrs, start, end,
-      offset, fonts[cur_font_idx].font(), font_width, font_height
+      offset, attr_font, font_width, font_height
     );
     buffer.resize(0);
   };

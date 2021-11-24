@@ -72,29 +72,10 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
 }
 
-//static int file_num = 0;
-//template<typename T>
-//static void dump_to_file(const T& oh)
-//{
-  //std::string fname = std::to_string(file_num) + ".txt";
-  //std::ofstream out {fname};
-  //out << oh;
-  //out.close();
-  //++file_num;
-//}
-
 void Nvim::resize(const int new_width, const int new_height)
 {
   send_notification("nvim_ui_try_resize", std::make_tuple(new_width, new_height));
 }
-
-static const std::unordered_map<std::string, bool> default_capabilities {
-  {"ext_linegrid", true},
-  //{"ext_multigrid", true},
-  //{"ext_popupmenu", true},
-  //{"ext_cmdline", true},
-  {"ext_hlstate", true}
-};
 
 // Although this is synchronous, it will be performed on another thread.
 void Nvim::read_output_sync()
@@ -179,17 +160,13 @@ void Nvim::read_output_sync()
       }
     }
   }
+  did_exit = true;
   // Exiting. When Nvim closes both the error and output pipe close,
   // but we don't want to call the exit handler twice.
   // Make sure we're not adding an exit handler at the same time we're
   // calling it
   Lock exit_lock {exit_handler_mutex};
   on_exit_handler();
-}
-
-void Nvim::attach_ui(const int rows, const int cols)
-{
-  attach_ui(rows, cols, default_capabilities);
 }
 
 void Nvim::attach_ui(const int rows, const int cols, std::unordered_map<std::string, bool> capabilities)

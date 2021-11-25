@@ -399,7 +399,7 @@ void EditorArea::msg_set_pos(std::span<NeovimObj> objs)
     //auto sep_char = arr.ptr[3].as<QString>();
     if (GridBase* grid = find_grid(grid_num))
     {
-      grid->float_pos(grid->x, row);
+      grid->set_pos(grid->x, row);
       move_to_top(grid);
     }
   }

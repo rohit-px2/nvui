@@ -296,10 +296,15 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
 {
   for(const auto& obj : objs)
   {
-    auto vars = obj.try_decompose<u64, NeovimExt, std::string, u64, int, int>();
+    auto vars = obj.try_decompose<u64, NeovimExt, std::string, u64, double, double>();
     if (!vars) continue;
     auto [grid_num, win, anchor_dir, anchor_grid_num, anchor_row, anchor_col] = *vars;
-    QPoint anchor_rel = {anchor_col, anchor_row};
+    int zindex = -1;
+    if (auto* params = obj.array(); params && params->size() >= 7)
+    {
+      zindex = params->at(6).try_convert<int>().value_or(-1);
+    }
+    QPointF anchor_rel(anchor_col, anchor_row);
     //bool focusable = arr.ptr[6].as<bool>();
     GridBase* grid = find_grid(grid_num);
     GridBase* anchor_grid = find_grid(anchor_grid_num);
@@ -307,7 +312,7 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
     // Anchor dir is "NW", "SW", "SE", "NE"
     // The anchor direction indicates which corner of the grid
     // should be at the position given.
-    QPoint anchor_pos = anchor_grid->top_left() + anchor_rel;
+    QPoint anchor_pos = anchor_grid->top_left() + anchor_rel.toPoint();
     if (anchor_dir == "SW")
     {
       anchor_pos -= QPoint(0, grid->rows);
@@ -338,6 +343,8 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
     grid->winid = get_win(win);
     move_to_top(grid);
     grid->float_pos(anchor_pos.x(), anchor_pos.y());
+    QPointF absolute_win_pos = anchor_rel + QPointF {anchor_col, anchor_row};
+    grid->set_float_ordering_info(zindex, absolute_win_pos);
     set_animations_enabled(were_animations_enabled);
   }
 }
@@ -392,7 +399,7 @@ void EditorArea::msg_set_pos(std::span<NeovimObj> objs)
     //auto sep_char = arr.ptr[3].as<QString>();
     if (GridBase* grid = find_grid(grid_num))
     {
-      grid->set_pos(grid->x, row);
+      grid->float_pos(grid->x, row);
       move_to_top(grid);
     }
   }
@@ -1085,4 +1092,43 @@ QVariant EditorArea::inputMethodQuery(Qt::InputMethodQuery query) const
       break;
   }
   return QVariant();
+}
+
+void EditorArea::sort_grids_by_z_index()
+{
+  std::sort(grids.begin(), grids.end(), [](const auto& g1, const auto& g2) {
+    return *g1 < *g2;
+  });
+  std::stable_partition(grids.begin(), grids.end(), [&](const auto& grid) {
+    return !grid->is_float();
+  });
+}
+
+std::int64_t EditorArea::get_win(const NeovimExt& ext)
+{
+  using namespace std;
+  vector<uint8_t> data;
+  for(const auto& c : ext.data) data.push_back(static_cast<uint8_t>(c));
+  const auto size = ext.data.size();
+  if (size == 1 && data[0] <= 0x7f) return (int) data[0];
+  else if (size == 1 && data[0] >= 0xe0)
+  {
+    return int8_t(data[0]);
+  }
+  else if (size == 2 && data[0] == 0xcc) return (int) data[1];
+  else if (size == 2 && data[0] == 0xd0) return int8_t(data[1]);
+  else if (size == 3 && data[0] == 0xcd)
+  {
+    return u16(data[2]) | u16(data[1]) << 8;
+  }
+  else if (size == 3 && data[0] == 0xd1)
+  {
+    return int16_t(uint16_t(data[2])) | uint16_t(data[1]) << 8;
+  }
+  else if (size == 5 && data[0] == 0xce)
+  {
+    return u32(data[4] | u32(data[3]) << 8
+         | u32(data[2]) << 16 | u32(data[1]) << 24);
+  }
+  return numeric_limits<int>::min();
 }

@@ -6,6 +6,31 @@
 scalers::time_scaler GridBase::scroll_scaler = scalers::oneminusexpo2negative10;
 scalers::time_scaler GridBase::move_scaler = scalers::oneminusexpo2negative10;
 
+bool GridBase::FloatOrderInfo::operator<(const FloatOrderInfo& other) const
+{
+  return zindex < other.zindex || x < other.x || y < other.y;
+}
+
+bool GridBase::operator<(const GridBase& other) const noexcept
+{
+  if (!is_float() && other.is_float())
+  {
+    return true;
+  }
+  else if (is_float() && !other.is_float())
+  {
+    return false;
+  }
+  else if (is_float() && other.is_float())
+  {
+    return float_ordering_info < other.float_ordering_info;
+  }
+  else
+  {
+    return z_index < other.z_index;
+  }
+}
+
 grid_char GridChar::grid_char_from_str(const std::string& s)
 {
   return QString::fromStdString(s);

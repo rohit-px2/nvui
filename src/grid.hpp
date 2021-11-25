@@ -156,6 +156,14 @@ class GridBase : public QObject
 {
   Q_OBJECT
 public:
+  /// For floating window ordering
+  struct FloatOrderInfo
+  {
+    bool operator<(const FloatOrderInfo& other) const;
+    int zindex;
+    double x;
+    double y;
+  };
   using u16 = std::uint16_t;
   using u32 = std::uint32_t;
   using u64 = std::uint64_t;
@@ -276,7 +284,7 @@ public:
     viewport = vp;
   }
   bool is_float() const { return is_float_grid; }
-  void set_floating(bool f) { is_float_grid = f; }
+  void set_floating(bool f) noexcept { is_float_grid = f; }
   void win_pos(u16 x, u16 y)
   {
     set_pos(x, y);
@@ -287,6 +295,11 @@ public:
     set_pos(x, y);
     set_floating(true);
   }
+  void set_float_ordering_info(int zindex, const QPointF& p) noexcept
+  {
+    float_ordering_info = {zindex, p.x(), p.y()};
+  }
+  bool operator<(const GridBase& other) const noexcept;
 public:
   u16 x;
   u16 y;
@@ -300,6 +313,7 @@ public:
   std::queue<PaintEventItem> evt_q;
   Viewport viewport;
   bool is_float_grid = false;
+  FloatOrderInfo float_ordering_info;
   /// Not used in GridBase (may not even be used at all
   /// if animations are not supported/enabled by the rendering
   /// grid).

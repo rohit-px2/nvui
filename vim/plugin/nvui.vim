@@ -1,8 +1,9 @@
 function! s:get_chan()
 	let chans = nvim_list_chans()
 	for chan in chans
-		if chan['stream'] == 'stdio'
+		if has_key(chan, 'name') && chan['name'] == 'nvui'
 			return chan['id']
+		endif
 	endfor
 	return 1
 endfunction

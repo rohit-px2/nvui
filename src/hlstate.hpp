@@ -114,7 +114,7 @@ public:
   {
     auto&& [fg, bg] = fg_bg(fallback);
     return {
-      fg, bg, special.value_or(fallback.special.value())
+      fg, bg, special.value_or(fg)
     };
   }
   int hl_id = 0;

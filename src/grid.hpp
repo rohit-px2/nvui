@@ -111,6 +111,7 @@ public:
   void set_floating(bool f) noexcept;
   void win_pos(u16 x, u16 y);
   void float_pos(u16 x, u16 y);
+  void msg_set_pos(u16 x, u16 y);
   void set_float_ordering_info(int zindex, const QPointF& p) noexcept;
   bool operator<(const GridBase& other) const noexcept;
   void scroll(int top, int bot, int left, int right, int rows);
@@ -146,6 +147,7 @@ protected:
   // a frame of the old snapshot being drawn one line below which then
   // gets drawn over, and it looks bad.
   bool modified = false;
+  bool is_msg_grid = false;
 };
 
 #endif // NVUI_GRID_HPP

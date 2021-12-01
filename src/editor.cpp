@@ -118,8 +118,8 @@ void EditorArea::grid_resize(std::span<NeovimObj> objs)
     {
       create_grid(0, 0, width, height, grid_num);
       grid = find_grid(grid_num);
+      grids_need_ordering = true;
       // Created grid appears above all others
-      move_to_top(grid);
     }
     if (grid)
     {
@@ -254,7 +254,7 @@ void EditorArea::flush()
       //grid->id, grid->x, grid->y, grid->cols, grid->rows
     //);
   //}
-  sort_grids_by_z_index();
+  if (grids_need_ordering) sort_grids_by_z_index();
   update();
 }
 
@@ -274,8 +274,8 @@ void EditorArea::win_pos(std::span<NeovimObj> objs)
     grid->hidden = false;
     grid->win_pos(sc, sr);
     grid->set_size(width, height);
-    move_to_top(grid);
     grid->winid = get_win(win);
+    grids_need_ordering = true;
   }
   send_redraw();
 }
@@ -300,9 +300,9 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
     if (!vars) continue;
     auto [grid_num, win, anchor_dir, anchor_grid_num, anchor_row, anchor_col] = *vars;
     int zindex = -1;
-    if (auto* params = obj.array(); params && params->size() >= 7)
+    if (auto* params = obj.array(); params && params->size() >= 8)
     {
-      zindex = params->at(6).try_convert<int>().value_or(-1);
+      zindex = params->at(7).try_convert<int>().value_or(-1);
     }
     QPointF anchor_rel(anchor_col, anchor_row);
     //bool focusable = arr.ptr[6].as<bool>();
@@ -341,11 +341,11 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
     bool were_animations_enabled = animations_enabled();
     set_animations_enabled(false);
     grid->winid = get_win(win);
-    move_to_top(grid);
     grid->float_pos(anchor_pos.x(), anchor_pos.y());
     QPointF absolute_win_pos = anchor_rel + QPointF {anchor_col, anchor_row};
     grid->set_float_ordering_info(zindex, absolute_win_pos);
     set_animations_enabled(were_animations_enabled);
+    grids_need_ordering = true;
   }
 }
 
@@ -399,8 +399,8 @@ void EditorArea::msg_set_pos(std::span<NeovimObj> objs)
     //auto sep_char = arr.ptr[3].as<QString>();
     if (GridBase* grid = find_grid(grid_num))
     {
-      grid->set_pos(grid->x, row);
-      move_to_top(grid);
+      grid->msg_set_pos(grid->x, row);
+      grids_need_ordering = true;
     }
   }
   send_redraw();
@@ -1077,6 +1077,7 @@ void EditorArea::sort_grids_by_z_index()
   std::stable_partition(grids.begin(), grids.end(), [&](const auto& grid) {
     return !grid->is_float();
   });
+  grids_need_ordering = false;
 }
 
 std::int64_t EditorArea::get_win(const NeovimExt& ext)

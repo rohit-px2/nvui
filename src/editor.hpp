@@ -448,6 +448,7 @@ protected:
   int cursor_animation_frametime_ms = 10;
   bool hide_cursor_while_typing = false;
   Mouse mouse;
+  bool grids_need_ordering = false;
   /**
    * Sets the current font to new_font.
    * If new_font is empty (this indicates an unset value),
@@ -557,21 +558,8 @@ protected:
   void send_clear(std::uint16_t grid_num, QRect r = {});
   /// Draw a portion of the grid
   void send_draw(std::uint16_t grid_num, QRect r);
-  void move_to_top(GridBase* grid)
-  {
-    if (grid->z_index == grids.size() - 1) return;
-    shift_z(grid->z_index);
-    grid->z_index = grids.size() - 1;
-  }
   /// Shift down all grids with a z index greater than idx
   /// by 1.
-  void shift_z(std::size_t idx)
-  {
-    for(auto& g : grids)
-    {
-      if (g->z_index > idx) --g->z_index;
-    }
-  }
   /// Sorts grids in order of their z index.
   void sort_grids_by_z_index();
   /// Returns an integer identifier for the window.

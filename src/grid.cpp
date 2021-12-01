@@ -28,7 +28,9 @@ GridBase::GridBase(
 
 bool GridBase::operator<(const GridBase& other) const noexcept
 {
-  if (!is_float() && other.is_float())
+  if (is_msg_grid) return false;
+  else if (other.is_msg_grid) return true;
+  else if (!is_float() && other.is_float())
   {
     return true;
   }
@@ -42,7 +44,7 @@ bool GridBase::operator<(const GridBase& other) const noexcept
   }
   else
   {
-    return z_index < other.z_index;
+    return id < other.id;
   }
 }
 
@@ -127,6 +129,11 @@ void GridBase::set_pos(u16 new_x, u16 new_y)
 {
   x = new_x;
   y = new_y;
+}
+void GridBase::msg_set_pos(u16 x, u16 y)
+{
+  is_msg_grid = true;
+  set_pos(x, y);
 }
 void GridBase::set_pos(QPoint p) { set_pos(p.x(), p.y()); }
 /// Send a redraw message to the grid

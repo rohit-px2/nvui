@@ -455,13 +455,14 @@ void D2DPaintGrid::update_position(double x, double y)
 
 void D2DPaintGrid::viewport_changed(Viewport vp)
 {
+  if (!modified) vp = viewport;
   // Thanks to Keith Simmons, the Neovide developer for explaining
   // his implementation of Neovide's smooth scrolling in his blog post
   // at http://02credits.com/blog/day96-neovide-smooth-scrolling.
   if (!editor_area->animations_enabled() || viewport.topline == vp.topline)
   {
-    //scroll_animation_timer.stop();
     GridBase::viewport_changed(vp);
+    modified = false;
     return;
   }
   auto dest_topline = vp.topline;
@@ -482,6 +483,7 @@ void D2DPaintGrid::viewport_changed(Viewport vp)
   }
   is_scrolling = true;
   if (!scroll_animation_timer.isActive()) scroll_animation_timer.start();
+  modified = false;
 }
 
 ID2D1Bitmap1* D2DPaintGrid::copy_bitmap(ID2D1Bitmap1* src)

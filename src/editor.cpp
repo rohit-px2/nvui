@@ -645,12 +645,8 @@ void EditorArea::grid_clear(std::span<NeovimObj> objs)
     const auto grid_num = arr->at(0).u64();
     assert(grid_num);
     auto* grid = find_grid(*grid_num);
-    for(auto& gc : grid->area)
-    {
-      gc = {0, " ", false, QChar(' ').unicode()};
-    }
-    QRect&& r = {grid->x, grid->y, grid->cols, grid->rows};
-    send_clear(*grid_num, r);
+    if (!grid) continue;
+    grid->clear();
   }
 }
 

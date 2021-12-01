@@ -22,6 +22,7 @@
 #include "font.hpp"
 #include "grid.hpp"
 #include "object.hpp"
+#include "qpaintgrid.hpp"
 
 /// UI Capabilities (Extensions)
 struct ExtensionCapabilities

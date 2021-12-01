@@ -663,29 +663,8 @@ void EditorArea::grid_scroll(std::span<NeovimObj> objs)
     const auto [grid_num, top, bot, left, right, rows] = *vars;
     // const int cols = arr->at(6);
     GridBase* grid = find_grid(grid_num);
-    if (!grid) return;
-    if (rows > 0)
-    {
-      for(int y = top; y < (bot - rows); ++y)
-      {
-        for(int x = left; x < right && x < grid->cols; ++x)
-        {
-          grid->area[y * grid->cols + x] = std::move(grid->area[(y + rows) * grid->cols + x]);
-        }
-      }
-    }
-    else if (rows < 0)
-    {
-      for(int y = (bot-1); y >= (top - rows); --y)
-      {
-        for(int x = left; x <= right && x < grid->cols; ++x)
-        {
-          grid->area[y * grid->cols + x] = std::move(grid->area[(y + rows) * grid->cols + x]);
-        }
-      }
-    }
-    auto rect = QRect(left, top, (right - left), (bot - top));
-    send_draw(grid_num, rect);
+    if (!grid) continue;
+    grid->scroll(top, bot, left, right, rows);
   }
 }
 

@@ -173,33 +173,7 @@ public:
     u16 w,
     u16 h,
     u16 id
-  ) : x(x),
-      y(y),
-      cols(w),
-      rows(h),
-      id(id),
-      area(w * h),
-      viewport({0, 0, 0, 0})
-  {
-  }
-  GridBase(const GridBase& other)
-  : QObject{}, x(other.x), y(other.y), cols(other.cols), rows(other.rows),
-    id(other.id), area(other.area), hidden(other.hidden),
-    viewport(other.viewport)
-  {
-  }
-  GridBase& operator=(const GridBase& other)
-  {
-    x = other.x;
-    y = other.y;
-    cols = other.cols;
-    rows = other.rows;
-    id = other.id;
-    area = other.area;
-    hidden = other.hidden;
-    viewport = other.viewport;
-    return *this;
-  }
+  );
   virtual ~GridBase() = default;
   void set_text(
     grid_char c,
@@ -208,98 +182,39 @@ public:
     int hl_id,
     u16 repeat,
     bool is_dbl_width
-  )
-  {
-    std::uint32_t ucs;
-    if (c.isEmpty()) ucs = 0;
-    else
-    {
-      if (c.at(0).isHighSurrogate())
-      {
-        assert(c.size() >= 2);
-        ucs = QChar::surrogateToUcs4(c.at(0), c.at(1));
-      }
-      else ucs = c.at(0).unicode();
-    }
-    // Neovim should make sure this isn't out-of-bounds
-    assert(col + repeat <= cols);
-    for(std::uint16_t i = 0; i < repeat; ++i)
-    {
-      std::size_t idx = row * cols + col + i;
-      if (idx >= area.size()) return;
-      area[idx] = {hl_id, c, is_dbl_width, ucs};
-    }
-  }
-
+  );
   /**
    * Set the size of the grid (cols x rows)
    * to width x height.
    */
-  virtual void set_size(u16 w, u16 h)
-  {
-    static const GridChar empty_cell = {0, " ", false, QChar(' ').unicode()};
-    resize_1d_vector(area, w, h, cols, rows, empty_cell);
-    cols = w;
-    rows = h;
-  }
+  virtual void set_size(u16 w, u16 h);
   /**
    * Set the position of the grid in terms of
    * which row and column it starts on.
    */
-  virtual void set_pos(u16 new_x, u16 new_y)
-  {
-    x = new_x;
-    y = new_y;
-  }
-  void set_pos(QPoint p) { set_pos(p.x(), p.y()); }
+  virtual void set_pos(u16 new_x, u16 new_y);
+  void set_pos(QPoint p);
   /// Send a redraw message to the grid
-  void send_redraw()
-  {
-    clear_event_queue();
-    evt_q.push({PaintKind::Redraw, 0, QRect()});
-  }
-  void send_clear()
-  {
-    clear_event_queue();
-    evt_q.push({PaintKind::Clear, 0, QRect()});
-  }
-  void send_draw(QRect r)
-  {
-    evt_q.push({PaintKind::Draw, 0, r});
-  }
+  void send_redraw();
+  void send_clear();
+  void send_draw(QRect r);
   /// Grid's top left position
-  QPoint top_left() { return {x, y}; };
-  QPoint bot_right() { return {x + cols, y + rows}; }
+  QPoint top_left();
+  QPoint bot_right();
   /// Grid's bottom right position
-  QPoint bot_left() { return {x, y + rows}; }
-  QPoint top_right() { return { x + cols, y}; }
+  QPoint bot_left();
+  QPoint top_right();
   /// Clear the event queue
-  void clear_event_queue()
-  {
-    decltype(evt_q)().swap(evt_q);
-  }
+  void clear_event_queue();
   /// Change the viewport to the new viewport.
-  virtual void viewport_changed(Viewport vp)
-  {
-    viewport = vp;
-  }
-  bool is_float() const { return is_float_grid; }
-  void set_floating(bool f) noexcept { is_float_grid = f; }
-  void win_pos(u16 x, u16 y)
-  {
-    set_pos(x, y);
-    set_floating(false);
-  }
-  void float_pos(u16 x, u16 y)
-  {
-    set_pos(x, y);
-    set_floating(true);
-  }
-  void set_float_ordering_info(int zindex, const QPointF& p) noexcept
-  {
-    float_ordering_info = {zindex, p.x(), p.y()};
-  }
+  virtual void viewport_changed(Viewport vp);
+  bool is_float() const;
+  void set_floating(bool f) noexcept;
+  void win_pos(u16 x, u16 y);
+  void float_pos(u16 x, u16 y);
+  void set_float_ordering_info(int zindex, const QPointF& p) noexcept;
   bool operator<(const GridBase& other) const noexcept;
+  void scroll(int top, int bot, int left, int right, int rows);
 public:
   u16 x;
   u16 y;
@@ -319,6 +234,18 @@ public:
   /// grid).
   static scalers::time_scaler scroll_scaler;
   static scalers::time_scaler move_scaler;
+protected:
+  // Flag that is set to "true" when the grid gets "modified"
+  // To fix janky scrolling.
+  // The problem is caused by Neovim sending 2 win_viewport events
+  // One win_viewport event is sent before any grid modification is done
+  // which causes the original grid snapshot to be drawn one line lower
+  // than it should be
+  // Then Neovim sends out the grid_line events but if the lag between
+  // the two events is high enough there will be a delay and you will see
+  // a frame of the old snapshot being drawn one line below which then
+  // gets drawn over, and it looks bad.
+  bool modified = false;
 };
 
 /// A class that implements rendering for a grid using Qt's

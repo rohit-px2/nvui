@@ -100,9 +100,10 @@ target_include_directories(nvui PRIVATE
 )
 if(WIN32)
   target_link_libraries(nvui PUBLIC
-    d2d1.lib
-    d3d11.lib
-    dwrite.lib
+		d2d1
+		dwrite
+		dwmapi
+		d3d11
   )
 endif()
 if (Boost_FOUND)

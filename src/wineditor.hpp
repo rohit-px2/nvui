@@ -24,6 +24,9 @@
 #include <winuser.h>
 #include "platform/windows/direct2dpaintgrid.hpp"
 
+#pragma comment(lib, "d2d1.lib")
+#pragma comment(lib, "dwrite.lib")
+
 using DWriteFactory = IDWriteFactory;
 
 template<class T>

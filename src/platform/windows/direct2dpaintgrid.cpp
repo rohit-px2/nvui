@@ -571,15 +571,17 @@ void D2DPaintGrid::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
   const QRectF& r = rect.rect;
   auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());
   // Draw cursor background
+  brush->SetOpacity(rect.opacity);
   draw_bg(*target, bg, fill_rect, *brush);
+  brush->SetOpacity(1.0f);
   if (rect.should_draw_text)
   {
     fill_rect.right = std::max(fill_rect.right, fill_rect.left + font_width);
     // If the rect exists, the pos must exist as well.
     auto font_idx = editor_area->font_for_ucs(gc.ucs);
     assert(font_idx < text_formats.size());
-    const auto start = D2D1::Point2F(fill_rect.left, fill_rect.top);
-    const auto end = D2D1::Point2F(fill_rect.right, fill_rect.bottom);
+    const auto start = D2D1::Point2F((x + pos.col) * font_width, (y + pos.row) * font_height);
+    const auto end = D2D1::Point2F(start.x + (scale_factor * font_width), start.y + font_height);
     draw_text(
       *target, gc.text, fg, sp, attr.font_opts, start, end,
       font_width, font_height, *brush, text_formats[font_idx], true

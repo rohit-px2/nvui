@@ -155,6 +155,13 @@ void Window::set_handler(std::string method, obj_ref_cb handler)
   handlers[method] = handler;
 }
 
+static std::vector<std::string> scaler_names()
+{
+  std::vector<std::string> names;
+  for(auto& sc : scalers::scalers()) names.push_back(sc.first);
+  return names;
+}
+
 void Window::register_handlers()
 {
   // Set GUI handlers before we set the notification handler (since Nvim runs on a different thread,
@@ -534,6 +541,25 @@ void Window::register_handlers()
     paramify<bool>([this](bool b) {
       nvim->ui_set_option("ext_cmdline", b);
   }));
+  listen_for_notification("NVUI_CURSOR_EFFECT",
+    paramify<std::string>([this](std::string eff) {
+      editor_area.cursor_set_effect(eff);
+  }));
+  listen_for_notification("NVUI_CURSOR_EFFECT_FRAMETIME",
+    paramify<int>([this](int ms) {
+      if (ms <= 0) editor_area.cursor_set_effect("none");
+      else editor_area.cursor_set_effect_frametime(ms);
+  }));
+  listen_for_notification("NVUI_CURSOR_EFFECT_DURATION",
+    paramify<double>([this](double secs) {
+      if (secs <= 0) editor_area.cursor_set_effect("none");
+      else editor_area.cursor_set_effect_duration(secs);
+  }));
+  listen_for_notification("NVUI_CURSOR_EFFECT_SCALER",
+    paramify<std::string>([this](std::string scaler) {
+      editor_area.cursor_set_effect_scaler(scaler);
+    })
+  );
   /// Add request handlers
   handle_request<std::vector<std::string>, std::string>(
     "NVUI_POPUPMENU_ICON_NAMES", [&](const ObjectArray& arr) {
@@ -542,12 +568,19 @@ void Window::register_handlers()
     }
   );
   handle_request<std::vector<std::string>, std::string>(
-    "NVUI_SCALER_NAMES", [&](const ObjectArray& arr) {
-      Q_UNUSED(arr);
-      std::vector<std::string> scaler_names;
-      scaler_names.reserve(scalers::scalers().size());
-      for(auto& sc : scalers::scalers()) scaler_names.push_back(sc.first);
-      return std::tuple {scaler_names, std::nullopt};
+    "NVUI_SCALER_NAMES", [&](const ObjectArray&) {
+      return std::tuple {scaler_names(), std::nullopt};
+    }
+  );
+  handle_request<std::vector<std::string>, std::string>(
+    "NVUI_CURSOR_EFFECT_NAMES", [&](const ObjectArray&) {
+      using namespace std;
+      return tuple {vector<string> {"smoothblink", "expandshrink", "none"}, std::nullopt};
+    }
+  );
+  handle_request<std::vector<std::string>, std::string>(
+    "NVUI_CURSOR_EFFECT_SCALERS", [&](const ObjectArray&) {
+      return std::tuple {scaler_names(), std::nullopt};
     }
   );
   auto script_dir = constants::script_dir().toStdString();

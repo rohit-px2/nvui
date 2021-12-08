@@ -22,9 +22,8 @@
 #include <fmt/format.h>
 #include <fmt/core.h>
 #include <winuser.h>
-#pragma comment(lib, "d2d1.lib")
-#pragma comment(lib, "dwrite.lib")
 #include "platform/windows/direct2dpaintgrid.hpp"
+
 using DWriteFactory = IDWriteFactory;
 
 template<class T>
@@ -248,7 +247,7 @@ protected:
       float ignore;
       text_layout->HitTestTextPosition(0, 0, &ignore, &ignore, &ht_metrics);
       font_width_f = (ht_metrics.width + charspace);
-      font_height_f = std::ceilf(ht_metrics.height + float(linespace));
+      font_height_f = std::ceil(ht_metrics.height + float(linespace));
     }
     SafeRelease(&text_layout);
   }

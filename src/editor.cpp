@@ -1058,7 +1058,7 @@ QVariant EditorArea::inputMethodQuery(Qt::InputMethodQuery query) const
     case Qt::ImCursorRectangle:
     {
       auto&& [font_width, font_height] = font_dimensions();
-      auto rect_opt = neovim_cursor.rect(font_width, font_height);
+      auto rect_opt = neovim_cursor.rect(font_width, font_height, true);
       if (!rect_opt) return QVariant();
       auto cr = *rect_opt;
       return cr.rect;

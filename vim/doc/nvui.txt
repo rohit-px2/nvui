@@ -426,6 +426,40 @@ moves, and some commands to customize the animation.
 	Sets the animation to update every 10ms (100fps). Of course this is only if
 	the frames are able to render in the correct amount of time.
 	:NvuiCursorFrametime -1 will disable the animations.
+
+:NvuiCursorEffect {effect}
+	
+	{effect} is a string that describes the type of effect desired,
+	you can see the completion list for valid effects. If you pass in a string
+	that isn't a valid effect it disables effects.
+	E.g.
+		:NvuiCursorEffect smoothblink
+	Enables the "Smooth Blink" effect.
+
+:NvuiCursorEffectFrametime {ms}
+
+	{ms} must be an integer. If {ms} <= 0 then effects are disabled.
+	Sets the frametime (update interval of the animation) to be {ms}.
+	Default: 16 ms (updates 62.5 times per second)
+	
+:NvuiCursorEffectDuration {secs}
+
+	{secs} must be a positive floating-point number. If {secs} <= 0
+	then effects are disabled.
+	Sets the duration of the animation to be {secs}.
+	Default: 1.0 seconds
+
+:NvuiCursorEffectScaler {scaler_name}
+	
+	Sets the easing function to be used to the function described by
+	{scaler_name}. You can see the valid scaler names by pressing <TAB>.
+	If {scaler_name} is not a recognized name, the easing function gets set to
+	the identity function.
+	E.g.
+	:NvuiCursorEffectScaler cube
+	Sets the easing function to the "cube" function.
+	Default: identity
+	
 ==============================================================================
 IME information					*nvui-ime*
 

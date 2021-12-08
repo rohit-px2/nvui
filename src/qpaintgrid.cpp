@@ -440,14 +440,16 @@ void QPaintGrid::draw_cursor(QPainter& painter, const Cursor& cursor)
   const auto& gc = area[idx];
   float scale_factor = 1.0f;
   if (gc.double_width) scale_factor = 2.0f;
-  auto rect_opt = cursor.rect(font_width, font_height, scale_factor);
+  auto rect_opt = cursor.rect(font_width, font_height, scale_factor, true);
   if (!rect_opt) return;
-  auto [rect, hl_id, should_draw_text] = rect_opt.value();
+  auto [rect, hl_id, should_draw_text, opacity] = rect_opt.value();
   const HLAttr& cursor_attr = hl->attr_for_id(hl_id);
   Color fg = cursor_attr.fg().value_or(hl->default_fg());
   Color bg = cursor_attr.bg().value_or(hl->default_bg());
   if (hl_id == 0 || cursor_attr.reverse) std::swap(fg, bg);
+  painter.setOpacity(opacity);
   painter.fillRect(rect, bg.qcolor());
+  painter.setOpacity(1.0);
   if (should_draw_text)
   {
     float left = (x + pos.col) * font_width;

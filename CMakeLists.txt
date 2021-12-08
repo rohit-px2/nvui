@@ -73,6 +73,8 @@ file(GLOB SOURCES
   src/lru.hpp
   src/qpaintgrid.hpp
   src/qpaintgrid.cpp
+  src/animation.hpp
+  src/animation.cpp
 )
 if (WIN32)
   message("Windows detected.")
@@ -147,6 +149,8 @@ file(GLOB TEST_SOURCES
   src/lru.hpp
   src/qpaintgrid.hpp
   src/qpaintgrid.cpp
+  src/animation.hpp
+  src/animation.cpp
 )
 if (WIN32)
   file(GLOB WINONLYTESTSOURCES

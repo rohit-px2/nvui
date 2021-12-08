@@ -412,6 +412,22 @@ public:
   {
     hide_cursor_while_typing = hide;
   }
+  void cursor_set_effect_duration(double duration)
+  {
+    neovim_cursor.set_effect_anim_duration(duration);
+  }
+  void cursor_set_effect_frametime(int ms)
+  {
+    neovim_cursor.set_effect_anim_frametime(ms);
+  }
+  void cursor_set_effect(std::string_view effect)
+  {
+    neovim_cursor.set_effect(effect);
+  }
+  void cursor_set_effect_scaler(std::string_view effsc)
+  {
+    neovim_cursor.set_effect_ease_func(effsc);
+  }
 protected:
   std::queue<PaintEventItem> events;
   float charspace = 0;

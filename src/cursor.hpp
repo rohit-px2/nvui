@@ -200,7 +200,7 @@ private:
   Animation effect_animation {};
   double opacity_level = 1.0;
   double height_level = 1.0;
-  CursorEffect cursor_effect = CursorEffect::ExpandShrink;
+  CursorEffect cursor_effect = CursorEffect::NoEffect;
   static scalers::time_scaler effect_ease_func;
 signals:
   void cursor_visible();

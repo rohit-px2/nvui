@@ -7,7 +7,13 @@ scalers::time_scaler GridBase::move_scaler = scalers::oneminusexpo2negative10;
 
 bool GridBase::FloatOrderInfo::operator<(const FloatOrderInfo& other) const
 {
-  return zindex < other.zindex || x < other.x || y < other.y;
+  return zindex == other.zindex
+    ? x == other.x
+      ? y == other.y
+        ? true // Rip
+        : y < other.y
+      : x < other.x
+    : zindex < other.zindex;
 }
 
 GridBase::GridBase(

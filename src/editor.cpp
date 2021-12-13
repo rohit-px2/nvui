@@ -98,6 +98,13 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   QObject::connect(&neovim_cursor, &Cursor::cursor_visible, this, [this] {
     update();
   });
+  idle_timer.setSingleShot(true);
+  /// Default: 100s after idle
+  idle_timer.setInterval(100000);
+  idle_timer.callOnTimeout([&] {
+    idle();
+  });
+  idle_timer.start();
 }
 
 void EditorArea::grid_resize(std::span<NeovimObj> objs)
@@ -247,13 +254,6 @@ void EditorArea::option_set(std::span<NeovimObj> objs)
 
 void EditorArea::flush()
 {
-  //for(auto& grid : grids)
-  //{
-    //fmt::print(
-      //"ID: {}, X: {}, Y: {}, Width: {}, Height: {}\n",
-      //grid->id, grid->x, grid->y, grid->cols, grid->rows
-    //);
-  //}
   if (grids_need_ordering) sort_grids_by_z_index();
   update();
 }
@@ -699,6 +699,7 @@ void EditorArea::set_resizing(bool is_resizing)
 
 void EditorArea::keyPressEvent(QKeyEvent* event)
 {
+  un_idle();
   if (hide_cursor_while_typing && cursor() != Qt::BlankCursor)
   {
     setCursor(Qt::BlankCursor);
@@ -917,6 +918,7 @@ void EditorArea::send_mouse_input(
 
 void EditorArea::mousePressEvent(QMouseEvent* event)
 {
+  un_idle();
   if (hide_cursor_while_typing && cursor() == Qt::BlankCursor)
   {
     unsetCursor();
@@ -939,6 +941,7 @@ void EditorArea::mousePressEvent(QMouseEvent* event)
 
 void EditorArea::mouseMoveEvent(QMouseEvent* event)
 {
+  un_idle();
   if (hide_cursor_while_typing && cursor() == Qt::BlankCursor)
   {
     unsetCursor();
@@ -975,6 +978,7 @@ void EditorArea::mouseMoveEvent(QMouseEvent* event)
 
 void EditorArea::mouseReleaseEvent(QMouseEvent* event)
 {
+  un_idle();
   if (!mouse_enabled) return;
   auto button = mouse_button_to_string(event->button());
   if (button.empty()) return;
@@ -988,6 +992,7 @@ void EditorArea::mouseReleaseEvent(QMouseEvent* event)
 
 void EditorArea::wheelEvent(QWheelEvent* event)
 {
+  un_idle();
   if (!mouse_enabled) return;
   std::string button = "wheel";
   std::string action = "";
@@ -1017,8 +1022,6 @@ double EditorArea::font_offset() const
 
 void EditorArea::send_redraw()
 {
-  //clear_events();
-  //events.push({PaintKind::Redraw, 0, QRect()});
   for(auto& grid : grids) grid->send_redraw();
 }
 
@@ -1026,18 +1029,11 @@ void EditorArea::send_clear(std::uint16_t grid_num, QRect r)
 {
   Q_UNUSED(r);
   if (GridBase* grid = find_grid(grid_num); grid) grid->send_clear();
-  //if (r.isNull())
-  //{
-    //GridBase* grid = find_grid(grid_num);
-    //r = {grid->x, grid->y, grid->cols, grid->rows};
-  //}
-  //events.push({PaintKind::Clear, grid_num, r});
 }
 
 void EditorArea::send_draw(std::uint16_t grid_num, QRect r)
 {
   if (GridBase* grid = find_grid(grid_num); grid) grid->send_draw(r);
-  //events.push({PaintKind::Draw, grid_num, std::move(r)}); 
 }
 
 void EditorArea::inputMethodEvent(QInputMethodEvent* event)
@@ -1107,4 +1103,36 @@ std::int64_t EditorArea::get_win(const NeovimExt& ext)
          | u32(data[2]) << 16 | u32(data[1]) << 24);
   }
   return numeric_limits<int>::min();
+}
+
+void EditorArea::idle()
+{
+  if (!should_idle) return;
+  idle_state = IdleState {animations_enabled()};
+  set_animations_enabled(false);
+}
+
+void EditorArea::un_idle()
+{
+  if (!idling()) return;
+  set_animations_enabled(idle_state.value().were_animations_enabled);
+  idle_state.reset();
+  idle_timer.stop();
+  idle_timer.start();
+}
+
+bool EditorArea::idling() const
+{
+  return idle_state.has_value();
+}
+
+void EditorArea::set_idling_time(double seconds)
+{
+  if (seconds == 0)
+  {
+    should_idle = false;
+    return;
+  }
+  should_idle = true;
+  idle_timer.setInterval(seconds * 1000);
 }

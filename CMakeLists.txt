@@ -152,6 +152,7 @@ file(GLOB TEST_SOURCES
   src/qpaintgrid.cpp
   src/animation.hpp
   src/animation.cpp
+  src/mouse.hpp
 )
 if (WIN32)
   file(GLOB WINONLYTESTSOURCES

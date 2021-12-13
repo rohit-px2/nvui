@@ -560,6 +560,10 @@ void Window::register_handlers()
       editor_area.cursor_set_effect_scaler(scaler);
     })
   );
+  listen_for_notification("NVUI_IDLE_WAIT_FOR",
+    paramify<double>([this](double seconds) {
+      editor_area.set_idling_time(seconds);
+  }));
   /// Add request handlers
   handle_request<std::vector<std::string>, std::string>(
     "NVUI_POPUPMENU_ICON_NAMES", [&](const ObjectArray& arr) {

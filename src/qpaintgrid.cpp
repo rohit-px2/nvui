@@ -456,11 +456,14 @@ void QPaintGrid::draw_cursor(QPainter& painter, const Cursor& cursor)
     float top = (y + pos.row) * font_height;
     const QPointF bot_left {left, top};
     auto font_idx = editor_area->font_for_ucs(gc.ucs);
+    FontOptions opts = cursor_attr.font_opts == FontOpts::Normal
+      ? hl->attr_for_id(gc.hl_id).font_opts
+      : cursor_attr.font_opts;
     QFont chosen_font = editor_area->fallback_list()[font_idx].font();
     QRectF text_rect(left, top, font_width * scale_factor * 5., font_height);
     draw_text(
       painter, gc.text, fg, cursor_attr.sp(), text_rect,
-      cursor_attr.font_opts, chosen_font, font_width, font_height
+      opts, chosen_font, font_width, font_height
     );
   }
 }

@@ -580,10 +580,13 @@ void D2DPaintGrid::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
     // If the rect exists, the pos must exist as well.
     auto font_idx = editor_area->font_for_ucs(gc.ucs);
     assert(font_idx < text_formats.size());
+    FontOptions fo = attr.font_opts == FontOpts::Normal
+      ? hl->attr_for_id(gc.hl_id).font_opts
+      : attr.font_opts;
     const auto start = D2D1::Point2F((x + pos.col) * font_width, (y + pos.row) * font_height);
     const auto end = D2D1::Point2F(start.x + (scale_factor * font_width), start.y + font_height);
     draw_text(
-      *target, gc.text, fg, sp, attr.font_opts, start, end,
+      *target, gc.text, fg, sp, fo, start, end,
       font_width, font_height, *brush, text_formats[font_idx], true
     );
   }

@@ -23,6 +23,7 @@
 #include "grid.hpp"
 #include "object.hpp"
 #include "qpaintgrid.hpp"
+#include "mouse.hpp"
 
 /// UI Capabilities (Extensions)
 struct ExtensionCapabilities
@@ -35,55 +36,6 @@ struct ExtensionCapabilities
   bool multigrid = false;
 };
 
-struct Mouse
-{
-  Mouse() = default;
-  Mouse(int interval)
-    : click_timer(),
-      gridid(),
-      row(), col(),
-      click_interval(interval)
-  {
-    click_timer.setSingleShot(true);
-    click_timer.setInterval(interval);
-    click_timer.callOnTimeout([&] {
-      reset_click();
-    });
-  }
-  void button_clicked(Qt::MouseButton b)
-  {
-    if (cur_button == b)
-    {
-      ++click_count;
-      start_timer();
-    }
-    else
-    {
-      reset_click();
-      cur_button = b;
-      click_count = 1;
-      start_timer();
-    }
-  }
-  void reset_click()
-  {
-    click_timer.stop();
-    click_count = 0;
-    cur_button = Qt::NoButton;
-  }
-  void start_timer()
-  {
-    if (click_timer.isActive()) return;
-    click_timer.start();
-  }
-  int click_count = 0;
-  Qt::MouseButton cur_button = Qt::NoButton;
-  QTimer click_timer;
-  int gridid = 0;
-  int row = 0;
-  int col = 0;
-  int click_interval;
-};
 
 /// Main editor area for Neovim
 class EditorArea : public QWidget
@@ -428,6 +380,7 @@ public:
   {
     neovim_cursor.set_effect_ease_func(effsc);
   }
+  void set_idling_time(double seconds);
 protected:
   std::queue<PaintEventItem> events;
   float charspace = 0;
@@ -465,6 +418,16 @@ protected:
   bool hide_cursor_while_typing = false;
   Mouse mouse;
   bool grids_need_ordering = false;
+  bool should_idle = true;
+  QTimer idle_timer {};
+  struct IdleState
+  {
+    bool were_animations_enabled;
+  };
+  std::optional<IdleState> idle_state;
+  void idle();
+  bool idling() const;
+  void un_idle();
   /**
    * Sets the current font to new_font.
    * If new_font is empty (this indicates an unset value),

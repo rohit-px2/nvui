@@ -65,6 +65,17 @@ GENERAL				*nvui-general*
 	{enabled} is a boolean.
 	Enable the external command line. Requires your Neovim to support the
 	"ext_cmdline" feature (if you enable it).
+
+:NvuiSecondsBeforeIdle {seconds}			*:NvuiSecondsBeforeIdle*
+
+	{seconds} must be a non-negative number with 0 indicating for nvui
+	to never idle.
+	Tells nvui to wait {seconds} seconds without activity before idling.
+	In idle mode, animations are turned off so that the number of redraws
+	is minimized. Once you activity is resumed via a mouse click or key press,
+	idle mode is turned off. This should help reduce CPU usage
+	and save battery when idle.
+	Default value: 100s.
 	
 ==============================================================================
 TITLEBAR			*nvui-titlebar*

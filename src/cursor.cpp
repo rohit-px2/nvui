@@ -98,6 +98,7 @@ Cursor::Cursor(EditorArea* ea)
     {
       case CursorEffect::SmoothBlink:
       case CursorEffect::ExpandShrink:
+        if (!editor_area->animations_enabled()) return;
         // continuous
         effect_animation.start();
         break;

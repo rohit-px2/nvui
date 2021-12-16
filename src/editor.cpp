@@ -493,6 +493,7 @@ void EditorArea::set_guifont(QString new_font)
   {
     std::tie(font_name, font_size, font_opts) = parse_guifont(lst[i]);
     QFont f;
+    f.setStyleStrategy(QFont::PreferAntialias);
     set_font_if_contains(f, font_name);
     set_relative_font_size(font, f, 0.0001, 1000);
     // The widths at the same point size can be different,
@@ -560,6 +561,7 @@ void EditorArea::paintEvent(QPaintEvent* event)
   p.fillRect(rect(), default_bg());
   QRectF grid_clip_rect(0, 0, cols * font_width, rows * font_height);
   p.setClipRect(grid_clip_rect);
+  p.setRenderHint(QPainter::SmoothPixmapTransform);
   for(auto& grid_base : grids)
   {
     auto* grid = static_cast<QPaintGrid*>(grid_base.get());

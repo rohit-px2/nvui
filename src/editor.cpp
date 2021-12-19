@@ -75,7 +75,6 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 : QWidget(parent),
   state(hl_state),
   nvim(nv),
-  pixmap(width(), height()),
   neovim_cursor(this),
   popup_menu(hl_state, this),
   cmdline(hl_state, &neovim_cursor, this),
@@ -631,11 +630,6 @@ void EditorArea::clear_grid(QPainter& painter, const GridBase& grid, const QRect
   // before filling
   const QRect r = to_pixels(grid.x + rect.x(), grid.y + rect.y(), rect.width(), rect.height());
   painter.fillRect(r, bg);
-}
-
-void EditorArea::ignore_next_paint_event()
-{
-  should_ignore_pevent = true;
 }
 
 void EditorArea::grid_clear(std::span<NeovimObj> objs)

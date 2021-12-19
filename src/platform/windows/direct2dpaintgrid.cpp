@@ -213,7 +213,7 @@ void D2DPaintGrid::draw_text(
     HRESULT hr;
     auto* factory = editor_area->dwrite_factory();
     hr = factory->CreateTextLayout(
-      (LPCWSTR) text.utf16(),
+      (LPCWSTR) text.constData(),
       text.size(),
       text_format,
       // Sometimes the text clips weirdly & adding

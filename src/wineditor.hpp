@@ -207,7 +207,7 @@ protected:
     constexpr auto create_format = 
       [](DWriteFactory* factory, const QFont& f, IDWriteTextFormat** tf, float dpi = default_dpi) {
         HRESULT hr = factory->CreateTextFormat(
-          (LPCWSTR) f.family().utf16(),
+          (LPCWSTR) f.family().constData(),
           NULL,
           DWRITE_FONT_WEIGHT_NORMAL,
           DWRITE_FONT_STYLE_NORMAL,

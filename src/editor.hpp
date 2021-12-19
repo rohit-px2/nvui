@@ -36,7 +36,6 @@ struct ExtensionCapabilities
   bool multigrid = false;
 };
 
-
 /// Main editor area for Neovim
 class EditorArea : public QWidget
 {
@@ -100,11 +99,6 @@ public:
    * Returns the font width and font height.
    */
   virtual FontDimensions font_dimensions() const;
-  /**
-   * Ignores the next paintEvent call.
-   * This is really only called after the window is moved.
-   */
-  void ignore_next_paint_event();
   /**
    * Handles a Neovim "grid_clear" event
    */
@@ -386,7 +380,6 @@ protected:
   float charspace = 0;
   float linespace = 0;
   HLState* state;
-  bool should_ignore_pevent = false;
   std::vector<std::unique_ptr<GridBase>> grids;
   bool bold = false;
   // For font fallback, not used if a single font is set.
@@ -395,7 +388,6 @@ protected:
   float font_height;
   QFont font;
   Nvim* nvim;
-  QPixmap pixmap;
   bool resizing = false;
   Cursor neovim_cursor;
   int rows = -1;

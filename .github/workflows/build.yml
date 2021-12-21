@@ -22,7 +22,7 @@ jobs:
             upload: true
             use_vcpkg: true
 
-          - os: macos-latest
+          - os: macos-10.15
             buildtype: 'Debug'
             cc: clang
             cxx: clang++
@@ -135,11 +135,11 @@ jobs:
           echo "Qt5_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
           echo "fmt_DIR=$(brew --prefix fmt)" >> $GITHUB_ENV
  
-      #- name: Mac - Pre-build configuration 
-        #if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg && matrix.macosver
-        #run: |
-          #/bin/bash -c "sudo xcode-select -s /Applications/Xcode_12.app/Contents/Developer"
-          #brew install make
+      - name: Mac - Pre-build configuration 
+        if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg && matrix.macosver
+        run: |
+          /bin/bash -c "sudo xcode-select -s /Applications/Xcode_12.app/Contents/Developer"
+          brew install make
 
       - name: Build nvui and nvui_test using vcpkg
         if: matrix.use_vcpkg

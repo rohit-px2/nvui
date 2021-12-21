@@ -29,7 +29,7 @@ jobs:
             test: true
             upload: false
 
-          - os: macos-latest
+          - os: macos-10.15
             buildtype: 'Release'
             cc: clang
             cxx: clang++
@@ -132,7 +132,7 @@ jobs:
       - name: Mac - Set environment variables
         if: ${{ startsWith(matrix.os, 'macos') && !matrix.use_vcpkg }}
         run: |
-          echo "Qt5_DIR=$(brew --prefix qt@5)/5.15.2/lib/cmake/Qt5" >> $GITHUB_ENV
+          echo "Qt5_DIR=$(brew --prefix qt@5)/5.15.2_1/lib/cmake/Qt5" >> $GITHUB_ENV
           echo "fmt_DIR=$(brew --prefix fmt)/8.0.1" >> $GITHUB_ENV
  
       #- name: Mac - Pre-build configuration 
@@ -147,7 +147,7 @@ jobs:
           cmake -B build . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
           cmake --build build --config ${{ matrix.buildtype }}
 
-      - name: Ubuntu - Build nvui and nvui_test
+      - name: Non-vcpkg - Build nvui and nvui_test
         if: ${{ !matrix.use_vcpkg }}
         run: |
           cmake -B build . -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}

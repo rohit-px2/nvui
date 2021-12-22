@@ -309,6 +309,10 @@ void Nvim::input_mouse(
   });
 }
 
+void Nvim::set_client_info(const ClientInfo& info)
+{
+  send_notification("nvim_set_client_info", info);
+}
 
 Nvim::~Nvim()
 {

@@ -34,6 +34,22 @@ class Nvim
 private:
   using response_cb = std::function<void (Object, Object)>;
 public:
+  struct ClientInfo
+  {
+    std::string name;
+    struct Version
+    {
+      int major;
+      int minor;
+      int patch;
+      MSGPACK_DEFINE_MAP(major, minor, patch);
+    };
+    Version version;
+    std::string type;
+    std::map<std::string, std::map<std::string, bool>> methods;
+    std::map<std::string, std::string> attributes;
+    MSGPACK_DEFINE_ARRAY(name, version, type, methods, attributes);
+  };
   ~Nvim();
   /**
    * Constructs an embedded Neovim instance and establishes communication.
@@ -203,6 +219,7 @@ public:
   bool exited() const { return did_exit; }
   template<typename T>
   void ui_set_option(const std::string& name, T&& val);
+  void set_client_info(const ClientInfo& info);
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;

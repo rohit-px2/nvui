@@ -26,6 +26,13 @@
 using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 
+static const Nvim::ClientInfo nvui_cinfo {
+  "nvui", {0, 2, 1}, "ui", {}, {
+    {"website", "https://github.com/rohit-px2/nvui"},
+    {"license", "MIT"}
+  }
+};
+
 static float get_offset(const QFont& font, const float linespacing)
 {
   QFontMetricsF fm {font};
@@ -71,6 +78,7 @@ static void set_relative_font_size(
   }
 }
 
+
 EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 : QWidget(parent),
   state(hl_state),
@@ -80,6 +88,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   cmdline(hl_state, &neovim_cursor, this),
   mouse(QApplication::doubleClickInterval())
 {
+  nvim->set_client_info(nvui_cinfo);
   setAttribute(Qt::WA_InputMethodEnabled);
   setAttribute(Qt::WA_OpaquePaintEvent);
   setAutoFillBackground(false);

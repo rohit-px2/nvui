@@ -23,7 +23,6 @@
 using std::string;
 using std::vector;
 
-
 std::optional<std::string_view> get_arg(
   const std::vector<std::string>& args,
   const std::string_view prefix

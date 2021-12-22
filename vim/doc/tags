@@ -43,6 +43,7 @@
 :NvuiScrollAnimationDuration	nvui.txt	/*:NvuiScrollAnimationDuration*
 :NvuiScrollFrametime	nvui.txt	/*:NvuiScrollFrametime*
 :NvuiScrollScaler	nvui.txt	/*:NvuiScrollScaler*
+:NvuiSecondsBeforeIdle	nvui.txt	/*:NvuiSecondsBeforeIdle*
 :NvuiSnapshotLimit	nvui.txt	/*:NvuiSnapshotLimit*
 :NvuiTitlebarBg	nvui.txt	/*:NvuiTitlebarBg*
 :NvuiTitlebarColors	nvui.txt	/*:NvuiTitlebarColors*

@@ -37,6 +37,10 @@ namespace scalers
   {
     return t;
   }
+  inline float root(float t)
+  {
+    return std::sqrt(t);
+  }
   /// Update this when a new scaler is added.
   inline const std::unordered_map<std::string, time_scaler>&
   scalers()
@@ -47,7 +51,8 @@ namespace scalers
       {"fourth", accel_continuous},
       {"fast_start", fast_start},
       {"quad", quadratic},
-      {"identity", identity}
+      {"identity", identity},
+      {"squareroot", root}
     };
     return scaler_map;
   }

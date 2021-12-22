@@ -23,9 +23,19 @@ endfunction
 function! s:get_file()
 	return expand('%:t')
 endfunction
+function! s:complete_cursoreff(arg, line, pos)
+	return rpcrequest(s:chan, 'NVUI_CURSOR_EFFECT_NAMES')
+endfunction
 function! s:get_title()
 	return join(split("nvui," . s:get_dir() . "," . s:get_file(), ","), g:nvui_tb_separator)
 endfunction
+function! s:complete_ceff_scaler(arg, line, pos)
+	return rpcrequest(s:chan, 'NVUI_CURSOR_EFFECT_SCALERS')
+endfunction
+command! -nargs=1 -complete=customlist,s:complete_ceff_scaler NvuiCursorEffectScaler call NvuiNotify("NVUI_CURSOR_EFFECT_SCALER", <f-args>)
+command! -nargs=1 -complete=customlist,s:complete_cursoreff NvuiCursorEffect call NvuiNotify('NVUI_CURSOR_EFFECT', <f-args>)
+command! -nargs=1 NvuiCursorEffectFrametime call rpcnotify(s:chan, 'NVUI_CURSOR_EFFECT_FRAMETIME', <args>)
+command! -nargs=1 NvuiCursorEffectDuration call rpcnotify(s:chan, 'NVUI_CURSOR_EFFECT_DURATION', <args>)
 command! -nargs=1 NvuiPopupMenuInfoColumns call rpcnotify(s:chan, 'NVUI_PUM_INFO_COLS', <args>)
 command! -nargs=1 NvuiScrollAnimationDuration call rpcnotify(s:chan, 'NVUI_SCROLL_ANIMATION_DURATION', <args>)
 command! -nargs=1 NvuiSnapshotLimit call rpcnotify(s:chan, 'NVUI_SNAPSHOT_LIMIT', <args>)
@@ -83,6 +93,7 @@ command! -nargs=1 NvuiCursorFrametime call rpcnotify(s:chan, 'NVUI_CURSOR_FRAMET
 command! -nargs=1 NvuiCursorHideWhileTyping call rpcnotify(s:chan, 'NVUI_CURSOR_HIDE_TYPE', <args>)
 command! -nargs=1 NvuiPopupMenu call rpcnotify(s:chan, 'NVUI_EXT_POPUPMENU', <args>)
 command! -nargs=1 NvuiCmdline call rpcnotify(s:chan, 'NVUI_EXT_CMDLINE', <args>)
+command! -nargs=1 NvuiSecondsBeforeIdle call rpcnotify(s:chan, 'NVUI_IDLE_WAIT_FOR', <args>)
 command! NvuiIMEEnable call rpcnotify(s:chan, 'NVUI_IME_SET', v:true)
 command! NvuiIMEDisable call rpcnotify(s:chan, 'NVUI_IME_SET', v:false)
 command! NvuiIMEToggle call rpcnotify(s:chan, 'NVUI_IME_TOGGLE')

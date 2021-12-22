@@ -22,9 +22,11 @@
 #include <fmt/format.h>
 #include <fmt/core.h>
 #include <winuser.h>
+#include "platform/windows/direct2dpaintgrid.hpp"
+
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dwrite.lib")
-#include "platform/windows/direct2dpaintgrid.hpp"
+
 using DWriteFactory = IDWriteFactory;
 
 template<class T>
@@ -205,7 +207,7 @@ protected:
     constexpr auto create_format = 
       [](DWriteFactory* factory, const QFont& f, IDWriteTextFormat** tf, float dpi = default_dpi) {
         HRESULT hr = factory->CreateTextFormat(
-          (LPCWSTR) f.family().utf16(),
+          (LPCWSTR) f.family().constData(),
           NULL,
           DWRITE_FONT_WEIGHT_NORMAL,
           DWRITE_FONT_STYLE_NORMAL,
@@ -248,7 +250,7 @@ protected:
       float ignore;
       text_layout->HitTestTextPosition(0, 0, &ignore, &ignore, &ht_metrics);
       font_width_f = (ht_metrics.width + charspace);
-      font_height_f = std::ceilf(ht_metrics.height + float(linespace));
+      font_height_f = std::ceil(ht_metrics.height + float(linespace));
     }
     SafeRelease(&text_layout);
   }

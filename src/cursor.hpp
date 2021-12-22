@@ -10,6 +10,7 @@
 #include "hlstate.hpp"
 #include "object.hpp"
 #include "scalers.hpp"
+#include "animation.hpp"
 
 enum class CursorShape : std::uint8_t
 {
@@ -35,6 +36,13 @@ struct CursorPos
   int col;
 };
 
+enum class CursorEffect
+{
+  NoEffect,
+  SmoothBlink,
+  ExpandShrink,
+};
+
 /// Describes the graphical properties of the cursor:
 /// The area it occupies (in terms of a single cell), as well as
 /// its highlight attribute, as well as whether the cell it contains
@@ -44,6 +52,7 @@ struct CursorRect
   QRectF rect {0, 0, 0, 0};
   int hl_id = 0;
   bool should_draw_text = false;
+  double opacity;
 };
 
 /// Describes the information contained within a single mode of the cursor.
@@ -87,8 +96,15 @@ public:
    * This in pixels, and is calculated using the given font width and font height.
    * If 'dbl' is true, the width of the cursor is doubled for the 'block' and 'underline'
    * cursor shapes. The vertical cursor shape remains the same.
+   * If 'varheight' is false then the cursor rectangle does not incorporate
+   * effects into the rectangle. This is for the cmdline
    */
-  std::optional<CursorRect> rect(float font_width, float font_height, float scale = 1.0f) const noexcept;
+  std::optional<CursorRect> rect(
+    float font_width,
+    float font_height,
+    float scale = 1.0f,
+    bool use_effects = true
+  ) const noexcept;
   /**
    * Same as rect(), but based on the old cursor position and mode.
    */
@@ -144,6 +160,11 @@ public:
     if (!cur_pos) return -1;
     return cur_pos.value().grid_num;
   }
+  void set_effect(std::string_view eff);
+  void set_effect_anim_duration(double dur);
+  void set_effect_anim_frametime(int ms);
+  void set_effect_ease_func(std::string_view funcname);
+  double opacity() const;
 private:
   EditorArea* editor_area = nullptr;
   float caret_extend_top = 0.f;
@@ -173,9 +194,14 @@ private:
   float destination_x = 0.f;
   float destination_y = 0.f;
   QTimer cursor_animation_timer {};
+  QElapsedTimer elapsed_timer {};
   // Check the actual amount of time that passed between
   // each animation update
-  QElapsedTimer elapsed_timer {};
+  Animation effect_animation {};
+  double opacity_level = 1.0;
+  double height_level = 1.0;
+  CursorEffect cursor_effect = CursorEffect::NoEffect;
+  static scalers::time_scaler effect_ease_func;
 signals:
   void cursor_visible();
   void cursor_hidden();
@@ -214,6 +240,8 @@ private:
     return status == CursorStatus::Busy;
   }
   bool use_animated_position() const;
+  void animate_smoothblink(double percent_finished);
+  void animate_expandshrink(double percent_finished);
 };
 
 #endif // NVUI_CURSOR_HPP

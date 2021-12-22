@@ -73,6 +73,8 @@ file(GLOB SOURCES
   src/lru.hpp
   src/qpaintgrid.hpp
   src/qpaintgrid.cpp
+  src/animation.hpp
+  src/animation.cpp
 )
 if (WIN32)
   message("Windows detected.")
@@ -98,9 +100,10 @@ target_include_directories(nvui PRIVATE
 )
 if(WIN32)
   target_link_libraries(nvui PUBLIC
-    d2d1.lib
-    d3d11.lib
-    dwrite.lib
+		d2d1
+		dwrite
+		dwmapi
+		d3d11
   )
 endif()
 if (Boost_FOUND)
@@ -147,6 +150,9 @@ file(GLOB TEST_SOURCES
   src/lru.hpp
   src/qpaintgrid.hpp
   src/qpaintgrid.cpp
+  src/animation.hpp
+  src/animation.cpp
+  src/mouse.hpp
 )
 if (WIN32)
   file(GLOB WINONLYTESTSOURCES

@@ -23,6 +23,7 @@
 #include "grid.hpp"
 #include "object.hpp"
 #include "qpaintgrid.hpp"
+#include "mouse.hpp"
 
 /// UI Capabilities (Extensions)
 struct ExtensionCapabilities
@@ -33,56 +34,6 @@ struct ExtensionCapabilities
   bool messages = false;
   bool cmdline = false;
   bool multigrid = false;
-};
-
-struct Mouse
-{
-  Mouse() = default;
-  Mouse(int interval)
-    : click_timer(),
-      gridid(),
-      row(), col(),
-      click_interval(interval)
-  {
-    click_timer.setSingleShot(true);
-    click_timer.setInterval(interval);
-    click_timer.callOnTimeout([&] {
-      reset_click();
-    });
-  }
-  void button_clicked(Qt::MouseButton b)
-  {
-    if (cur_button == b)
-    {
-      ++click_count;
-      start_timer();
-    }
-    else
-    {
-      reset_click();
-      cur_button = b;
-      click_count = 1;
-      start_timer();
-    }
-  }
-  void reset_click()
-  {
-    click_timer.stop();
-    click_count = 0;
-    cur_button = Qt::NoButton;
-  }
-  void start_timer()
-  {
-    if (click_timer.isActive()) return;
-    click_timer.start();
-  }
-  int click_count = 0;
-  Qt::MouseButton cur_button = Qt::NoButton;
-  QTimer click_timer;
-  int gridid = 0;
-  int row = 0;
-  int col = 0;
-  int click_interval;
 };
 
 /// Main editor area for Neovim
@@ -148,11 +99,6 @@ public:
    * Returns the font width and font height.
    */
   virtual FontDimensions font_dimensions() const;
-  /**
-   * Ignores the next paintEvent call.
-   * This is really only called after the window is moved.
-   */
-  void ignore_next_paint_event();
   /**
    * Handles a Neovim "grid_clear" event
    */
@@ -412,12 +358,28 @@ public:
   {
     hide_cursor_while_typing = hide;
   }
+  void cursor_set_effect_duration(double duration)
+  {
+    neovim_cursor.set_effect_anim_duration(duration);
+  }
+  void cursor_set_effect_frametime(int ms)
+  {
+    neovim_cursor.set_effect_anim_frametime(ms);
+  }
+  void cursor_set_effect(std::string_view effect)
+  {
+    neovim_cursor.set_effect(effect);
+  }
+  void cursor_set_effect_scaler(std::string_view effsc)
+  {
+    neovim_cursor.set_effect_ease_func(effsc);
+  }
+  void set_idling_time(double seconds);
 protected:
   std::queue<PaintEventItem> events;
   float charspace = 0;
   float linespace = 0;
   HLState* state;
-  bool should_ignore_pevent = false;
   std::vector<std::unique_ptr<GridBase>> grids;
   bool bold = false;
   // For font fallback, not used if a single font is set.
@@ -426,7 +388,6 @@ protected:
   float font_height;
   QFont font;
   Nvim* nvim;
-  QPixmap pixmap;
   bool resizing = false;
   Cursor neovim_cursor;
   int rows = -1;
@@ -449,6 +410,16 @@ protected:
   bool hide_cursor_while_typing = false;
   Mouse mouse;
   bool grids_need_ordering = false;
+  bool should_idle = true;
+  QTimer idle_timer {};
+  struct IdleState
+  {
+    bool were_animations_enabled;
+  };
+  std::optional<IdleState> idle_state;
+  void idle();
+  bool idling() const;
+  void un_idle();
   /**
    * Sets the current font to new_font.
    * If new_font is empty (this indicates an unset value),

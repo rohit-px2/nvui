@@ -261,6 +261,7 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
 void QPaintGrid::process_events()
 {
   QPainter p(&pixmap);
+  p.setRenderHint(QPainter::TextAntialiasing);
   const QColor bg = editor_area->default_bg();
   const auto offset = editor_area->font_offset();
   while(!evt_q.empty())
@@ -440,25 +441,30 @@ void QPaintGrid::draw_cursor(QPainter& painter, const Cursor& cursor)
   const auto& gc = area[idx];
   float scale_factor = 1.0f;
   if (gc.double_width) scale_factor = 2.0f;
-  auto rect_opt = cursor.rect(font_width, font_height, scale_factor);
+  auto rect_opt = cursor.rect(font_width, font_height, scale_factor, true);
   if (!rect_opt) return;
-  auto [rect, hl_id, should_draw_text] = rect_opt.value();
+  auto [rect, hl_id, should_draw_text, opacity] = rect_opt.value();
   const HLAttr& cursor_attr = hl->attr_for_id(hl_id);
   Color fg = cursor_attr.fg().value_or(hl->default_fg());
   Color bg = cursor_attr.bg().value_or(hl->default_bg());
   if (hl_id == 0 || cursor_attr.reverse) std::swap(fg, bg);
+  painter.setOpacity(opacity);
   painter.fillRect(rect, bg.qcolor());
+  painter.setOpacity(1.0);
   if (should_draw_text)
   {
     float left = (x + pos.col) * font_width;
     float top = (y + pos.row) * font_height;
     const QPointF bot_left {left, top};
     auto font_idx = editor_area->font_for_ucs(gc.ucs);
+    FontOptions opts = cursor_attr.font_opts == FontOpts::Normal
+      ? hl->attr_for_id(gc.hl_id).font_opts
+      : cursor_attr.font_opts;
     QFont chosen_font = editor_area->fallback_list()[font_idx].font();
     QRectF text_rect(left, top, font_width * scale_factor * 5., font_height);
     draw_text(
       painter, gc.text, fg, cursor_attr.sp(), text_rect,
-      cursor_attr.font_opts, chosen_font, font_width, font_height
+      opts, chosen_font, font_width, font_height
     );
   }
 }

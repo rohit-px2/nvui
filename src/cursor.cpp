@@ -8,6 +8,8 @@
 using scalers::time_scaler;
 time_scaler Cursor::animation_scaler = scalers::oneminusexpo2negative10;
 
+time_scaler Cursor::effect_ease_func = scalers::identity;
+
 Cursor::Cursor()
   : blinkwait_timer(nullptr),
     blinkon_timer(nullptr),
@@ -29,6 +31,23 @@ Cursor::Cursor()
     show();
     set_blinkon_timer(cur_mode.blinkon);
   });
+}
+
+
+// Since for some of the effect animations
+// they get split 50/50 between going up and down,
+// we normalize it
+static float cursor_effect_normalize(double t)
+{
+  if (t < 0.2 || t > 0.8) return 1.f;
+  else if (t < 0.5)
+  {
+    return (t * (-10.f / 3.f)) + (5.f / 3.f);
+  }
+  else
+  {
+    return (10.f / 3.f) * (t - 0.5f);
+  }
 }
 
 Cursor::Cursor(EditorArea* ea)
@@ -59,6 +78,48 @@ Cursor::Cursor(EditorArea* ea)
     editor_area->update();
     elapsed_timer.start();
   });
+  effect_animation.on_update([this] {
+    auto percent_finished = effect_animation.percent_finished();
+    // When animation starts, opacity is at 1
+    switch(cursor_effect)
+    {
+      case CursorEffect::SmoothBlink:
+        animate_smoothblink(cursor_effect_normalize(percent_finished));
+        break;
+      case CursorEffect::ExpandShrink:
+        animate_expandshrink(cursor_effect_normalize(percent_finished));
+        break;
+      default: return;
+    }
+  });
+  effect_animation.on_stop([this] {
+    opacity_level = 1.0;
+    switch(cursor_effect)
+    {
+      case CursorEffect::SmoothBlink:
+      case CursorEffect::ExpandShrink:
+        if (!editor_area->animations_enabled()) return;
+        // continuous
+        effect_animation.start();
+        break;
+      default: break;
+    }
+  });
+  effect_animation.set_duration(1);
+  effect_animation.set_interval(16);
+}
+
+void Cursor::animate_smoothblink(double percent_finished)
+{
+  // During the animation opacity goes like this:
+  opacity_level = effect_ease_func(percent_finished);
+  editor_area->update();
+}
+
+void Cursor::animate_expandshrink(double percent_finished)
+{
+  height_level = effect_ease_func(percent_finished);
+  editor_area->update();
 }
 
 void Cursor::mode_change(std::span<const Object> objs)
@@ -223,6 +284,14 @@ void Cursor::go_to(CursorPos pos)
       cursor_animation_timer.setInterval(interval);
     }
     if (!cursor_animation_timer.isActive()) cursor_animation_timer.start();
+    switch(cursor_effect)
+    {
+      case CursorEffect::SmoothBlink:
+      case CursorEffect::ExpandShrink:
+        effect_animation.start();
+        break;
+      default: break;
+    }
   }
   reset_timers();
 }
@@ -270,10 +339,15 @@ static CursorRect get_rect(
       break;
     }
   }
-  return {rect, mode.attr_id, should_draw_text};
+  return {rect, mode.attr_id, should_draw_text, 1.0f};
 }
 
-std::optional<CursorRect> Cursor::rect(float font_width, float font_height, float scale) const noexcept
+std::optional<CursorRect> Cursor::rect(
+  float font_width,
+  float font_height,
+  float scale,
+  bool varheight
+) const noexcept
 {
   if (!cur_pos.has_value()) return std::nullopt;
   float x = cur_pos->grid_x + cur_pos->col;
@@ -283,7 +357,7 @@ std::optional<CursorRect> Cursor::rect(float font_width, float font_height, floa
     x = cur_x;
     y = cur_y;
   }
-  return get_rect(
+  auto crect = get_rect(
     cur_mode,
     y,
     x,
@@ -292,6 +366,23 @@ std::optional<CursorRect> Cursor::rect(float font_width, float font_height, floa
     caret_extend_bottom,
     scale
   );
+  if (!varheight) return crect;
+  switch(cursor_effect)
+  {
+    case CursorEffect::ExpandShrink:
+    {
+      auto cursor_height = crect.rect.height() * height_level;
+      float y_off = (crect.rect.height() - cursor_height) / 2.0;
+      crect.rect.setY(crect.rect.y() + y_off);
+      crect.rect.setHeight(cursor_height);
+      break;
+    }
+    case CursorEffect::SmoothBlink:
+      crect.opacity = opacity();
+      break;
+    default: break;
+  }
+  return crect;
 }
 
 std::optional<CursorRect> Cursor::old_rect(float font_width, float font_height) const noexcept
@@ -327,4 +418,49 @@ bool Cursor::use_animated_position() const
   return editor_area
       && editor_area->animations_enabled()
       && editor_area->cursor_animation_frametime() > 0;
+}
+
+double Cursor::opacity() const { return opacity_level; }
+
+void Cursor::set_effect(std::string_view eff)
+{
+  bool valid_eff = true;
+  effect_animation.stop();
+  if (eff == "smoothblink")
+  {
+    cursor_effect = CursorEffect::SmoothBlink;
+  }
+  else if (eff == "expandshrink")
+  {
+    cursor_effect = CursorEffect::ExpandShrink;
+  }
+  else
+  {
+    cursor_effect = CursorEffect::NoEffect;
+    valid_eff = false;
+  }
+  if (valid_eff) effect_animation.start();
+}
+
+void Cursor::set_effect_anim_duration(double dur)
+{
+  effect_animation.set_duration(dur);
+}
+
+void Cursor::set_effect_anim_frametime(int ms)
+{
+  effect_animation.set_interval(ms);
+}
+
+void Cursor::set_effect_ease_func(std::string_view funcname)
+{
+  std::string fname {funcname};
+  if (scalers::scalers().contains(fname))
+  {
+    effect_ease_func = scalers::scalers().at(fname);
+  }
+  else
+  {
+    effect_ease_func = scalers::identity;
+  }
 }

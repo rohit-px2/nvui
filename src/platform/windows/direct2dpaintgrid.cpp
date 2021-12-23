@@ -257,7 +257,7 @@ void D2DPaintGrid::draw_text(
   SafeRelease(&old_text_layout);
   const auto draw_path = [&](const FontOpts fo) {
     draw_text_decorations(
-      context, fo, top_left, bot_right, font_width, font_height, fg_brush
+      &target, fo, top_left, bot_right, font_width, font_height, fg_brush
     );
   };
   if (font_opts & FontOpts::Underline) draw_path(FontOpts::Underline);

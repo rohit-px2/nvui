@@ -42,13 +42,13 @@ public:
       int major;
       int minor;
       int patch;
-      MSGPACK_DEFINE_MAP(major, minor, patch);
+      MSGPACK_DEFINE_MAP(major, minor, patch)
     };
     Version version;
     std::string type;
     std::map<std::string, std::map<std::string, bool>> methods;
     std::map<std::string, std::string> attributes;
-    MSGPACK_DEFINE_ARRAY(name, version, type, methods, attributes);
+    MSGPACK_DEFINE_ARRAY(name, version, type, methods, attributes)
   };
   ~Nvim();
   /**

@@ -11,8 +11,8 @@
 #include <QByteArray>
 #include <QString>
 #include <string_view>
-#include <boost/container/vector.hpp>
 #include <boost/container/flat_map.hpp>
+#include <boost/container/small_vector.hpp>
 #include "utils.hpp"
 
 struct NeovimExt

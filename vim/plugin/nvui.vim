@@ -43,7 +43,7 @@ command! -nargs=1 NvuiScrollFrametime call rpcnotify(s:chan, 'NVUI_SCROLL_FRAMET
 command! -nargs=1 -complete=customlist,s:complete_scaler NvuiScrollScaler call NvuiNotify('NVUI_SCROLL_SCALER', <f-args>)
 command! -nargs=1 -complete=customlist,s:complete_scaler NvuiMoveScaler call NvuiNotify('NVUI_MOVE_SCALER', <f-args>)
 command! -nargs=1 -complete=customlist,s:complete_scaler NvuiCursorScaler call NvuiNotify('NVUI_CURSOR_SCALER', <f-args>)
-command! -nargs=1 NvuiMoveAnimationFrametime call rpcnotify(s:chan, 'NVUI_ANIMATION_FRAMETIME', <args>)
+command! -nargs=1 NvuiMoveAnimationFrametime call rpcnotify(s:chan, 'NVUI_MOVE_ANIMATION_FRAMETIME', <args>)
 command! -nargs=1 NvuiAnimationsEnabled call rpcnotify(s:chan, 'NVUI_ANIMATIONS_ENABLED', <args>)
 command! -nargs=1 NvuiMoveAnimationDuration call rpcnotify(s:chan, 'NVUI_MOVE_ANIMATION_DURATION', <args>)
 command! -nargs=1 NvuiTitlebarBg call NvuiNotify('NVUI_TITLEBAR_BG', <f-args>)

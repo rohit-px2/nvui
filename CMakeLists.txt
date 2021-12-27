@@ -16,7 +16,6 @@ cmake_minimum_required(VERSION 3.19)
 #endif()
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
-  set(CMAKE_CXX_CPPCHECK "cppcheck")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
 endif()
 project(nvui)
@@ -28,7 +27,7 @@ if(MSVC)
   add_compile_options(/W4 /WX /wd5054 /wd4459 /wd4458 /wd4244 /wd4127 /wd4702)
   set(CMAKE_CXX_FLAGS_RELEASE /O2 /DNDEBUG)
 else()
-  add_compile_options(-Wall -Wextra -pedantic -Werror -Wfatal-errors -Wno-language-extension-token)
+  add_compile_options(-Wall -Wextra -pedantic -Werror -Wfatal-errors -Wno-language-extension-token -Wno-unknown-pragmas)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 endif()
 set(CMAKE_CXX_STANDARD 20)
@@ -75,6 +74,16 @@ file(GLOB SOURCES
   src/qpaintgrid.cpp
   src/animation.hpp
   src/animation.cpp
+  src/types.hpp
+  src/fontdesc.hpp
+  src/mouse.hpp
+  src/editor_base.cpp
+  src/editor_base.hpp
+  src/qt_editorui_base.cpp
+  src/qt_editorui_base.hpp
+  src/nvim_utils.hpp
+  src/qeditor.hpp
+  src/qeditor.cpp
 )
 if (WIN32)
   message("Windows detected.")
@@ -153,6 +162,15 @@ file(GLOB TEST_SOURCES
   src/animation.hpp
   src/animation.cpp
   src/mouse.hpp
+  src/types.hpp
+  src/fontdesc.hpp
+  src/editor_base.cpp
+  src/editor_base.hpp
+  src/qt_editorui_base.cpp
+  src/qt_editorui_base.hpp
+  src/nvim_utils.hpp
+  src/qeditor.hpp
+  src/qeditor.cpp
 )
 if (WIN32)
   file(GLOB WINONLYTESTSOURCES

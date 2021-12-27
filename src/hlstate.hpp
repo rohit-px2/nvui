@@ -11,6 +11,7 @@
 #include <string>
 #include <type_traits>
 #include <QColor>
+#include "types.hpp"
 #include "object.hpp"
 
 using uint8 = std::uint8_t;
@@ -36,6 +37,7 @@ struct Color
       b((clr & 0x000000ff))
   {
   }
+  Color(u8 rr, u8 gg, u8 bb): r(rr), g(gg), b(bb) {}
   Color(int clr) : Color(static_cast<uint32>(clr)) {}
   Color(uint64 clr) : Color(static_cast<uint32>(clr)) {}
   /**
@@ -78,6 +80,9 @@ enum FontOpts : std::uint8_t
 
 using FontOptions = std::underlying_type_t<FontOpts>;
 
+static const Color NVUI_WHITE = 0x00ffffff;
+static const Color NVUI_BLACK = 0;
+
 /// Data for a single highlight attribute
 class HLAttr
 {
@@ -104,8 +109,8 @@ public:
   ColorPair fg_bg(const HLAttr& fallback) const
   {
     ColorPair cp = {
-      foreground.value_or(fallback.foreground.value()),
-      background.value_or(fallback.background.value())
+      foreground.value_or(fallback.foreground.value_or(NVUI_WHITE)),
+      background.value_or(fallback.background.value_or(NVUI_BLACK))
     };
     if (reverse) std::swap(cp.fg, cp.bg);
     return cp;
@@ -174,8 +179,8 @@ public:
    * Returns the default colors.
    */
   const HLAttr& default_colors_get() const;
-  Color default_bg() const { return default_colors.bg().value(); }
-  Color default_fg() const { return default_colors.fg().value(); }
+  Color default_bg() const { return default_colors.bg().value_or(NVUI_BLACK); }
+  Color default_fg() const { return default_colors.fg().value_or(NVUI_WHITE); }
   HLAttr::ColorPair colors_for(const HLAttr& attr) const;
 private:
   HLAttr default_colors;

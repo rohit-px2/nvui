@@ -17,6 +17,12 @@ struct Mouse
       reset_click();
     });
   }
+  void set_position(int grid, int x, int y)
+  {
+    gridid = grid;
+    row = y;
+    col = x;
+  }
   void button_clicked(Qt::MouseButton b)
   {
     if (cur_button == b)

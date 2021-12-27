@@ -9,6 +9,7 @@
 #include <QLayout>
 #include "decide_renderer.hpp"
 #include "nvim.hpp"
+#include "qeditor.hpp"
 #include "editor.hpp"
 #include "titlebar.hpp"
 #include "hlstate.hpp"
@@ -19,6 +20,7 @@
 #include <QEvent>
 #include <unordered_map>
 #include <QSemaphore>
+
 class Window;
 
 #if defined(Q_OS_WIN)
@@ -27,8 +29,6 @@ class Window;
 
 constexpr int tolerance = 10; //10px tolerance for resizing
 
-using obj_ref_cb = void (*)(Window*, std::span<const Object>);
-
 /// The main window class which holds the rest of the GUI components.
 /// Fundamentally, the Neovim area is just 1 big text box.
 /// However, there are additional features that we are trying to
@@ -36,41 +36,17 @@ using obj_ref_cb = void (*)(Window*, std::span<const Object>);
 class Window : public QMainWindow
 {
   Q_OBJECT
-  template<typename R, typename E>
-  using handler_func =
-    std::function<
-      std::tuple<std::optional<R>, std::optional<E>>
-      (const ObjectArray&)>;
 public:
   Window(
-    QWidget* parent = nullptr,
-    Nvim* nv = nullptr,
-    int width = 0,
-    int height = 0,
-    bool custom_titlebar = false
+    std::string nvim_path,
+    std::vector<std::string> nvim_args,
+    std::unordered_map<std::string, bool> capabilities,
+    int width,
+    int height,
+    bool custom_titlebar,
+    QWidget* parent = nullptr
   );
-  /**
-   * Registers all of the relevant gui event handlers
-   * for handling Neovim redraw events, as well as a Neovim
-   * notification handler for the 'redraw' method.
-   */
-  void register_handlers();
-  /**
-   * Sets a handler for the corresponding function
-   * in Neovim's redraw notification.
-   */
-  void set_handler(std::string method, obj_ref_cb handler);
 public slots:
-  /**
-   * Handles a 'redraw' Neovim notification.
-   * TODO: Decide parameter type and how this will be called
-   * (signals etc.)
-   */
-  void handle_redraw(Object dir_args);
-  /**
-   * Starts a resizing or moving operation depending on the coordinates
-   * of p.
-   */
   void resize_or_move(const QPointF& p);
   /**
    * Returns whether the window is frameless or not
@@ -79,32 +55,12 @@ public slots:
   {
     return windowFlags() & Qt::FramelessWindowHint;
   }
-  
+
   /**
    * Maximize the window.
    */
   void maximize();
 private:
-  /**
-   * Listen for a notification with the method call "method",
-   * and invoke the corresponding callback on the main (Qt) thread.
-   * cb is passed the arguments array.
-   */
-  void listen_for_notification(
-    std::string method,
-    std::function<void (const ObjectArray&)> cb
-  );
-  /**
-   * Listens for a request with the given name,
-   * and then sends a response with the data returned
-   * by the callback function.
-   * Things like matching message id are handled by this function.
-   */
-  template<typename Res, typename Err>
-  void handle_request(
-    std::string req_name,
-    handler_func<Res, Err> handler
-  );
   /**
    * Disable the frameless window.
    * The window should be in frameless mode,
@@ -158,27 +114,18 @@ private:
    * titlebar_colors's values.
    * Otherwise, it uses the default colors.
    */
-  void update_titlebar_colors();
-  QSemaphore semaphore;
+  void update_titlebar_colors(QColor fg, QColor bg);
   bool resizing;
   bool maximized = false;
   bool moving = false;
   std::unique_ptr<TitleBar> title_bar;
-  HLState hl_state;
-  Nvim* nvim;
-  std::unordered_map<std::string, obj_ref_cb> handlers;
   QFlags<Qt::WindowState> prev_state;
   template<typename T>
   using opt = std::optional<T>;
   std::pair<opt<QColor>, opt<QColor>> titlebar_colors;
-#if defined(USE_DIRECT2D)
-  WinEditorArea editor_area;
-#elif defined(USE_QPAINTER)
-  EditorArea editor_area;
-#endif
+  QEditor editor_area;
 signals:
   void win_state_changed(Qt::WindowStates new_state);
-  void resize_done(QSize size);
   void default_colors_changed(QColor fg, QColor bg);
 protected:
   bool nativeEvent(const QByteArray& e_type, void* msg, long* result) override;

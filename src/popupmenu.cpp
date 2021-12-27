@@ -5,6 +5,8 @@
 #include <QStringLiteral>
 #include "hlstate.hpp"
 #include "msgpack_overrides.hpp"
+#include "nvim.hpp"
+#include "nvim_utils.hpp"
 #include "utils.hpp"
 
 QString PopupMenuIconManager::kind_to_iname(QString kind)
@@ -75,67 +77,15 @@ const QPixmap* PopupMenuIconManager::icon_for_kind(const QString& kind)
   else return &(*it);
 }
 
-PopupMenuInfo::PopupMenuInfo(PopupMenu* parent)
-  : QWidget(parent->parentWidget()),
-    parent_menu(parent)
+PopupMenu::PopupMenu(const HLState* state)
+: hl_state(state)
 {
-  hide();
-}
-
-void PopupMenuInfo::draw(QPainter& p, const HLAttr& attr, const QString& info)
-{
-  Q_UNUSED(p);
-  setFont(parent_menu->pmenu_font);
-  current_attr = attr;
-  current_text = info;
-  update();
-}
-
-void PopupMenuInfo::paintEvent(QPaintEvent* event)
-{
-  Q_UNUSED(event);
-  if (current_text.isNull()) hide();
-  auto cell_width = parent_menu->cell_width;
-  auto b_width = parent_menu->border_width;
-  auto full_width = cell_width * cols + parent_menu->border_width * 2;
-  resize(full_width, parent_menu->height());
-  auto offset = std::ceil(parent_menu->border_width / 2.f);
-  QPainter p(this);
-  QFont p_font = font();
-  font::set_opts(p_font, current_attr.font_opts);
-  p.setFont(p_font);
-  p.fillRect(rect(), current_attr.bg().value_or(QColor(Qt::white).rgb()).qcolor());
-  p.setPen({parent_menu->border_color, parent_menu->border_width});
-  QRect r = rect();
-  r.adjust(offset, offset, -offset, -offset);
-  p.drawRect(r);
-  QRect inner_rect = rect().adjusted(b_width, b_width, -b_width, -b_width);
-  auto fg = current_attr.fg().value_or(uint32(0)).qcolor();
-  p.setPen(fg);
-  p.drawText(inner_rect, Qt::TextWordWrap, current_text);
-}
-
-PopupMenu::PopupMenu(const HLState* state, QWidget* parent)
-  : QWidget(parent),
-    hl_state(state),
-    pixmap(),
-    completion_items(max_items),
-    info_widget(this),
-    icon_manager(10),
-    pmenu_font()
-{
-  // Without this flag, flickering occurs on WinEditorArea.
-  setAttribute(Qt::WA_NativeWindow);
-  hide();
 }
 
 void PopupMenu::pum_show(std::span<const Object> objs)
 {
   is_hidden = false;
   completion_items.clear();
-  using std::tuple;
-  using std::vector;
-  using std::string;
   for(std::size_t i = 0; i < objs.size(); ++i)
   {
     auto& obj = objs[i];
@@ -152,9 +102,8 @@ void PopupMenu::pum_show(std::span<const Object> objs)
     {
       completion_items[i].selected = true;
     }
-    paint();
   }
-  resize(available_rect().size());
+  redraw();
 }
 
 void PopupMenu::pum_sel(std::span<const Object> objs)
@@ -166,15 +115,12 @@ void PopupMenu::pum_sel(std::span<const Object> objs)
   if (cur_selected >= 0) completion_items[cur_selected].selected = false;
   cur_selected = static_cast<int>(arr->at(0));
   if (cur_selected >= 0) completion_items[cur_selected].selected = true;
-  paint();
+  redraw();
 }
 
-void PopupMenu::pum_hide(std::span<const Object> objs)
+void PopupMenu::pum_hide(std::span<const Object>)
 {
-  Q_UNUSED(objs);
   is_hidden = true;
-  setVisible(false);
-  info_widget.hide();
 }
 
 void PopupMenu::add_items(const ObjectArray& items)
@@ -201,105 +147,91 @@ void PopupMenu::update_highlight_attributes()
   pmenu_thumb = &hl_state->attr_for_id(hl_state->id_for_name("PmenuThumb"));
 }
 
-void PopupMenu::paint()
+PopupMenuQ::PopupMenuQ(const HLState* state, QWidget* parent)
+  : PopupMenu(state), QWidget(parent), icon_manager(10)
+{
+  hide();
+}
+
+PopupMenuQ::~PopupMenuQ() = default;
+
+void PopupMenuQ::paint()
 {
   update_highlight_attributes();
+  if (completion_items.empty())
+  {
+    hide();
+    return;
+  }
   QPainter p(&pixmap);
   int cur_y = std::ceil(border_width);
   bool nothing_selected = cur_selected == -1;
   if (nothing_selected) cur_selected = 0;
-  for(std::size_t i = 0; i < std::min(completion_items.size(), max_items) + 1; ++i)
+  for(std::size_t i = 0; i < completion_items.size(); ++i)
   {
     std::size_t index = (cur_selected + i) % completion_items.size();
     if (completion_items[index].selected)
     {
       const auto& item = completion_items[index];
       draw_with_attr(p, *pmenu_sel, item, cur_y);
-      if (!item.info.trimmed().isEmpty())
-      {
-        draw_info(p, *pmenu, item.info);
-      }
-      else
-      {
-        draw_info(p, *pmenu, QString());
-      }
     }
     else
     {
       draw_with_attr(p, *pmenu, completion_items[index], cur_y);
     }
-    cur_y += cell_height;
+    cur_y += dimensions.height;
   }
   if (nothing_selected) cur_selected = -1;
   update();
 }
 
-void PopupMenu::font_changed(const QFont& font, float c_width, float c_height, int line_spacing)
+void PopupMenuQ::font_changed(const QFont& font, FontDimensions dims)
 {
+  update_highlight_attributes();
   pmenu_font = font;
-  // pmenu_font doesn't include linespacing. cell_width and cell_height give us that
-  // information
-  // c_width includes linespace
-  cell_width = c_width;
-  cell_height = c_height;
-  linespace = line_spacing;
+  dimensions = dims;
   QFontMetricsF fm {font};
+  linespace = dimensions.height - fm.height();
   font_ascent = fm.ascent();
-  icon_manager.size_changed(cell_height + icon_size_offset);
+  icon_manager.size_changed(dimensions.height + icon_size_offset);
   update_dimensions();
 }
 
-void PopupMenu::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem& item, int y)
+void PopupMenuQ::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem& item, int y)
 {
   float offset = font_ascent + (linespace / 2.f);
-  const HLAttr& def_clrs = hl_state->default_colors_get();
-  Color fg = attr.fg().value_or(*def_clrs.fg());
-  Color bg = attr.bg().value_or(*def_clrs.bg());
-  if (attr.reverse) std::swap(fg, bg);
+  auto [fg, bg, sp] = attr.fg_bg_sp(hl_state->default_colors_get());
   font::set_opts(pmenu_font, attr.font_opts);
-  p.setFont(pmenu_font);
-  const QPixmap* icon_ptr = icon_manager.icon_for_kind(item.kind);
-  const QColor* icon_bg = icon_manager.bg_for_kind(item.kind);
-  int start_x = std::ceil(border_width);
-  // int end_y = y + cell_height;
-  int end_x = pixmap.width() - border_width;
-  p.setClipRect(QRect(start_x, y, end_x, cell_height));
-  p.fillRect(QRect(start_x, y, end_x, cell_height), QColor(bg.r, bg.g, bg.b));
-  QPoint text_start = {start_x, int(y + offset)};
-  p.setPen(QColor(fg.r, fg.g, fg.b));
-  if (icon_ptr && icon_bg && icons_enabled)
+  const auto* icon_ptr = icon_manager.icon_for_kind(item.kind);
+  int left = std::ceil(border_width);
+  p.fillRect(left, y, pixmap.width(), dimensions.height, bg.qcolor());
+  if (icon_ptr && icons_enabled)
   {
-    if (icons_on_right)
-    {
-      p.fillRect(QRect(start_x, y, cell_height, cell_height), *icon_bg);
-      p.drawPixmap(
-        {end_x - icon_ptr->width(), y - icon_size_offset / 2,
-        icon_ptr->width(), icon_ptr->height()},
-        *icon_ptr, icon_ptr->rect()
-      );
-      // Ensure text does not enter the pixmap's area
-      int w = end_x - icon_ptr->width() - start_x;
-      p.setClipRect(start_x, y, w, cell_height);
-    }
-    else
-    {
-      p.drawPixmap(
-        {start_x, y - icon_size_offset / 2,
-        icon_ptr->width(), icon_ptr->height()},
-        *icon_ptr, icon_ptr->rect()
-      );
-      text_start.setX(text_start.x() + icon_ptr->width() * icon_space);
-    }
+    p.drawPixmap(QPoint {left, y}, *icon_ptr);
+    left += icon_ptr->width() * icon_space;
   }
-  p.drawText(text_start, item.word);
+  p.drawText(QPoint(left, y + offset), item.word);
 }
 
-void PopupMenu::paintEvent(QPaintEvent* event)
+PopupMenu::Rectangle
+PopupMenuQ::dimensions_for(int x, int y, int sw, int sh)
 {
-  Q_UNUSED(event);
+  auto popup_width = width();
+  if (x + popup_width > sw && x - popup_width >= 0) x -= popup_width;
+  if (y + height() > sh && y - height() >= 0) y -= height();
+  return {x, y, popup_width, height()};
+}
+
+void PopupMenuQ::redraw()
+{
+  paint();
+}
+
+void PopupMenuQ::paintEvent(QPaintEvent*)
+{
   QPainter p(this);
   p.drawPixmap(rect(), pixmap, rect());
-  QPen pen {border_color};
+  QPen pen {border_color.qcolor()};
   pen.setWidth(border_width);
   p.setPen(std::move(pen));
   QRect draw_rect = rect();
@@ -308,30 +240,74 @@ void PopupMenu::paintEvent(QPaintEvent* event)
   p.drawRect(draw_rect);
 }
 
-void PopupMenu::set_max_items(std::size_t new_max)
+void PopupMenuQ::update_dimensions()
 {
-  max_items = new_max;
-  update_dimensions();
+  QFontMetricsF metrics {pmenu_font};
+  double text_width = 0.;
+  for(const auto& item : completion_items)
+  {
+    text_width = std::max(text_width, metrics.horizontalAdvance(item.word));
+  }
+  // Box width = max number of characters.
+  // Multiply by font dimensions to get the number of pixels wide.
+  // Also add in the width of an icon.
+  float width =
+    text_width * dimensions.width + icon_manager.icon_size()
+    + (border_width * 2);
+  if (attached_width) width = float(attached_width.value());
+  float height = completion_items.size() * dimensions.height
+    + (border_width * 2);
+  pixmap = QPixmap(width, height);
+	resize(width, height);
+  pixmap.fill(hl_state->colors_for(*pmenu).bg.qcolor());
 }
 
-void PopupMenu::set_max_chars(std::size_t new_max)
-{
-  max_chars = new_max;
-  update_dimensions();
-}
+QRect PopupMenuQ::get_rect() const { return rect(); }
 
-void PopupMenu::update_dimensions()
+void PopupMenuQ::register_nvim(Nvim& nvim)
 {
-  pixmap = QPixmap(
-    attached_width.value_or(max_chars * cell_width + border_width * 2),
-    max_items * cell_height + border_width * 2
-  );
-  pixmap.fill(border_color);
-  resize(available_rect().size());
-}
-
-void PopupMenu::draw_info(QPainter& p, const HLAttr& attr, const QString& info)
-{
-  Q_UNUSED(p); Q_UNUSED(attr); Q_UNUSED(info);
-  //info_widget.draw(p, attr, info);
+  const auto on = [&](auto... p) {
+    listen_for_notification(nvim, p..., this);
+  };
+  on(
+    "NVUI_PUM_ICONS_TOGGLE", [this](const auto&) {
+    toggle_icons_enabled();
+  });
+  on("NVUI_PUM_ICON_OFFSET", paramify<int>([this](int offset) {
+    set_icon_size_offset(offset);
+  }));
+  on("NVUI_PUM_ICON_SPACING", paramify<float>([this](float spacing) {
+    set_icon_space(spacing);
+  }));
+   //:call rpcnotify(1, 'NVUI_PUM_ICON_FG', '(iname)', '(background color)')
+  on("NVUI_PUM_ICON_BG",
+    paramify<QString, QString>([this](QString icon_name, QString color_str) {
+    if (!QColor::isValidColor(color_str)) return;
+    set_icon_bg(std::move(icon_name), {color_str});
+  }));
+  // :call rpcnotify(1, 'NVUI_PUM_ICON_FG', '(iname)', '(foreground color)')
+  on("NVUI_PUM_ICON_FG",
+    paramify<QString, QString>([this](QString icon_name, QString color_str) {
+      if (!QColor::isValidColor(color_str)) return;
+      set_icon_fg(std::move(icon_name), {color_str});
+  }));
+  on("NVUI_PUM_ICON_COLORS",
+    paramify<QString, QString, QString>([this](QString icon_name, QString fg_str, QString bg_str) {
+      if (!QColor::isValidColor(fg_str) || !QColor::isValidColor(bg_str)) return;
+      QColor fg {fg_str}, bg {bg_str};
+      set_icon_colors(icon_name, fg, bg);
+  }));
+  on("NVUI_PUM_DEFAULT_ICON_FG", paramify<QString>([this](QString fg_str) {
+    if (!QColor::isValidColor(fg_str)) return;
+    set_default_icon_fg({fg_str});
+  }));
+  on("NVUI_PUM_DEFAULT_ICON_BG", paramify<QString>([this](QString bg_str) {
+    if (!QColor::isValidColor(bg_str)) return;
+    set_default_icon_bg({bg_str});
+  }));
+  using namespace std;
+  handle_request<vector<string>, string>(nvim, "NVUI_POPUPMENU_ICON_NAMES",
+    [&](const auto&) {
+      return tuple {icon_list(), std::nullopt};
+  }, this);
 }

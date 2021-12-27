@@ -2,7 +2,6 @@
 #include "direct2dpaintgrid.hpp"
 #include "utils.hpp"
 #include <d2d1.h>
-#include <atlbase.h>
 
 void D2DPaintGrid::set_size(u16 w, u16 h)
 {
@@ -506,7 +505,7 @@ void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
   d2rect r = rect();
   auto bg = editor_area->default_bg().rgb();
   QRectF rect {top_left.x(), top_left.y(), (qreal) sz.width, (qreal) sz.height};
-  CComPtr<ID2D1SolidColorBrush> bg_brush;
+  ID2D1SolidColorBrush* bg_brush = nullptr;
   render_target->CreateSolidColorBrush(D2D1::ColorF(bg), &bg_brush);
 	bg_brush->SetOpacity(1.0f);
   // Sometimes in multigrid mode the root grid can 'peek through'
@@ -515,6 +514,7 @@ void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
   // to correct this
   auto fill_rect = D2D1::RectF(r.left - 1, r.top, r.right + 1, r.bottom);
   render_target->FillRectangle(fill_rect, bg_brush);
+  SafeRelease(&bg_brush);
   if (!editor_area->animations_enabled() || !is_scrolling)
   {
     render_target->DrawBitmap(

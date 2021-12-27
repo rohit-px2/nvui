@@ -23,20 +23,8 @@
 
 namespace bp = boost::process;
 
-// ######################## SETTING UP ####################################
-
 using Lock = std::lock_guard<std::mutex>;
 
-//constexpr auto one_ms = std::chrono::milliseconds(1);
-
-// ###################### DONE SETTING UP ##################################
-
-//// Useful for logging char data
-//static inline std::uint32_t to_uint(char ch)
-//{
-  //return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
-//}
-/// Constructor
 Nvim::Nvim(std::string path, std::vector<std::string> args)
 : notification_handlers(),
   request_handlers(),

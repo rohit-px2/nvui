@@ -170,25 +170,7 @@ int main(int argc, char** argv)
   }
   std::ios_base::sync_with_stdio(false);
   QApplication app {argc, argv};
-  try
-  {
-    Nvim nvim {nvim_path, nvim_args};
-    Window w(nullptr, &nvim, width, height, custom_titlebar);
-    w.register_handlers();
-    w.show();
-    nvim.set_var("nvui", 1);
-    nvim.attach_ui(width, height, capabilities);
-    nvim.on_exit([&] {
-      QMetaObject::invokeMethod(&w, &QMainWindow::close, Qt::QueuedConnection);
-    });
-    return app.exec();
-  }
-  catch (const std::exception& e)
-  {
-    // The main purpose is to catch the exception where Neovim is not
-    // found in PATH
-    QMessageBox msg;
-    msg.setText("Error occurred: " % QLatin1String(e.what()) % ".");
-    msg.exec();
-  }
+  Window w {nvim_path, nvim_args, capabilities, width, height, custom_titlebar};
+  w.show();
+  return app.exec();
 }

@@ -23,16 +23,6 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
-using u16 = std::uint16_t;
-using u32 = std::uint32_t;
-
-static const Nvim::ClientInfo nvui_cinfo {
-  "nvui", {0, 2, 1}, "ui", {}, {
-    {"website", "https://github.com/rohit-px2/nvui"},
-    {"license", "MIT"}
-  }
-};
-
 static float get_offset(const QFont& font, const float linespacing)
 {
   QFontMetricsF fm {font};
@@ -79,6 +69,13 @@ static void set_relative_font_size(
 }
 
 
+static const Nvim::ClientInfo nvui_cinfo {
+  "nvui", {0, 2, 1}, "ui", {}, {
+    {"website", "https://github.com/rohit-px2/nvui"},
+    {"license", "MIT"}
+  }
+};
+
 EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
 : QWidget(parent),
   state(hl_state),
@@ -115,7 +112,7 @@ EditorArea::EditorArea(QWidget* parent, HLState* hl_state, Nvim* nv)
   idle_timer.start();
 }
 
-void EditorArea::grid_resize(std::span<NeovimObj> objs)
+void EditorArea::grid_resize(std::span<const Object> objs)
 {
   // Should only run once
   for(const auto& obj : objs)
@@ -143,7 +140,7 @@ void EditorArea::grid_resize(std::span<NeovimObj> objs)
   }
 }
 
-void EditorArea::grid_line(std::span<NeovimObj> objs)
+void EditorArea::grid_line(std::span<const Object> objs)
 {
   int hl_id = 0;
   for(auto& grid_cmd : objs)
@@ -198,7 +195,7 @@ void EditorArea::grid_line(std::span<NeovimObj> objs)
   }
 }
 
-void EditorArea::grid_cursor_goto(std::span<NeovimObj> objs)
+void EditorArea::grid_cursor_goto(std::span<const Object> objs)
 {
   if (objs.empty()) return;
   const auto& obj = objs.back();
@@ -220,7 +217,7 @@ void EditorArea::grid_cursor_goto(std::span<NeovimObj> objs)
   //update();
 }
 
-void EditorArea::option_set(std::span<NeovimObj> objs)
+void EditorArea::option_set(std::span<const Object> objs)
 {
   static const auto extension_for = [&](const auto& s) -> bool* {
     if (s == "ext_linegrid") return &capabilities.linegrid;
@@ -266,7 +263,7 @@ void EditorArea::flush()
   update();
 }
 
-void EditorArea::win_pos(std::span<NeovimObj> objs)
+void EditorArea::win_pos(std::span<const Object> objs)
 {
   for(const auto& obj : objs)
   {
@@ -288,7 +285,7 @@ void EditorArea::win_pos(std::span<NeovimObj> objs)
   send_redraw();
 }
 
-void EditorArea::win_hide(std::span<NeovimObj> objs)
+void EditorArea::win_hide(std::span<const Object> objs)
 {
   for(const auto& obj : objs)
   {
@@ -300,7 +297,7 @@ void EditorArea::win_hide(std::span<NeovimObj> objs)
   }
 }
 
-void EditorArea::win_float_pos(std::span<NeovimObj> objs)
+void EditorArea::win_float_pos(std::span<const Object> objs)
 {
   for(const auto& obj : objs)
   {
@@ -357,7 +354,7 @@ void EditorArea::win_float_pos(std::span<NeovimObj> objs)
   }
 }
 
-void EditorArea::win_close(std::span<NeovimObj> objs)
+void EditorArea::win_close(std::span<const Object> objs)
 {
   for(const auto& obj : objs)
   {
@@ -370,7 +367,7 @@ void EditorArea::win_close(std::span<NeovimObj> objs)
   send_redraw();
 }
 
-void EditorArea::win_viewport(std::span<NeovimObj> objs)
+void EditorArea::win_viewport(std::span<const Object> objs)
 {
   for(const auto& obj : objs)
   {
@@ -384,7 +381,7 @@ void EditorArea::win_viewport(std::span<NeovimObj> objs)
   }
 }
 
-void EditorArea::grid_destroy(std::span<NeovimObj> objs)
+void EditorArea::grid_destroy(std::span<const Object> objs)
 {
   for(const auto& obj : objs)
   {
@@ -396,7 +393,7 @@ void EditorArea::grid_destroy(std::span<NeovimObj> objs)
   send_redraw();
 }
 
-void EditorArea::msg_set_pos(std::span<NeovimObj> objs)
+void EditorArea::msg_set_pos(std::span<const Object> objs)
 {
   for(const auto& obj : objs)
   {
@@ -552,7 +549,7 @@ void EditorArea::update_font_metrics(bool)
     old_font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
     f = old_font;
   }
-  popup_menu.font_changed(font, font_width, font_height, linespace);
+  popup_menu.font_changed(font, font_dimensions());
 }
 
 QSize EditorArea::to_rc(const QSize& pixel_size)
@@ -641,7 +638,7 @@ void EditorArea::clear_grid(QPainter& painter, const GridBase& grid, const QRect
   painter.fillRect(r, bg);
 }
 
-void EditorArea::grid_clear(std::span<NeovimObj> objs)
+void EditorArea::grid_clear(std::span<const Object> objs)
 {
   for(const auto& obj : objs)
   {
@@ -655,7 +652,7 @@ void EditorArea::grid_clear(std::span<NeovimObj> objs)
   }
 }
 
-void EditorArea::grid_scroll(std::span<NeovimObj> objs)
+void EditorArea::grid_scroll(std::span<const Object> objs)
 {
   for(const auto& obj : objs)
   {
@@ -733,12 +730,12 @@ void EditorArea::default_colors_changed(QColor fg, QColor bg)
   send_redraw();
 }
 
-void EditorArea::mode_info_set(std::span<NeovimObj> objs)
+void EditorArea::mode_info_set(std::span<const Object> objs)
 {
   neovim_cursor.mode_info_set(objs);
 }
 
-void EditorArea::mode_change(std::span<NeovimObj> objs)
+void EditorArea::mode_change(std::span<const Object> objs)
 {
   neovim_cursor.mode_change(objs);
 }
@@ -755,31 +752,21 @@ void EditorArea::draw_cursor(QPainter& painter)
 
 QRect EditorArea::popupmenu_rect()
 {
-  QRect popup_rect = popup_menu.available_rect();
-  auto&& [grid_num, row, col] = popup_menu.position();
-  auto&& [font_width, font_height] = font_dimensions();
-  bool is_cmdline = grid_num == -1;
-  int start_x, start_y;
-  if (is_cmdline)
+  auto [grid_num, row, col] = popup_menu.position();
+  if (grid_num == -1)
   {
-    QPoint cmdline_pos = cmdline.popupmenu_pt(popup_rect.height(), size());
-    start_x = cmdline_pos.x();
-    start_y = cmdline_pos.y();
+    auto bl = cmdline.rect().bottomLeft();
+    return {bl.x(), bl.y(), popup_menu.width(), popup_menu.height()};
   }
   else
   {
-    GridBase* grid = find_grid(grid_num);
-    if (!grid) return {};
-    start_x = (grid->x + col) * font_width;
-    start_y = (grid->y + row + 1) * font_height;
-    // int p_width = popup_rect.width();
-    int p_height = popup_rect.height();
-    if (start_y + p_height > height() && (start_y - p_height - font_height) >= 0)
-    {
-      start_y -= (p_height + font_height);
-    }
+    auto [font_width, font_height] = font_dimensions();
+    auto* grid = find_grid(grid_num);
+    auto pm_x = (grid->x + col) * font_width;
+    auto pm_y = (grid->y + row) * font_height;
+    auto [x, y, w, h] = popup_menu.dimensions_for(pm_x, pm_y, width(), height());
+    return QRect {x, y, w, h};
   }
-  return {start_x, start_y, popup_rect.width(), popup_rect.height()};
 }
 
 void EditorArea::draw_popup_menu()
@@ -789,9 +776,6 @@ void EditorArea::draw_popup_menu()
   auto start_y = pum_rect.y();
   popup_menu.move(start_x, start_y);
   popup_menu.setVisible(true);
-  QPoint info_pos = {start_x + popup_menu.width(), start_y};
-  auto& pum_info_widget = popup_menu.info_display();
-  if (!pum_info_widget.isHidden()) pum_info_widget.move(info_pos);
 }
 
 static bool is_image(const QString& file)

@@ -24,24 +24,15 @@
 #include "object.hpp"
 #include "qpaintgrid.hpp"
 #include "mouse.hpp"
-
-/// UI Capabilities (Extensions)
-struct ExtensionCapabilities
-{
-  bool linegrid = false;
-  bool popupmenu = false;
-  bool wildmenu = false;
-  bool messages = false;
-  bool cmdline = false;
-  bool multigrid = false;
-};
+#include "types.hpp"
+#include "fontdesc.hpp"
+#include "editor_base.hpp"
 
 /// Main editor area for Neovim
 class EditorArea : public QWidget
 {
   Q_OBJECT
 public:
-  using NeovimObj = const Object;
   using u64 = std::uint64_t;
   using u32 = std::uint32_t;
   using u16 = std::uint16_t;
@@ -53,19 +44,19 @@ public:
   /**
    * Handles a Neovim "grid_resize" event.
    */
-  void grid_resize(std::span<NeovimObj> objs);
+  void grid_resize(std::span<const Object> objs);
   /**
    * Handles a Neovim "grid_line" event.
    */
-  void grid_line(std::span<NeovimObj> objs);
+  void grid_line(std::span<const Object> objs);
   /**
    * Paints the grid cursor at the given grid, row, and column.
    */
-  void grid_cursor_goto(std::span<NeovimObj> objs);
+  void grid_cursor_goto(std::span<const Object> objs);
   /**
    * Handles a Neovim "option_set" event.
    */
-  void option_set(std::span<NeovimObj> objs);
+  void option_set(std::span<const Object> objs);
   /**
    * Handles a Neovim "flush" event.
    * This paints the internal buffer onto the window.
@@ -74,27 +65,27 @@ public:
   /**
    * Handles a Neovim "win_pos" event.
    */
-  void win_pos(std::span<NeovimObj> objs);
+  void win_pos(std::span<const Object> objs);
   /**
    * Handles a Neovim "win_hide" event.
    */
-  void win_hide(std::span<NeovimObj> objs);
+  void win_hide(std::span<const Object> objs);
   /**
    * Handles a Neovim "win_float_pos" event.
    */
-  void win_float_pos(std::span<NeovimObj> objs);
+  void win_float_pos(std::span<const Object> objs);
   /**
    * Handles a Neovim "win_close" event.
    */
-  void win_close(std::span<NeovimObj> objs);
+  void win_close(std::span<const Object> objs);
   /**
    * Handles a Neovim "win_viewport" event.
    */
-  void win_viewport(std::span<NeovimObj> objs);
+  void win_viewport(std::span<const Object> objs);
   /// Handles a Neovim "grid_destroy" event.
-  void grid_destroy(std::span<NeovimObj> objs);
+  void grid_destroy(std::span<const Object> objs);
   /// Handles a Neovim "msg_set_pos" event.
-  void msg_set_pos(std::span<NeovimObj> objs);
+  void msg_set_pos(std::span<const Object> objs);
   /**
    * Returns the font width and font height.
    */
@@ -102,11 +93,11 @@ public:
   /**
    * Handles a Neovim "grid_clear" event
    */
-  void grid_clear(std::span<NeovimObj> objs);
+  void grid_clear(std::span<const Object> objs);
   /**
    * Handles a Neovim "grid_scroll" event
    */
-  void grid_scroll(std::span<NeovimObj> objs);
+  void grid_scroll(std::span<const Object> objs);
   /**
    * Notify the editor area when resizing is enabled/disabled.
    */
@@ -115,12 +106,12 @@ public:
    * Handles a "mode_info_set" Neovim redraw event.
    * Internally sends the data to neovim_cursor.
    */
-  void mode_info_set(std::span<NeovimObj> objs);
+  void mode_info_set(std::span<const Object> objs);
   /**
    * Handles a "mode_change" Neovim event.
    * Internally sends the data to neovim_cursor.
    */
-  void mode_change(std::span<NeovimObj> objs);
+  void mode_change(std::span<const Object> objs);
   /**
    * Handles a "busy_start" event, passing it to the Neovim cursor
    */
@@ -154,17 +145,17 @@ public:
   inline void set_caret_top(float top) { neovim_cursor.set_caret_extend_top(top); }
   inline void set_caret_bottom(float bot) { neovim_cursor.set_caret_extend_bottom(bot); }
 
-  inline void popupmenu_show(std::span<NeovimObj> objs)
+  inline void popupmenu_show(std::span<const Object> objs)
   {
     popup_menu.pum_show(objs);
   }
 
-  inline void popupmenu_hide(std::span<NeovimObj> objs)
+  inline void popupmenu_hide(std::span<const Object> objs)
   {
     popup_menu.pum_hide(objs);
   }
 
-  inline void popupmenu_select(std::span<NeovimObj> objs)
+  inline void popupmenu_select(std::span<const Object> objs)
   {
     popup_menu.pum_sel(objs);
   }
@@ -184,12 +175,12 @@ public:
     popup_menu.set_icon_space(spacing);
   }
 
-  inline void popupmenu_set_max_chars(std::size_t max) { popup_menu.set_max_chars(max); }
-  inline void popupmenu_set_max_items(std::size_t max) { popup_menu.set_max_items(max); }
+  inline void popupmenu_set_max_chars(std::size_t) { }
+  inline void popupmenu_set_max_items(std::size_t) { }
   inline void popupmenu_set_border_width(std::size_t width) { popup_menu.set_border_width(width); }
   inline void popupmenu_set_border_color(QColor new_color)
   {
-    popup_menu.set_border_color(new_color);
+    popup_menu.set_border_color(new_color.rgb());
   }
 
   inline void popupmenu_set_icon_fg(const QString& icon_name, QColor color)
@@ -217,23 +208,23 @@ public:
     popup_menu.set_default_icon_fg(std::move(fg));
   }
 
-  inline void popupmenu_set_icons_right(bool right) { popup_menu.set_icons_on_right(right); }
+  inline void popupmenu_set_icons_right(bool) { }
 
-  inline void cmdline_show(std::span<NeovimObj> objs)
+  inline void cmdline_show(std::span<const Object> objs)
   {
     cmdline.cmdline_show(objs);
     popup_menu.attach_cmdline(cmdline.width());
   }
-  inline void cmdline_hide(std::span<NeovimObj> objs)
+  inline void cmdline_hide(std::span<const Object> objs)
   {
     cmdline.cmdline_hide(objs);
     popup_menu.detach_cmdline();
   }
-  inline void cmdline_cursor_pos(std::span<NeovimObj> objs) { cmdline.cmdline_cursor_pos(objs); }
-  inline void cmdline_special_char(std::span<NeovimObj> objs) { cmdline.cmdline_special_char(objs); }
-  inline void cmdline_block_show(std::span<NeovimObj> objs) { cmdline.cmdline_block_show(objs); }
-  inline void cmdline_block_append(std::span<NeovimObj> objs) { cmdline.cmdline_block_append(objs); }
-  inline void cmdline_block_hide(std::span<NeovimObj> objs) { cmdline.cmdline_block_hide(objs); }
+  inline void cmdline_cursor_pos(std::span<const Object> objs) { cmdline.cmdline_cursor_pos(objs); }
+  inline void cmdline_special_char(std::span<const Object> objs) { cmdline.cmdline_special_char(objs); }
+  inline void cmdline_block_show(std::span<const Object> objs) { cmdline.cmdline_block_show(objs); }
+  inline void cmdline_block_append(std::span<const Object> objs) { cmdline.cmdline_block_append(objs); }
+  inline void cmdline_block_hide(std::span<const Object> objs) { cmdline.cmdline_block_hide(objs); }
   inline void reposition_cmdline()
   {
     QPointF rel_pos = cmdline.relative_pos();
@@ -330,10 +321,6 @@ public:
   {
     return popup_menu.icon_list();
   }
-  void popupmenu_info_set_columns(int columns)
-  {
-    popup_menu.info_display().set_cols(columns);
-  }
   float cursor_animation_duration() const
   {
     return cursor_animation_time;
@@ -392,7 +379,7 @@ protected:
   Cursor neovim_cursor;
   int rows = -1;
   int cols = -1;
-  PopupMenu popup_menu;
+  PopupMenuQ popup_menu;
   CmdLine cmdline;
   bool neovim_is_resizing = false;
   std::optional<QSize> queued_resize = std::nullopt;

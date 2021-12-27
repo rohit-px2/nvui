@@ -11,6 +11,320 @@ static auto get_font_dimensions_for(const QFont& font)
   return std::make_tuple(fm.averageCharWidth(), fm.height());
 }
 
+Cmdline::Cmdline(const HLState& hl, const Cursor* crsr)
+  : hl_state(hl), p_cursor(crsr)
+{
+}
+
+void Cmdline::cmdline_show(std::span<const Object> objs)
+{
+  content.clear();
+  if (objs.empty()) return;
+  auto& back = objs.back();
+  auto* arr = back.array();
+  if (!(arr && arr->size() >= 6)) return;
+  if (!arr->at(0).is_array()) return;
+  const auto& line = arr->at(0).get<ObjectArray>();
+  convert_content(content, line);
+  cursor_pos = arr->at(1).try_convert<int>().value_or(0);
+  auto* firstc = arr->at(2).string();
+  if (firstc && firstc->empty()) first_char.reset();
+  else first_char = QString::fromStdString(*firstc);
+  redraw();
+  do_show();
+}
+
+void Cmdline::cmdline_hide(std::span<const Object>)
+{
+  is_hidden = true;
+  do_hide();
+}
+
+bool Cmdline::hidden() const { return is_hidden; }
+
+void Cmdline::cmdline_cursor_pos(std::span<const Object> objs)
+{
+  for(auto& obj : objs)
+  {
+    auto* arr = obj.array();
+    if (!(arr && arr->size() >= 2)) continue;
+    cursor_pos = arr->at(0).try_convert<int>().value_or(0);
+    // const auto level = arr->at(1).get<u64>();
+  }
+}
+
+void Cmdline::set_fg(Color fg)
+{
+  inner_fg = fg;
+  colors_changed(fg, inner_bg.value_or(hl_state.default_bg()));
+}
+
+void Cmdline::set_bg(Color bg)
+{
+  inner_bg = bg;
+  colors_changed(inner_fg.value_or(hl_state.default_fg()), bg);
+}
+
+void Cmdline::cmdline_special_char(std::span<const Object>)
+{
+}
+
+void Cmdline::set_border_color(Color color)
+{
+  border_color = color;
+  border_changed();
+}
+
+void Cmdline::set_border_width(int pixels)
+{
+  border_width = (float) pixels;
+  border_changed();
+}
+
+void Cmdline::set_x(float left)
+{
+  if (left <= 0.f || left > 1.0f) return;
+  centered_x.reset();
+  rel_rect.setX(left);
+}
+
+void Cmdline::set_y(float top)
+{
+  if (top <= 0.f || top > 1.0f) return;
+  centered_y.reset();
+  rel_rect.setY(top);
+}
+
+void Cmdline::set_center_x(float x)
+{
+  if (x <= 0.f || x > 1.0f) return;
+  float cur_width = rel_rect.width();
+  rel_rect.setX(x - (cur_width / 2.f));
+  centered_x = x;
+  rect_changed(rel_rect);
+}
+
+void Cmdline::set_center_y(float y)
+{
+  if (y <= 0.f || y > 1.0f) return;
+  float cur_height = rel_rect.height();
+  rel_rect.setY(y - (cur_height / 2.f));
+  centered_y = y;
+  rect_changed(rel_rect);
+}
+
+void Cmdline::set_width(float w)
+{
+  if (w <= 0.f || w > 1.0f) return;
+  rel_rect.setWidth(w);
+  rect_changed(rel_rect);
+}
+
+void Cmdline::set_height(float h)
+{
+  if (h <= 0.f || h > 1.0f) return;
+  rel_rect.setHeight(h);
+  rect_changed(rel_rect);
+}
+
+void Cmdline::convert_content(Content& cont, const ObjectArray& obj)
+{
+  for(const auto& chunk : obj)
+  {
+    auto* arr = chunk.array();
+    if (!(arr && arr->size() >= 2)) continue;
+    auto vars = chunk.try_decompose<int, std::string>();
+    if (!vars) continue;
+    const auto& [attr, string] = *vars;
+    cont.push_back(Chunk {attr, QString::fromStdString(string)});
+  }
+}
+
+void Cmdline::set_padding(u32 pad)
+{
+  padding = pad;
+}
+
+void Cmdline::cmdline_block_show(std::span<const Object> objs)
+{
+  Q_UNUSED(objs);
+}
+
+void Cmdline::cmdline_block_append(std::span<const Object> objs)
+{
+  Q_UNUSED(objs);
+}
+
+void Cmdline::cmdline_block_hide(std::span<const Object> objs)
+{
+  Q_UNUSED(objs);
+}
+
+CmdlineQ::CmdlineQ(const HLState& hl_state, const Cursor* crs, QWidget* parent)
+: Cmdline(hl_state, crs), QWidget(parent)
+{
+  hide();
+  cmd_font.setPointSizeF(14.0);
+  cmd_font.setFamily(default_font_family());
+}
+
+CmdlineQ::~CmdlineQ() = default;
+
+void CmdlineQ::register_nvim(Nvim&)
+{
+}
+
+void CmdlineQ::colors_changed(Color, Color)
+{
+}
+
+void CmdlineQ::do_show()
+{
+  show();
+}
+
+void CmdlineQ::do_hide()
+{
+  hide();
+}
+
+void CmdlineQ::redraw()
+{
+  resize(width(), fitting_height());
+  update();
+}
+
+QRect CmdlineQ::get_rect() const
+{
+  return rect();
+}
+
+void CmdlineQ::set_font_family(std::string_view family)
+{
+  cmd_font.setFamily(QString::fromUtf8(family.data(), family.size()));
+}
+
+void CmdlineQ::set_font_size(double point_size)
+{
+  cmd_font.setPointSizeF(point_size);
+}
+
+void CmdlineQ::editor_resized(int, int)
+{
+  rect_changed(rel_rect);
+}
+
+void CmdlineQ::border_changed()
+{
+}
+
+int CmdlineQ::num_lines(const Content& content, const QFontMetricsF& fm) const
+{
+  double maxwidth = width() - (border_width + padding) * 2;
+  double w = 0;
+  for(const auto& [_, text] : content) w += fm.horizontalAdvance(text);
+  return std::ceil(w / maxwidth);
+}
+
+void CmdlineQ::rect_changed(QRectF relative_rect)
+{
+  auto* parent = parentWidget();
+  if (parent)
+  {
+    auto size = parent->size();
+    auto x = relative_rect.x() * size.width();
+    auto y = relative_rect.y() * size.height();
+    auto w = relative_rect.width() * size.width();
+    auto h = relative_rect.height() * size.height();
+    if (w != width() || h != height()) resize(w, h);
+    if (x != pos().x() || y != pos().y()) move(x, y);
+  }
+}
+
+int CmdlineQ::fitting_height() const
+{
+  QFontMetricsF fm {cmd_font};
+  int h = 0;
+  auto font_height = fm.height();
+  for(const auto& line : block)
+  {
+    h += num_lines(line, fm) * font_height;
+  }
+  h += num_lines(content, fm) * font_height;
+  return h + (padding * 2);
+}
+
+void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
+{
+  if (cursor.hidden()) return;
+  QFontMetricsF fm {cmd_font};
+  auto fwidth_avg = fm.averageCharWidth();
+  auto font_height = fm.height();
+  auto rect_opt = cursor.rect(fwidth_avg, font_height, 1.0f, false);
+  if (!rect_opt) return;
+  auto& crect = rect_opt.value();
+  int pos = cursor_pos;
+  double x = 0;
+  for(const auto& [_, text] : content)
+  {
+    bool done = false;
+    for(const auto& c : text)
+    {
+      x += fm.horizontalAdvance(c);
+      pos--;
+      if (pos <= 0)
+      {
+        done = true;
+        break;
+      }
+    }
+    if (done) break;
+  }
+  double cmd_width = width();
+  int lines = std::max(std::ceil(x / cmd_width), 1.0);
+  int left = int(x) % int(cmd_width);
+  int block_lines = 0;
+  for(const auto& line : block) block_lines += num_lines(line, fm);
+  int top = ((lines - 1) + block_lines) * font_height;
+  QPoint top_left {left, top};
+  auto [cfg, cbg] = hl_state.colors_for(hl_state.attr_for_id(crect.hl_id));
+  if (crect.hl_id == 0) std::swap(cfg, cbg);
+  crect.rect.moveTo(left, top);
+  p.fillRect(crect.rect, cbg.qcolor());
+}
+
+void CmdlineQ::paintEvent(QPaintEvent*)
+{
+  QFontMetricsF fm {cmd_font};
+  QPainter p(this);
+  p.setFont(cmd_font);
+  QColor bg = inner_bg.value_or(hl_state.default_bg()).qcolor();
+  QColor fg = inner_fg.value_or(hl_state.default_fg()).qcolor();
+  p.fillRect(rect(), bg);
+  p.setPen(fg);
+  int pad = border_width + padding;
+  QRect bounding_box {pad, pad, width() - 2 * pad, height() - 2 * pad};
+  QString string;
+  for(const auto& line : block)
+  {
+    for(const auto& [_, text] : line) string.append(text);
+    string.append('\n');
+  }
+  for(const auto& [_, text] : content) string.append(text);
+  p.drawText(bounding_box, Qt::TextWrapAnywhere, string);
+  if (border_width > 0.f)
+  {
+    QPen pen;
+    pen.setWidthF(border_width);
+    pen.setColor(border_color.qcolor());
+    p.setPen(pen);
+    float mid = border_width / 2.f;
+    QRectF b_rect(QPointF {mid, mid}, QPointF {width() - mid, height() - mid});
+    p.drawRect(b_rect);
+  }
+  if (p_cursor) draw_cursor(p, *p_cursor);
+}
+
 CmdLine::CmdLine(const HLState* hl_state, Cursor* cursor, QWidget* parent)
 : QWidget(parent),
   state(hl_state),
@@ -78,9 +392,8 @@ void CmdLine::cmdline_show(std::span<const Object> objs)
   setVisible(true);
 }
 
-void CmdLine::cmdline_hide(std::span<const Object> objs)
+void CmdLine::cmdline_hide(std::span<const Object>)
 {
-  Q_UNUSED(objs);
   setVisible(false);
 }
 
@@ -166,7 +479,7 @@ void CmdLine::paintEvent(QPaintEvent* event)
         p.drawText(QPoint {pt.x, pt.y}, c);
         if (cursor_pos && cur_char == cursor_pos.value())
         {
-          auto c_rect_opt = nvim_cursor->rect(font_width, font_height);
+          auto c_rect_opt = nvim_cursor->rect(font_width, font_height, 1.0f, false);
           if (c_rect_opt)
           {
             auto&& c_rect = c_rect_opt.value();
@@ -194,7 +507,7 @@ void CmdLine::paintEvent(QPaintEvent* event)
   }
   if (cursor_pos && !cursor_drawn)
   {
-    auto c_rect_opt = nvim_cursor->rect(font_width, font_height);
+    auto c_rect_opt = nvim_cursor->rect(font_width, font_height, 1.0f, false);
     if (c_rect_opt)
     {
       auto&& c_rect = c_rect_opt.value();

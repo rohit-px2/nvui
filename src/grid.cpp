@@ -158,7 +158,7 @@ void GridBase::send_draw(QRect r)
   evt_q.push({PaintKind::Draw, 0, r});
 }
 /// Grid's top left position
-QPoint GridBase::top_left() { return {x, y}; };
+QPoint GridBase::top_left() { return {x, y}; }
 QPoint GridBase::bot_right() { return {x + cols, y + rows}; }
 /// Grid's bottom right position
 QPoint GridBase::bot_left() { return {x, y + rows}; }

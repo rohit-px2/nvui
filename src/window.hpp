@@ -60,6 +60,12 @@ public slots:
    * Maximize the window.
    */
   void maximize();
+  /**
+   * Connects to the signals emitted
+   * by the QtEditorUIBase object.
+   * These signals get emitted by its UISignaller.
+   */
+  void connect_editor_signals(QtEditorUIBase&);
 private:
   /**
    * Disable the frameless window.
@@ -120,6 +126,8 @@ private:
   bool moving = false;
   std::unique_ptr<TitleBar> title_bar;
   QFlags<Qt::WindowState> prev_state;
+  QColor default_fg = Qt::white;
+  QColor default_bg = Qt::black;
   template<typename T>
   using opt = std::optional<T>;
   std::pair<opt<QColor>, opt<QColor>> titlebar_colors;

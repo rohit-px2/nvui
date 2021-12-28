@@ -690,5 +690,3 @@ void QtEditorUIBase::field_updated(std::string_view field, const Object& val)
     linespace_changed(linespace);
   }
 }
-
-void QtEditorUIBase::update_ui() { inheritor.update(); }

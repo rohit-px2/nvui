@@ -77,20 +77,81 @@ Window::Window(
   if (custom_titlebar) enable_frameless_window();
   else title_bar->hide();
   QObject::connect(title_bar.get(), &TitleBar::resize_move, this, &Window::resize_or_move);
-  QObject::connect(
-    editor_area.ui_signaller(), &UISignaller::default_colors_changed,
-    [this](QColor fg, QColor bg) {
-      update_titlebar_colors(fg, bg);
-    }
-  );
-  QObject::connect(editor_area.ui_signaller(), &UISignaller::closed,
-    [this] { close(); }
-  );
   setWindowIcon(QIcon(constants::appicon()));
-  // We'll do this later
+  connect_editor_signals(editor_area);
   setCentralWidget(&editor_area);
   editor_area.setFocus();
   editor_area.attach();
+}
+
+void Window::connect_editor_signals(QtEditorUIBase& editor)
+{
+  auto* signaller = editor.ui_signaller();
+  connect(
+    signaller, &UISignaller::default_colors_changed,
+    [this](QColor fg, QColor bg) {
+      default_fg = fg;
+      default_bg = bg;
+      update_titlebar_colors(fg, bg);
+    }
+  );
+  connect(signaller, &UISignaller::closed,
+    [this] { close(); }
+  );
+  connect(signaller, &UISignaller::fullscreen_set, [this](bool b) {
+    set_fullscreen(b);
+  });
+  connect(signaller, &UISignaller::fullscreen_toggled, [this] {
+    if (isFullScreen()) set_fullscreen(false);
+    else set_fullscreen(true);
+  });
+  connect(signaller, &UISignaller::frame_set, [this](bool frame) {
+    if (frame) disable_frameless_window();
+    else enable_frameless_window();
+  });
+  connect(signaller, &UISignaller::frame_toggled, [this] {
+    if (is_frameless()) disable_frameless_window();
+    else enable_frameless_window();
+  });
+  connect(signaller, &UISignaller::titlebar_set, [this](bool tb) {
+    if (tb) { enable_frameless_window(); title_bar->show(); }
+    else disable_frameless_window();
+  });
+  connect(signaller, &UISignaller::titlebar_toggled, [this] {
+    if (is_frameless()) disable_frameless_window();
+    else enable_frameless_window();
+  });
+  connect(signaller, &UISignaller::window_opacity_changed, [this](double opa) {
+    setWindowOpacity(opa);
+  });
+  connect(signaller, &UISignaller::titlebar_font_family_set, [this](QString f) {
+    title_bar->set_font_family(f);
+  });
+  connect(signaller, &UISignaller::titlebar_font_size_set, [this](double ps) {
+    title_bar->set_font_size(ps);
+  });
+  connect(signaller, &UISignaller::title_changed, [this](QString title) {
+    title_bar->set_title_text(title);
+  });
+  connect(signaller, &UISignaller::titlebar_fg_set, [this](QColor fg) {
+    titlebar_colors.first = fg;
+    update_titlebar_colors(default_fg, default_bg);
+  });
+  connect(signaller, &UISignaller::titlebar_bg_set, [this](QColor bg) {
+    titlebar_colors.second = bg;
+    update_titlebar_colors(default_fg, default_bg);
+  });
+  connect(signaller, &UISignaller::titlebar_colors_unset, [this] {
+    titlebar_colors.first.reset();
+    titlebar_colors.second.reset();
+    update_titlebar_colors(default_fg, default_bg);
+  });
+  connect(signaller, &UISignaller::titlebar_fg_bg_set,
+    [this](QColor fg, QColor bg) {
+      titlebar_colors.first = fg;
+      titlebar_colors.second = bg;
+      update_titlebar_colors(default_fg, default_bg);
+  });
 }
 
 enum ResizeType

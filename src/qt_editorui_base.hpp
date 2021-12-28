@@ -71,7 +71,6 @@ public:
   // inherits from QObject there will be ambiguity
   // since QWidget inherits from QObject
   UISignaller* ui_signaller();
-  void update_ui();
 protected:
   bool idling() const;
   // Handling UI events.

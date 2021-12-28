@@ -3,6 +3,7 @@
 #include <QPainter>
 #include <QStringBuilder>
 #include <QStringLiteral>
+#include "cmdline.hpp"
 #include "hlstate.hpp"
 #include "msgpack_overrides.hpp"
 #include "nvim.hpp"
@@ -84,29 +85,19 @@ PopupMenu::PopupMenu(const HLState* state)
 
 void PopupMenu::pum_show(std::span<const Object> objs)
 {
+  if (objs.empty()) return;
+  const auto& arr = objs.back().array();
+  if (!(arr && arr->size() >= 5)) return;
   longest_word_size = 0;
   is_hidden = false;
   completion_items.clear();
-  for(std::size_t i = 0; i < objs.size(); ++i)
-  {
-    auto& obj = objs[i];
-    auto* arr = obj.array();
-    assert(arr && arr->size() >= 5);
-    auto* items = arr->at(0).array();
-    cur_selected = (int) arr->at(1);
-    row = (int) arr->at(2);
-    col = (int) arr->at(3);
-    grid_num = (int) arr->at(4);
-    assert(items);
-    add_items(*items);
-    if (cur_selected >= 0 && cur_selected < int(completion_items.size()))
-    {
-      completion_items[i].selected = true;
-    }
-  }
-  update_highlight_attributes();
-  redraw();
-  do_show();
+  if (!arr->at(0).is_array()) return;
+  const auto& items = arr->at(0).get<ObjectArray>();
+  auto selected = arr->at(1).try_convert<int>().value_or(-1);
+  auto row = arr->at(2).try_convert<int>().value_or(0);
+  auto col = arr->at(3).try_convert<int>().value_or(0);
+  auto grid_num = arr->at(4).try_convert<int>().value_or(0);
+  pum_show(items, selected, grid_num, row, col, {});
 }
 
 void PopupMenu::pum_sel(std::span<const Object> objs)
@@ -126,6 +117,47 @@ void PopupMenu::pum_hide(std::span<const Object>)
 {
   is_hidden = true;
   do_hide();
+}
+
+void PopupMenu::pum_show(
+  const ObjectArray& items,
+  int selected,
+  int p_grid_num,
+  int p_row,
+  int p_col,
+  FontDimensions dims,
+  int p_grid_x,
+  int p_grid_y
+)
+{
+  parent_dims = dims;
+  longest_word_size = 0;
+  is_hidden = false;
+  completion_items.clear();
+  add_items(items);
+  if (selected >= 0 && selected < int(completion_items.size()))
+  {
+    completion_items[selected].selected = true;
+  }
+  row = p_row;
+  col = p_col;
+  grid_num = p_grid_num;
+  grid_x = p_grid_x;
+  grid_y = p_grid_y;
+  if (grid_x >= 0 && grid_y >= 0)
+  {
+    pixel_x = (grid_x + col) * dims.width;
+    pixel_y = (grid_y + row) * dims.height;
+  }
+  else
+  {
+    pixel_x = -1;
+    pixel_y = -1;
+  }
+  update_highlight_attributes();
+  update_dimensions();
+  redraw();
+  do_show();
 }
 
 void PopupMenu::add_items(const ObjectArray& items)
@@ -151,6 +183,27 @@ void PopupMenu::update_highlight_attributes()
   pmenu_sbar = &hl_state->attr_for_id(hl_state->id_for_name("PmenuSbar"));
   pmenu_sel = &hl_state->attr_for_id(hl_state->id_for_name("PmenuSel"));
   pmenu_thumb = &hl_state->attr_for_id(hl_state->id_for_name("PmenuThumb"));
+}
+
+QRect PopupMenu::calc_rect(int width, int height, int maxheight) const
+{
+  if (cmdline)
+  {
+    auto r = cmdline->get_rect();
+    return QRect {r.bottomLeft(), QSize {r.width(), height}};
+  }
+  else
+  {
+    auto fheight = parent_dims.height;
+    int x = (grid_x + col) * parent_dims.width;
+    int y = (grid_y + row + 1) * fheight;
+    // Prefer showing the popup menu under
+    if (y + height > maxheight && y - fheight - height >= 0)
+    {
+      y -= (fheight + height);
+    }
+    return {x, y, width, height};
+  }
 }
 
 PopupMenuQ::PopupMenuQ(const HLState* state, QWidget* parent)
@@ -242,12 +295,12 @@ PopupMenuQ::dimensions_for(int x, int y, int sw, int sh)
 
 void PopupMenuQ::redraw()
 {
-  PopupMenuQ::update_dimensions();
   paint();
 }
 
 void PopupMenuQ::paintEvent(QPaintEvent*)
 {
+  if (cmdline) move(cmdline->get_rect().bottomLeft());
   QPainter p(this);
   p.drawPixmap(rect(), pixmap, rect());
   QPen pen {border_color.qcolor()};
@@ -279,9 +332,29 @@ void PopupMenuQ::update_dimensions()
   height *= dimensions.height;
   height += border_width * 2;
   if (pixmap.size() == QSize(width, height)) return;
+  width = std::max(double(width), metrics.averageCharWidth() * 15);
+  auto rect = calc_rect(width, height, parent_height);
+  width = rect.width();
+  height = rect.height();
+  move(rect.topLeft());
+  if (QSize(width, height) == size()) return;
   pixmap = QPixmap(width, height);
   resize(width, height);
   pixmap.fill(hl_state->colors_for(*pmenu).bg.qcolor());
+}
+
+void PopupMenu::attach_cmdline(Cmdline* cmd)
+{
+  cmdline = cmd;
+  update_dimensions();
+  redraw();
+}
+
+void PopupMenu::detach_cmdline()
+{
+  attached_width.reset();
+  cmdline = nullptr;
+  update_dimensions();
 }
 
 QRect PopupMenuQ::get_rect() const { return rect(); }

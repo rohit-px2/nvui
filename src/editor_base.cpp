@@ -539,7 +539,27 @@ void EditorBase::mode_change(std::span<const Object> objs)
 
 void EditorBase::popupmenu_show(std::span<const Object> objs)
 {
-  popup_menu->pum_show(objs);
+  if (objs.empty()) return;
+  auto arr = objs.back().array();
+  if (!(arr && arr->size() >= 5)) return;
+  auto font_dims = font_dimensions();
+  if (!arr->at(0).is_array()) return;
+  const auto& items = arr->at(0).get<ObjectArray>();
+  auto selected = arr->at(1).try_convert<int>().value_or(-1);
+  auto row = arr->at(2).try_convert<int>().value_or(0);
+  auto col = arr->at(3).try_convert<int>().value_or(0);
+  auto grid_num = arr->at(4).try_convert<int>().value_or(0);
+  auto* grid = find_grid(grid_num);
+  int grid_x = 0;
+  int grid_y = 0;
+  if (grid)
+  {
+    grid_x = grid->x;
+    grid_y = grid->y;
+  }
+  popup_menu->pum_show(
+    items, selected, grid_num, row, col, font_dims, grid_x, grid_y
+  );
 }
 
 void EditorBase::popupmenu_hide(std::span<const Object> objs)
@@ -555,7 +575,7 @@ void EditorBase::popupmenu_select(std::span<const Object> objs)
 void EditorBase::cmdline_show(std::span<const Object> objs)
 {
   cmdline->cmdline_show(objs);
-  popup_menu->attach_cmdline(cmdline->get_rect().width());
+  popup_menu->attach_cmdline(cmdline.get());
 }
 
 void EditorBase::cmdline_hide(std::span<const Object> objs)

@@ -184,6 +184,7 @@ struct PMenuItem
 };
 
 class Nvim;
+struct Cmdline;
 
 class PopupMenu
 {
@@ -197,6 +198,17 @@ public:
    * given items.
    */
   void pum_show(std::span<const Object> objs);
+
+  void pum_show(
+    const ObjectArray& items,
+    int selected,
+    int grid_num,
+    int row,
+    int col,
+    FontDimensions dims,
+    int grid_x = -1,
+    int grid_y = -1
+  );
   /**
    * Hides the popupmenu.
    */
@@ -238,6 +250,8 @@ public:
     border_color = new_color;
   }
 
+  void attach_cmdline(Cmdline*);
+
   inline void attach_cmdline(int width)
   {
     attached_width = width;
@@ -251,11 +265,7 @@ public:
     else attach_cmdline(width);
   }
 
-  inline void detach_cmdline()
-  {
-    attached_width.reset();
-    update_dimensions();
-  }
+  void detach_cmdline();
 
   auto selected_idx() { return cur_selected; }
 
@@ -273,6 +283,7 @@ protected:
   virtual void do_show() = 0;
   virtual void do_hide() = 0;
   virtual void update_dimensions() = 0;
+  QRect calc_rect(int width, int height, int maxheight) const;
   /**
    * Add the given popupmenu items to the popup menu.
    */
@@ -281,7 +292,15 @@ protected:
    * Redraw the popupmenu.
    */
   virtual void redraw() = 0;
+  // Optional attached command line.
+  // When this is not nullptr,
+  // indicates the popup menu should be attached to
+  // the command line.
+  Cmdline* cmdline = nullptr;
+  FontDimensions parent_dims;
   std::optional<int> attached_width;
+  int pixel_x = -1;
+  int pixel_y = -1;
   const HLState* hl_state;
   const HLAttr* pmenu = nullptr;
   const HLAttr* pmenu_sel = nullptr;
@@ -294,6 +313,8 @@ protected:
   int grid_num = 0;
   int row = 0;
   int col = 0;
+  int grid_x = 0;
+  int grid_y = 0;
   int linespace = 0;
   bool is_hidden = true;
   float border_width = 1.f;
@@ -388,7 +409,7 @@ private:
   float icon_space = 1.5f;
   int icon_size_offset = 0;
   QFont pmenu_font;
-  FontDimensions dimensions;
+  FontDimensions dimensions {0, 0};
 };
 
 #endif // NVUI_POPUPMENU_HPP

@@ -1,6 +1,7 @@
 #include "cursor.hpp"
 #include "editor.hpp"
 #include "grid.hpp"
+#include "nvim_utils.hpp"
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <QElapsedTimer>
@@ -31,6 +32,7 @@ Cursor::Cursor()
     show();
     set_blinkon_timer(cur_mode.blinkon);
   });
+  init_animations();
 }
 
 
@@ -50,33 +52,82 @@ static float cursor_effect_normalize(double t)
   }
 }
 
-Cursor::Cursor(EditorArea* ea)
-  : Cursor()
+void Cursor::register_nvim(Nvim& nvim)
 {
-  assert(ea);
-  editor_area = ea;
-  cursor_animation_timer.callOnTimeout([this] {
-    auto elapsed_ms = elapsed_timer.elapsed();
-    cursor_animation_time -= static_cast<float>(elapsed_ms) / 1000.f;
-    if (cursor_animation_time <= 0.f)
-    {
-      cursor_animation_timer.stop();
-      cur_x = destination_x;
-      cur_y = destination_y;
-    }
-    else
-    {
-      auto x_diff = destination_x - old_x;
-      auto y_diff = destination_y - old_y;
-      auto duration = editor_area->cursor_animation_duration();
-      auto animation_left = cursor_animation_time / duration;
-      float animation_finished = 1.0f - animation_left;
-      float scaled = animation_scaler(animation_finished);
-      cur_x = old_x + (x_diff * scaled);
-      cur_y = old_y + (y_diff * scaled);
-    }
-    editor_area->update();
-    elapsed_timer.start();
+  const auto on = [&](auto&&... p) {
+    listen_for_notification(nvim, p..., this);
+  };
+  on("NVUI_CURSOR_SCALER",
+    paramify<std::string>([](std::string scaler) {
+      if (!scalers::scalers().contains(scaler)) return;
+      Cursor::animation_scaler = scalers::scalers().at(scaler);
+  }));
+  on("NVUI_CURSOR_ANIMATION_DURATION",
+    paramify<float>([this](float s) {
+      move_animation.set_duration(s);
+  }));
+  on("NVUI_CURSOR_FRAMETIME",
+    paramify<int>([this](int ms) {
+      move_animation.set_interval(ms);
+  }));
+  on("NVUI_CURSOR_EFFECT",
+    paramify<std::string>([this](std::string eff) {
+      set_effect(eff);
+  }));
+  on("NVUI_CURSOR_EFFECT_FRAMETIME",
+    paramify<int>([this](int ms) {
+      if (ms <= 0) set_effect("none");
+      set_effect_anim_frametime(ms);
+  }));
+  on("NVUI_CURSOR_EFFECT_DURATION",
+    paramify<double>([this](double secs) {
+      if (secs <= 0) set_effect("none");
+      set_effect_anim_duration(secs);
+  }));
+  on("NVUI_CURSOR_EFFECT_SCALER",
+    paramify<std::string>([this](std::string scaler) {
+      set_effect_ease_func(scaler);
+    })
+  );
+  on("NVUI_CARET_EXTEND", paramify<float, float>([this](float top, float bot) {
+    set_caret_extend(top, bot);
+  }));
+  on("NVUI_CARET_EXTEND_TOP", paramify<float>([this](float caret_top) {
+    set_caret_extend_top(caret_top);
+  }));
+  on("NVUI_CARET_EXTEND_BOTTOM", paramify<float>([this](float bot) {
+    set_caret_extend_bottom(bot);
+  }));
+  using namespace std;
+  handle_request<vector<string>, int>(nvim, "NVUI_CURSOR_EFFECT_SCALERS",
+    [&](const auto&) {
+      return tuple {scalers::scaler_names(), std::nullopt};
+  }, this);
+}
+
+void Cursor::set_animations_enabled(bool enable)
+{
+  use_anims = enable;
+}
+
+bool Cursor::animations_enabled() const
+{
+  return use_anims;
+}
+
+void Cursor::init_animations()
+{
+  move_animation.on_update([this] {
+    auto finished = move_animation.percent_finished();
+    auto scaled = animation_scaler(finished);
+    cur_x = old_x + (destination_x - old_x) * scaled;
+    cur_y = old_y + (destination_y - old_y) * scaled;
+    emit anim_state_changed();
+  });
+  move_animation.on_stop([this] {
+    cur_x = destination_x;
+    cur_y = destination_y;
+    emit anim_state_changed();
   });
   effect_animation.on_update([this] {
     auto percent_finished = effect_animation.percent_finished();
@@ -91,6 +142,7 @@ Cursor::Cursor(EditorArea* ea)
         break;
       default: return;
     }
+    emit anim_state_changed();
   });
   effect_animation.on_stop([this] {
     opacity_level = 1.0;
@@ -98,28 +150,29 @@ Cursor::Cursor(EditorArea* ea)
     {
       case CursorEffect::SmoothBlink:
       case CursorEffect::ExpandShrink:
-        if (!editor_area->animations_enabled()) return;
+        if (!animations_enabled()) return;
         // continuous
         effect_animation.start();
         break;
       default: break;
     }
+    emit anim_state_changed();
   });
   effect_animation.set_duration(1);
   effect_animation.set_interval(16);
+  move_animation.set_duration(0.3);
+  move_animation.set_interval(10);
 }
 
 void Cursor::animate_smoothblink(double percent_finished)
 {
   // During the animation opacity goes like this:
   opacity_level = effect_ease_func(percent_finished);
-  editor_area->update();
 }
 
 void Cursor::animate_expandshrink(double percent_finished)
 {
   height_level = effect_ease_func(percent_finished);
-  editor_area->update();
 }
 
 void Cursor::mode_change(std::span<const Object> objs)
@@ -266,7 +319,7 @@ void Cursor::go_to(CursorPos pos)
   prev_pos = cur_pos;
   if (!use_animated_position())
   {
-    cursor_animation_timer.stop();
+    move_animation.stop();
     cur_pos = pos;
   }
   else
@@ -276,14 +329,8 @@ void Cursor::go_to(CursorPos pos)
     old_y = cur_y;
     destination_x = cur_pos->grid_x + cur_pos->col;
     destination_y = cur_pos->grid_y + cur_pos->row;
-    cursor_animation_time = editor_area->cursor_animation_duration();
-    auto interval = editor_area->cursor_animation_frametime();
-    elapsed_timer.start();
-    if (cursor_animation_timer.interval() != interval)
-    {
-      cursor_animation_timer.setInterval(interval);
-    }
-    if (!cursor_animation_timer.isActive()) cursor_animation_timer.start();
+    cursor_animation_time = move_animation.duration();
+    move_animation.start();
     switch(cursor_effect)
     {
       case CursorEffect::SmoothBlink:
@@ -415,9 +462,7 @@ void Cursor::busy_stop()
 
 bool Cursor::use_animated_position() const
 {
-  return editor_area
-      && editor_area->animations_enabled()
-      && editor_area->cursor_animation_frametime() > 0;
+  return animations_enabled() && move_animation.interval() > 0;
 }
 
 double Cursor::opacity() const { return opacity_level; }

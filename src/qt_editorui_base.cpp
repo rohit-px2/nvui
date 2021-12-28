@@ -28,6 +28,9 @@ void QtEditorUIBase::setup()
 {
   Base::setup();
   register_command_handlers();
+  QObject::connect(&n_cursor, &Cursor::anim_state_changed, [this] {
+    inheritor.update();
+  });
 }
 
 void QtEditorUIBase::attach()
@@ -379,15 +382,6 @@ void QtEditorUIBase::register_command_handlers()
     charspace = space;
     charspace_changed(charspace);
   }));
-  on("NVUI_CARET_EXTEND", paramify<float, float>([this](float top, float bot) {
-    n_cursor.set_caret_extend(top, bot);
-  }));
-  on("NVUI_CARET_EXTEND_TOP", paramify<float>([this](float caret_top) {
-    n_cursor.set_caret_extend_top(caret_top);
-  }));
-  on("NVUI_CARET_EXTEND_BOTTOM", paramify<float>([this](float bot) {
-    n_cursor.set_caret_extend_bottom(bot);
-  }));
   on("NVUI_PUM_BORDER_WIDTH", paramify<std::size_t>([this](std::size_t b_width) {
     popup_menu->set_border_width(b_width);
   }));
@@ -510,18 +504,6 @@ void QtEditorUIBase::register_command_handlers()
   on("NVUI_FRAMELESS", paramify<bool>([this](bool b) {
     emit signaller.titlebar_set(b);
   }));
-  on("NVUI_CURSOR_SCALER",
-    paramify<std::string>([this](std::string scaler) {
-     set_scaler(Cursor::animation_scaler, scaler);
-  }));
-  on("NVUI_CURSOR_ANIMATION_DURATION",
-    paramify<float>([this](float s) {
-      cursor_animation.set_duration(s);
-  }));
-  on("NVUI_CURSOR_FRAMETIME",
-    paramify<int>([this](int ms) {
-      cursor_animation.set_interval(ms);
-  }));
   on("NVUI_CURSOR_HIDE_TYPE",
     paramify<bool>([this](bool hide) {
       mousehide = hide;
@@ -551,29 +533,15 @@ void QtEditorUIBase::register_command_handlers()
     paramify<bool>([this](bool b) {
       nvim->ui_set_option("ext_cmdline", b);
   }));
-  on("NVUI_CURSOR_EFFECT",
-    paramify<std::string>([this](std::string eff) {
-      n_cursor.set_effect(eff);
-  }));
-  on("NVUI_CURSOR_EFFECT_FRAMETIME",
-    paramify<int>([this](int ms) {
-      if (ms <= 0) n_cursor.set_effect("none");
-      n_cursor.set_effect_anim_frametime(ms);
-  }));
-  on("NVUI_CURSOR_EFFECT_DURATION",
-    paramify<double>([this](double secs) {
-      if (secs <= 0) n_cursor.set_effect("none");
-      n_cursor.set_effect_anim_duration(secs);
-  }));
-  on("NVUI_CURSOR_EFFECT_SCALER",
-    paramify<std::string>([this](std::string scaler) {
-      n_cursor.set_effect_ease_func(scaler);
-    })
-  );
   on("NVUI_IDLE_WAIT_FOR",
     paramify<double>([this](double seconds) {
       idle_timer.setInterval(seconds * 1000);
   }));
+  using namespace std;
+  handle_request<vector<string>, int>(*nvim, "NVUI_SCALER_NAMES",
+    [&](const auto&) {
+      return tuple {scalers::scaler_names(), std::nullopt};
+  }, &inheritor);
   const auto script_dir = constants::script_dir().toStdString();
   nvim->command(fmt::format("set rtp+={}", script_dir));
   nvim->command("runtime! plugin/nvui.vim");
@@ -722,3 +690,5 @@ void QtEditorUIBase::field_updated(std::string_view field, const Object& val)
     linespace_changed(linespace);
   }
 }
+
+void QtEditorUIBase::update_ui() { inheritor.update(); }

@@ -470,8 +470,6 @@ void QPaintGrid::draw_cursor(QPainter& painter, const Cursor& cursor)
   }
 }
 
-
-
 void QPaintGrid2::update_pixmap_size()
 {
   auto&& [font_width, font_height] = editor_area->font_dimensions();

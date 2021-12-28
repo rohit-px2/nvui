@@ -176,7 +176,7 @@ protected:
     std::string name,
     HandlerFunc func
   );
-  GridBase* find_grid(u64 grid_num);
+  GridBase* find_grid(i64 grid_num);
   void send_redraw();
   void screen_resized(int screenwidth, int screenheight);
 protected:

@@ -242,6 +242,26 @@ void QEditor::paintEvent(QPaintEvent*)
     }
   }
   p.setClipRect(rect());
+  if (!n_cursor.hidden() && cmdline->hidden())
+  {
+    auto* grid = find_grid(n_cursor.grid_num());
+    if (grid) static_cast<QPaintGrid2*>(grid)->draw_cursor(p, n_cursor);
+  }
+  auto* popup = static_cast<PopupMenuQ*>(popup_menu.get());
+  if (!popup_menu->hidden())
+  {
+    auto [grid_num, row, col] = popup_menu->position();
+    auto* grid = find_grid(grid_num);
+    if (grid)
+    {
+      popup->move((grid->x + col) * font_width, (grid->y + row + 1) * font_height);
+    }
+    else if (grid_num == -1)
+    {
+      auto r = cmdline->get_rect();
+      popup->move(r.bottomLeft());
+    }
+  }
 }
 
 u32 QEditor::font_for_ucs(u32 ucs)

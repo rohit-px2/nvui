@@ -40,6 +40,7 @@ struct Cmdline
   virtual void set_font_size(double point_size) = 0;
   void set_border_width(int pixels);
   void set_border_color(Color color);
+  QString get_content_string() const;
 protected:
   struct Chunk
   {
@@ -68,6 +69,8 @@ protected:
   // Before which character the cursor will show up on the current line.
   int cursor_pos = 0;
   bool is_hidden = true;
+private:
+  QString complete_content_string;
 protected:
   virtual void colors_changed(Color fg, Color bg) = 0;
   virtual void redraw() = 0;
@@ -80,6 +83,7 @@ protected:
   virtual void border_changed() = 0;
   virtual void rect_changed(QRectF relative_rect) = 0;
 private:
+  void update_content_string();
   void convert_content(Content&, const ObjectArray&);
 };
 

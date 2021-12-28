@@ -270,6 +270,8 @@ public:
     int x, int y, int screenwidth, int screenheight
   ) = 0;
 protected:
+  virtual void do_show() = 0;
+  virtual void do_hide() = 0;
   virtual void update_dimensions() = 0;
   /**
    * Add the given popupmenu items to the popup menu.
@@ -295,6 +297,7 @@ protected:
   int linespace = 0;
   bool is_hidden = true;
   float border_width = 1.f;
+  int longest_word_size = 0;
 };
 
 class PopupMenuQ : public PopupMenu, public QWidget
@@ -373,6 +376,9 @@ public:
 protected:
   void paintEvent(QPaintEvent*) override;
 private:
+  std::size_t max_items() const;
+  void do_hide() override;
+  void do_show() override;
   void redraw() override;
   void update_dimensions() override;
   void paint();

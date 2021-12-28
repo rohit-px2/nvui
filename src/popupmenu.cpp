@@ -84,6 +84,7 @@ PopupMenu::PopupMenu(const HLState* state)
 
 void PopupMenu::pum_show(std::span<const Object> objs)
 {
+  longest_word_size = 0;
   is_hidden = false;
   completion_items.clear();
   for(std::size_t i = 0; i < objs.size(); ++i)
@@ -103,11 +104,14 @@ void PopupMenu::pum_show(std::span<const Object> objs)
       completion_items[i].selected = true;
     }
   }
+  update_highlight_attributes();
   redraw();
+  do_show();
 }
 
 void PopupMenu::pum_sel(std::span<const Object> objs)
 {
+  update_highlight_attributes();
   if (objs.empty()) return;
   const auto& obj = objs.back();
   auto* arr = obj.array();
@@ -121,6 +125,7 @@ void PopupMenu::pum_sel(std::span<const Object> objs)
 void PopupMenu::pum_hide(std::span<const Object>)
 {
   is_hidden = true;
+  do_hide();
 }
 
 void PopupMenu::add_items(const ObjectArray& items)
@@ -133,6 +138,7 @@ void PopupMenu::add_items(const ObjectArray& items)
     auto kind = QString::fromStdString(*arr->at(1).string());
     auto menu = QString::fromStdString(*arr->at(2).string());
     auto info = QString::fromStdString(*arr->at(3).string());
+    longest_word_size = std::max(longest_word_size, word.size());
     completion_items.push_back({
       false, std::move(word), std::move(kind), std::move(menu), std::move(info)
     });
@@ -155,19 +161,29 @@ PopupMenuQ::PopupMenuQ(const HLState* state, QWidget* parent)
 
 PopupMenuQ::~PopupMenuQ() = default;
 
+std::size_t PopupMenuQ::max_items() const
+{
+  if (auto* parent = parentWidget())
+  {
+    return parent->height() / dimensions.height;
+  }
+  return std::numeric_limits<std::size_t>::max();
+}
+
 void PopupMenuQ::paint()
 {
-  update_highlight_attributes();
   if (completion_items.empty())
   {
     hide();
     return;
   }
   QPainter p(&pixmap);
+  p.setFont(pmenu_font);
   int cur_y = std::ceil(border_width);
   bool nothing_selected = cur_selected == -1;
   if (nothing_selected) cur_selected = 0;
-  for(std::size_t i = 0; i < completion_items.size(); ++i)
+  size_t maxitems = pixmap.height() / dimensions.height;
+  for(std::size_t i = 0; i < maxitems; ++i)
   {
     std::size_t index = (cur_selected + i) % completion_items.size();
     if (completion_items[index].selected)
@@ -202,6 +218,7 @@ void PopupMenuQ::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem
   float offset = font_ascent + (linespace / 2.f);
   auto [fg, bg, sp] = attr.fg_bg_sp(hl_state->default_colors_get());
   font::set_opts(pmenu_font, attr.font_opts);
+  p.setFont(pmenu_font);
   const auto* icon_ptr = icon_manager.icon_for_kind(item.kind);
   int left = std::ceil(border_width);
   p.fillRect(left, y, pixmap.width(), dimensions.height, bg.qcolor());
@@ -210,6 +227,7 @@ void PopupMenuQ::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem
     p.drawPixmap(QPoint {left, y}, *icon_ptr);
     left += icon_ptr->width() * icon_space;
   }
+  p.setPen(fg.qcolor());
   p.drawText(QPoint(left, y + offset), item.word);
 }
 
@@ -224,6 +242,7 @@ PopupMenuQ::dimensions_for(int x, int y, int sw, int sh)
 
 void PopupMenuQ::redraw()
 {
+  PopupMenuQ::update_dimensions();
   paint();
 }
 
@@ -243,26 +262,32 @@ void PopupMenuQ::paintEvent(QPaintEvent*)
 void PopupMenuQ::update_dimensions()
 {
   QFontMetricsF metrics {pmenu_font};
-  double text_width = 0.;
-  for(const auto& item : completion_items)
-  {
-    text_width = std::max(text_width, metrics.horizontalAdvance(item.word));
-  }
+  double text_width = longest_word_size * dimensions.width;
+  int parent_height = parentWidget() ? parentWidget()->height() : INT_MAX;
+  int parent_width = parentWidget() ? parentWidget()->width() : INT_MAX;
   // Box width = max number of characters.
   // Multiply by font dimensions to get the number of pixels wide.
   // Also add in the width of an icon.
-  float width =
-    text_width * dimensions.width + icon_manager.icon_size()
+  int width =
+    text_width + icon_manager.icon_size()
     + (border_width * 2);
   if (attached_width) width = float(attached_width.value());
-  float height = completion_items.size() * dimensions.height
-    + (border_width * 2);
+  width = std::min(width, parent_width);
+  int unconstrained_pmenu_height = completion_items.size() * dimensions.height;
+  int height = std::min(unconstrained_pmenu_height, parent_height);
+  height /= dimensions.height;
+  height *= dimensions.height;
+  height += border_width * 2;
+  if (pixmap.size() == QSize(width, height)) return;
   pixmap = QPixmap(width, height);
-	resize(width, height);
+  resize(width, height);
   pixmap.fill(hl_state->colors_for(*pmenu).bg.qcolor());
 }
 
 QRect PopupMenuQ::get_rect() const { return rect(); }
+
+void PopupMenuQ::do_show() { show(); }
+void PopupMenuQ::do_hide() { hide(); }
 
 void PopupMenuQ::register_nvim(Nvim& nvim)
 {

@@ -51,3 +51,6 @@ void Animation::on_stop(std::function<void ()> stopfunc)
 {
   stop_func = std::move(stopfunc);
 }
+
+double Animation::duration() const { return animation_duration; }
+int Animation::interval() const { return timer.interval(); }

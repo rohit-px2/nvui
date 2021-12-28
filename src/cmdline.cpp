@@ -18,6 +18,7 @@ Cmdline::Cmdline(const HLState& hl, const Cursor* crsr)
 
 void Cmdline::cmdline_show(std::span<const Object> objs)
 {
+  is_hidden = false;
   content.clear();
   if (objs.empty()) return;
   auto& back = objs.back();
@@ -30,6 +31,7 @@ void Cmdline::cmdline_show(std::span<const Object> objs)
   auto* firstc = arr->at(2).string();
   if (firstc && firstc->empty()) first_char.reset();
   else first_char = QString::fromStdString(*firstc);
+  update_content_string();
   redraw();
   do_show();
 }
@@ -140,6 +142,24 @@ void Cmdline::convert_content(Content& cont, const ObjectArray& obj)
   }
 }
 
+void Cmdline::update_content_string()
+{
+  auto& s = complete_content_string;
+  s.clear();
+  if (first_char) s.append(first_char.value());
+  for(const auto& line : block)
+  {
+    for(const auto& [_, text] : line) s.append(text);
+    s.append('\n');
+  }
+  for(const auto& [_, text] : content) s.append(text);
+}
+
+QString Cmdline::get_content_string() const
+{
+  return complete_content_string;
+}
+
 void Cmdline::set_padding(u32 pad)
 {
   padding = pad;
@@ -196,7 +216,7 @@ void CmdlineQ::redraw()
 
 QRect CmdlineQ::get_rect() const
 {
-  return rect();
+  return {x(), y(), width(), height()};
 }
 
 void CmdlineQ::set_font_family(std::string_view family)
@@ -223,7 +243,7 @@ int CmdlineQ::num_lines(const Content& content, const QFontMetricsF& fm) const
   double maxwidth = width() - (border_width + padding) * 2;
   double w = 0;
   for(const auto& [_, text] : content) w += fm.horizontalAdvance(text);
-  return std::ceil(w / maxwidth);
+  return std::max(std::ceil(w / maxwidth), 1.);
 }
 
 void CmdlineQ::rect_changed(QRectF relative_rect)
@@ -243,54 +263,51 @@ void CmdlineQ::rect_changed(QRectF relative_rect)
 
 int CmdlineQ::fitting_height() const
 {
+  int maxwidth = width() - (border_width + padding) * 2;
+  auto contentstring = get_content_string();
   QFontMetricsF fm {cmd_font};
-  int h = 0;
-  auto font_height = fm.height();
-  for(const auto& line : block)
-  {
-    h += num_lines(line, fm) * font_height;
-  }
-  h += num_lines(content, fm) * font_height;
-  return h + (padding * 2);
+  auto maxheight = fm.height() * contentstring.size();
+  QRectF constraint(0, 0, maxwidth, maxheight);
+  auto bound = fm.boundingRect(constraint, Qt::TextWrapAnywhere, contentstring);
+  return bound.height() + (2 * (border_width + padding));
 }
 
 void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
 {
   if (cursor.hidden()) return;
+  if (!cursor.pos()) return;
+  float pad = border_width + padding;
   QFontMetricsF fm {cmd_font};
-  auto fwidth_avg = fm.averageCharWidth();
-  auto font_height = fm.height();
-  auto rect_opt = cursor.rect(fwidth_avg, font_height, 1.0f, false);
-  if (!rect_opt) return;
-  auto& crect = rect_opt.value();
-  int pos = cursor_pos;
-  double x = 0;
-  for(const auto& [_, text] : content)
-  {
-    bool done = false;
-    for(const auto& c : text)
-    {
-      x += fm.horizontalAdvance(c);
-      pos--;
-      if (pos <= 0)
-      {
-        done = true;
-        break;
+  float left = pad;
+  float top = pad;
+  const auto incx = [&](float adv) {
+    if (left + adv > (width() - pad)) {
+      left = pad;
+      top += fm.height();
+    }
+    left += adv;
+  };
+  for(const auto& line : block) {
+    for(const auto& chunk : line) {
+      for(const auto& c : chunk.text) {
+        incx(fm.horizontalAdvance(c));
       }
     }
-    if (done) break;
+    top += fm.height();
   }
-  double cmd_width = width();
-  int lines = std::max(std::ceil(x / cmd_width), 1.0);
-  int left = int(x) % int(cmd_width);
-  int block_lines = 0;
-  for(const auto& line : block) block_lines += num_lines(line, fm);
-  int top = ((lines - 1) + block_lines) * font_height;
-  QPoint top_left {left, top};
-  auto [cfg, cbg] = hl_state.colors_for(hl_state.attr_for_id(crect.hl_id));
-  if (crect.hl_id == 0) std::swap(cfg, cbg);
-  crect.rect.moveTo(left, top);
-  p.fillRect(crect.rect, cbg.qcolor());
+  QString ctn;
+  if (first_char) { ctn += first_char.value(); ++cursor_pos; }
+  for(const auto& chunk : content) ctn += chunk.text;
+  for(int i = 0; i < cursor_pos && i < ctn.size(); ++i) {
+    incx(fm.horizontalAdvance(ctn.at(i)));
+  }
+  auto [rect, id, drawtext, opacity] = cursor.rect(
+    fm.averageCharWidth(), fm.height(), 1.0f, false
+  ).value();
+  rect.moveTo(left, top);
+  auto [fg, bg] = hl_state.colors_for(hl_state.attr_for_id(id));
+  if (id == 0) std::swap(fg, bg);
+  p.fillRect(rect, bg.qcolor());
 }
 
 void CmdlineQ::paintEvent(QPaintEvent*)
@@ -298,20 +315,14 @@ void CmdlineQ::paintEvent(QPaintEvent*)
   QFontMetricsF fm {cmd_font};
   QPainter p(this);
   p.setFont(cmd_font);
+  auto contentstring = get_content_string();
   QColor bg = inner_bg.value_or(hl_state.default_bg()).qcolor();
   QColor fg = inner_fg.value_or(hl_state.default_fg()).qcolor();
   p.fillRect(rect(), bg);
   p.setPen(fg);
   int pad = border_width + padding;
-  QRect bounding_box {pad, pad, width() - 2 * pad, height() - 2 * pad};
-  QString string;
-  for(const auto& line : block)
-  {
-    for(const auto& [_, text] : line) string.append(text);
-    string.append('\n');
-  }
-  for(const auto& [_, text] : content) string.append(text);
-  p.drawText(bounding_box, Qt::TextWrapAnywhere, string);
+  QRect bounding_rect = {pad, pad, width() - pad * 2, height() - pad * 2};
+  p.drawText(bounding_rect, Qt::TextWrapAnywhere, contentstring);
   if (border_width > 0.f)
   {
     QPen pen;

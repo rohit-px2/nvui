@@ -18,6 +18,8 @@ public:
   template<typename Func>
   void on_update(Func&& f);
   double percent_finished() const;
+  double duration() const;
+  int interval() const;
   void on_stop(std::function<void ()> stopfunc);
   void stop();
 private:

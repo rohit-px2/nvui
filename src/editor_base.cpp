@@ -37,6 +37,7 @@ void EditorBase::setup()
   register_handlers();
   popup_menu->register_nvim(*nvim);
   cmdline->register_nvim(*nvim);
+  n_cursor.register_nvim(*nvim);
 }
 
 void EditorBase::confirm_qa()
@@ -211,7 +212,7 @@ void EditorBase::destroy_grid(u64 grid_num)
   grids.erase(it);
 }
 
-GridBase* EditorBase::find_grid(u64 grid_num)
+GridBase* EditorBase::find_grid(i64 grid_num)
 {
   for(const auto& grid : grids)
   {

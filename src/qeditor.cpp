@@ -99,21 +99,18 @@ void QEditor::resizeEvent(QResizeEvent* ev)
 
 void QEditor::mousePressEvent(QMouseEvent* ev)
 {
-  unhide_cursor();
   QWidget::mousePressEvent(ev);
   Base::handle_mouse_press(ev);
 }
 
 void QEditor::mouseReleaseEvent(QMouseEvent* ev)
 {
-  unhide_cursor();
   QWidget::mouseReleaseEvent(ev);
   Base::handle_mouse_release(ev);
 }
 
 void QEditor::wheelEvent(QWheelEvent* ev)
 {
-  unhide_cursor();
   Base::handle_wheel(ev);
 }
 
@@ -134,30 +131,17 @@ void QEditor::inputMethodEvent(QInputMethodEvent* ev)
 
 void QEditor::mouseMoveEvent(QMouseEvent* ev)
 {
-  unhide_cursor();
   QWidget::mouseMoveEvent(ev);
   Base::handle_mouse_move(ev);
 }
 
 void QEditor::keyPressEvent(QKeyEvent* ev)
 {
-  typed();
   QWidget::keyPressEvent(ev);
   Base::handle_key_press(ev);
 }
 
 void QEditor::redraw() { update(); }
-
-void QEditor::typed()
-{
-  if (!mousehide || cursor() == Qt::BlankCursor) return;
-  setCursor(Qt::BlankCursor);
-}
-
-void QEditor::unhide_cursor()
-{
-  if (cursor() == Qt::BlankCursor) unsetCursor();
-}
 
 void QEditor::linespace_changed(float)
 {
@@ -264,9 +248,4 @@ u32 QEditor::calc_fallback_index(u32 ucs)
     if (fonts[i].raw().supportsCharacter(ucs)) return i;
   }
   return 0;
-}
-
-void QEditor::cursor_moved()
-{
-  qApp->inputMethod()->update(Qt::ImCursorRectangle);
 }

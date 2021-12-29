@@ -81,7 +81,6 @@ public:
       D2D1::HwndRenderTargetProperties(hwnd, sz),
       &hwnd_target
     );
-    d2d_factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(), D2D1::HwndRenderTargetProperties(hwnd, sz), &hwnd_target);
     hwnd_target->QueryInterface(&device_context);
     device_context->GetDevice(&device);
     device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_ENABLE_MULTITHREADED_OPTIMIZATIONS, &mtd_context);

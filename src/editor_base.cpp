@@ -413,7 +413,7 @@ static std::vector<FontDesc> parse_guifont(std::string gfdesc)
 
 void EditorBase::option_set(std::span<const Object> objs)
 {
-  static const auto extension_for = [&](const auto& s) -> bool* {
+  const auto extension_for = [&](const auto& s) -> bool* {
     if (s == "ext_linegrid") return &ext.linegrid;
     else if (s == "ext_popupmenu") return &ext.popupmenu;
     else if (s == "ext_cmdline") return &ext.cmdline;

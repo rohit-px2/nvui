@@ -2,6 +2,7 @@
 #include "input.hpp"
 #include "nvim_utils.hpp"
 #include "scalers.hpp"
+#include <QApplication>
 #include <QMimeData>
 #include <fmt/format.h>
 
@@ -96,6 +97,7 @@ static QRect scaled(const QRect& r, float hor, float vert)
 void QtEditorUIBase::handle_key_press(QKeyEvent* event)
 {
   un_idle();
+  typed();
   event->accept();
   auto text = convert_key(*event);
   if (text.empty()) return;
@@ -203,6 +205,7 @@ void QtEditorUIBase::send_mouse_input(
 void QtEditorUIBase::handle_mouse_press(QMouseEvent* event)
 {
   un_idle();
+  unhide_cursor();
   if (!mouse_enabled()) return;
   mouse.button_clicked(event->button());
   std::string btn_text = mouse_button_to_string(event->button());
@@ -217,6 +220,7 @@ void QtEditorUIBase::handle_mouse_press(QMouseEvent* event)
 void QtEditorUIBase::handle_wheel(QWheelEvent* event)
 {
   un_idle();
+  unhide_cursor();
   if (!mouse_enabled()) return;
   std::string button = "wheel";
   std::string action = "";
@@ -233,6 +237,7 @@ void QtEditorUIBase::handle_wheel(QWheelEvent* event)
 void QtEditorUIBase::handle_mouse_move(QMouseEvent* event)
 {
   un_idle();
+  unhide_cursor();
   if (!mouse_enabled()) return;
   auto button = mouse_button_to_string(event->buttons());
   if (button.empty()) return;
@@ -264,6 +269,7 @@ void QtEditorUIBase::handle_mouse_move(QMouseEvent* event)
 void QtEditorUIBase::handle_mouse_release(QMouseEvent* event)
 {
   un_idle();
+  unhide_cursor();
   if (!mouse_enabled()) return;
   auto button = mouse_button_to_string(event->button());
   if (button.empty()) return;
@@ -279,8 +285,10 @@ static bool is_image(const QString& fp)
 {
   return !QImage(fp).isNull();
 }
+
 void QtEditorUIBase::handle_drop(QDropEvent* event)
 {
+  unhide_cursor();
   const QMimeData* mime_data = event->mimeData();
   if (mime_data->hasUrls())
   {
@@ -300,6 +308,7 @@ void QtEditorUIBase::handle_drop(QDropEvent* event)
 
 void QtEditorUIBase::handle_drag(QDragEnterEvent* event)
 {
+  unhide_cursor();
   if (event->mimeData()->hasUrls()) event->acceptProposedAction();
 }
 
@@ -689,4 +698,20 @@ void QtEditorUIBase::field_updated(std::string_view field, const Object& val)
     linespace = val.try_convert<float>().value_or(linespace);
     linespace_changed(linespace);
   }
+}
+
+void QtEditorUIBase::typed()
+{
+  if (!mousehide || inheritor.cursor() == Qt::BlankCursor) return;
+  inheritor.setCursor(Qt::BlankCursor);
+}
+
+void QtEditorUIBase::unhide_cursor()
+{
+  if (inheritor.cursor() == Qt::BlankCursor) inheritor.unsetCursor();
+}
+
+void QtEditorUIBase::cursor_moved()
+{
+  qApp->inputMethod()->update(Qt::ImCursorRectangle);
 }

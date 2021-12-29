@@ -52,6 +52,7 @@ public:
     std::string nvim_path,
     std::vector<std::string> nvim_args
   );
+  ~QtEditorUIBase() override = default;
   void attach();
   void setup() override;
   virtual void set_animations_enabled(bool enabled);
@@ -94,6 +95,9 @@ protected:
   virtual void linespace_changed(float new_ls) = 0;
   virtual void charspace_changed(float new_cs) = 0;
 private:
+  void cursor_moved() override;
+  void typed();
+  void unhide_cursor();
   void field_updated(std::string_view field, const Object& value) override;
   // Emits UISignaller::default_colors_changed
   void default_colors_changed(Color, Color) override;

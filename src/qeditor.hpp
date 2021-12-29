@@ -43,11 +43,8 @@ protected:
   bool focusNextPrevChild(bool) override { return false; }
 private:
   u32 calc_fallback_index(u32 ucs);
-  void typed();
-  void unhide_cursor();
   std::unique_ptr<PopupMenu> popup_new() override;
   std::unique_ptr<Cmdline> cmdline_new() override;
-  void cursor_moved() override;
   void redraw() override;
   void create_grid(u32 x, u32 y, u32 w, u32 h, u64 id) override;
   void set_fonts(std::span<FontDesc> fonts) override;

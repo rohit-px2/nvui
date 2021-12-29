@@ -39,6 +39,22 @@ std::optional<std::string_view> get_arg(
   return std::nullopt;
 }
 
+bool extract_arg_bool(
+  const vector<string>& args, const std::string_view prefix,
+  bool defaultval, bool notfound
+)
+{
+  if (auto arg = get_arg(args, fmt::format("{}=", prefix)))
+  {
+    return arg.value() == "true" ? true : false;
+  }
+  if (auto arg = get_arg(args, prefix); arg && arg->empty())
+  {
+    return defaultval;
+  }
+  return notfound;
+}
+
 vector<string> neovim_args(const vector<string>& listofargs)
 {
   vector<string> args;
@@ -96,7 +112,9 @@ std::optional<std::pair<int, int>> parse_geometry(std::string_view geom)
   int width=0, height=0;
   auto data = geom.data();
   auto res = std::from_chars(data, data + pos, width);
+  if (res.ec != std::errc()) return {};
   res = std::from_chars(data + pos + 1, data + geom.size(), height);
+  if (res.ec != std::errc()) return {};
   return std::pair {width, height};
 }
 
@@ -139,12 +157,7 @@ int main(int argc, char** argv)
     start_detached(argc, argv);
     return 0;
   }
-  auto titlebar = get_arg(args, "--titlebar");
-  if (titlebar)
-  {
-    if (titlebar->empty()) custom_titlebar = true;
-    else custom_titlebar = *titlebar == "=true" ? true : false;
-  }
+  custom_titlebar = extract_arg_bool(args, "--titlebar", true, false);
   auto path_to_nvim = get_arg(args, "--nvim=");
   if (path_to_nvim && is_executable(*path_to_nvim))
   {
@@ -156,17 +169,16 @@ int main(int argc, char** argv)
     auto parsed = parse_geometry(*geometry);
     if (parsed) std::tie(width, height) = *parsed;
   }
-  for(const auto& capability : capabilities)
+  for(auto& [key, val]: capabilities)
   {
-    // Ex. --ext_popupmenu=true
-    auto set_arg = get_arg(args, fmt::format("--{}=", capability.first));
-    if (set_arg)
-    {
-      capabilities[capability.first] = *set_arg == "true" ? true : false;
-    }
-    // Single argument (e.g. --ext_popupmenu)
-    auto arg = get_arg(args, fmt::format("--{}", capability.first));
-    if (arg && arg->empty()) capabilities[capability.first] = true;
+    bool preset = val;
+    val = extract_arg_bool(args, fmt::format("--{}", key), true, preset);
+  }
+  std::optional<std::pair<int, int>> window_size;
+  auto winsize = get_arg(args, "--size=");
+  if (winsize)
+  {
+    window_size = parse_geometry(winsize.value());
   }
   std::ios_base::sync_with_stdio(false);
   QApplication app {argc, argv};
@@ -174,6 +186,7 @@ int main(int argc, char** argv)
   {
     Nvim nvim {nvim_path, nvim_args};
     Window w(nullptr, &nvim, width, height, custom_titlebar);
+    if (window_size) w.resize(window_size->first, window_size->second);
     w.register_handlers();
     w.show();
     nvim.set_var("nvui", 1);

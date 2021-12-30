@@ -132,8 +132,11 @@ private:
   template<typename T>
   using opt = std::optional<T>;
   std::pair<opt<QColor>, opt<QColor>> titlebar_colors;
-  //QEditor editor_area;
+#if defined(USE_DIRECT2D)
   D2DEditor editor_area;
+#elif defined(USE_QPAINTER)
+  QEditor editor_area;
+#endif
 signals:
   void win_state_changed(Qt::WindowStates new_state);
   void default_colors_changed(QColor fg, QColor bg);

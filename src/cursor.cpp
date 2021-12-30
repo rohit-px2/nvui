@@ -103,6 +103,10 @@ void Cursor::register_nvim(Nvim& nvim)
     [&](const auto&) {
       return tuple {scalers::scaler_names(), std::nullopt};
   }, this);
+  handle_request<vector<string>, int>(nvim, "NVUI_CURSOR_EFFECT_NAMES",
+    [&](const auto&) {
+      return tuple {vector<string> {"smoothblink", "expandshrink", "none"}, std::nullopt};
+  }, this);
 }
 
 void Cursor::set_animations_enabled(bool enable)

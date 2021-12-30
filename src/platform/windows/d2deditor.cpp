@@ -5,8 +5,6 @@
 #include <dwrite.h>
 #include <dwrite_1.h>
 #include <wrl/client.h>
-#include <comdef.h>
-
 
 using DWriteFactory = IDWriteFactory;
 
@@ -73,8 +71,15 @@ D2DEditor::D2DEditor(
   QtEditorUIBase(*this, cols, rows, std::move(capabilities),
     std::move(nvim_path), std::move(nvim_args))
 {
-  setMouseTracking(true);
   setAttribute(Qt::WA_PaintOnScreen);
+  setAttribute(Qt::WA_InputMethodEnabled);
+  setAttribute(Qt::WA_OpaquePaintEvent);
+  setAutoFillBackground(false);
+  setAcceptDrops(true);
+  setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+  setFocusPolicy(Qt::StrongFocus);
+  setFocus();
+  setMouseTracking(true);
   HWND hwnd = (HWND) winId();
   D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, d2d_factory.GetAddressOf());
   DWriteCreateFactory(
@@ -138,26 +143,39 @@ void D2DEditor::dragEnterEvent(QDragEnterEvent* event)
 void D2DEditor::inputMethodEvent(QInputMethodEvent* event)
 {
   Base::handle_ime_event(event);
+  QWidget::inputMethodEvent(event);
 }
 
 void D2DEditor::mouseMoveEvent(QMouseEvent* event)
 {
   Base::handle_mouse_move(event);
+  QWidget::mouseMoveEvent(event);
 }
 
-ComPtr<ID2D1BitmapRenderTarget>
+D2DEditor::OffscreenRenderingPair
 D2DEditor::create_render_target(u32 width, u32 height)
 {
   auto size = D2D1::SizeU(width, height);
-  auto pixelformat = D2D1::PixelFormat();
-  ComPtr<ID2D1BitmapRenderTarget> target;
-  device_context->CreateCompatibleRenderTarget(
-    nullptr, &size, &pixelformat,
-    D2D1_COMPATIBLE_RENDER_TARGET_OPTIONS_NONE,
+  ComPtr<ID2D1DeviceContext> target;
+  ComPtr<ID2D1Bitmap1> bitmap;
+  device->CreateDeviceContext(
+    D2D1_DEVICE_CONTEXT_OPTIONS_ENABLE_MULTITHREADED_OPTIMIZATIONS,
     &target
   );
+  target->CreateBitmap(
+    size, nullptr, 0,
+    D2D1::BitmapProperties1(
+      D2D1_BITMAP_OPTIONS_TARGET,
+      D2D1::PixelFormat(
+        DXGI_FORMAT_B8G8R8A8_UNORM,
+        D2D1_ALPHA_MODE_PREMULTIPLIED
+      )
+    ),
+    &bitmap
+  );
+  target->SetTarget(bitmap.Get());
   target->SetDpi(default_dpi, default_dpi);
-  return target;
+  return {target, bitmap};
 }
 
 void D2DEditor::paintEvent(QPaintEvent*)
@@ -311,6 +329,17 @@ void D2DEditor::update_font_metrics()
   float font_width = metrics.width + charspacing();
   float font_height = std::ceil(metrics.height + linespacing());
   set_font_dimensions(font_width, font_height);
+  auto* popup = static_cast<PopupMenuQ*>(popup_menu.get());
+  auto firstnamelength = format->GetFontFamilyNameLength();
+  std::wstring name;
+  name.resize(firstnamelength + 1);
+  format->GetFontFamilyName(name.data(), name.size());
+  QFont f;
+  f.setFamily(QString::fromWCharArray(name.c_str()));
+  f.setPointSizeF(current_point_size);
+  f.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
+  popup->font_changed(f, font_dimensions());
+  emit font_changed();
 }
 
 void D2DEditor::create_grid(u32 x, u32 y, u32 w, u32 h, u64 id)

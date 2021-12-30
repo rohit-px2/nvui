@@ -397,7 +397,8 @@ public:
 protected:
   void paintEvent(QPaintEvent*) override;
 private:
-  std::size_t max_items() const;
+  std::size_t max_possible_items() const;
+  int max_items() const;
   void do_hide() override;
   void do_show() override;
   void redraw() override;

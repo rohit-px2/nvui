@@ -175,6 +175,7 @@ void QEditor::set_fonts(std::span<FontDesc> fontdescs)
 
 void QEditor::update_font_metrics()
 {
+  first_font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
   QFontMetricsF metrics {first_font};
   float combined_height = std::max(metrics.height(), metrics.lineSpacing());
   double font_height = combined_height + linespacing();

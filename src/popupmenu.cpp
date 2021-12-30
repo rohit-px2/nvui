@@ -202,6 +202,12 @@ QRect PopupMenu::calc_rect(int width, int height, int maxheight) const
     {
       y -= (fheight + height);
     }
+    else if (y + height > maxheight && y - fheight - height < 0
+        && (y + height - maxheight) > -(y - fheight - height))
+    {
+      y = 0;
+      height = (grid_y + row) * fheight;
+    }
     return {x, y, width, height};
   }
 }
@@ -214,13 +220,18 @@ PopupMenuQ::PopupMenuQ(const HLState* state, QWidget* parent)
 
 PopupMenuQ::~PopupMenuQ() = default;
 
-std::size_t PopupMenuQ::max_items() const
+std::size_t PopupMenuQ::max_possible_items() const
 {
   if (auto* parent = parentWidget())
   {
     return parent->height() / dimensions.height;
   }
   return std::numeric_limits<std::size_t>::max();
+}
+
+int PopupMenuQ::max_items() const
+{
+  return pixmap.height() / dimensions.height;
 }
 
 void PopupMenuQ::paint()
@@ -315,7 +326,7 @@ void PopupMenuQ::paintEvent(QPaintEvent*)
 void PopupMenuQ::update_dimensions()
 {
   QFontMetricsF metrics {pmenu_font};
-  double text_width = longest_word_size * dimensions.width;
+  double text_width = longest_word_size * metrics.horizontalAdvance('W');
   int parent_height = parentWidget() ? parentWidget()->height() : INT_MAX;
   int parent_width = parentWidget() ? parentWidget()->width() : INT_MAX;
   // Box width = max number of characters.

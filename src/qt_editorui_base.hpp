@@ -161,7 +161,7 @@ protected:
   float charspace = 0;
   float linespace = 0;
   u32 snapshot_count = 4;
-  AnimationDetails move_animation {4, 0.5f};
+  AnimationDetails move_animation {4, 0.3f};
   AnimationDetails scroll_animation {10, 0.3f};
   AnimationDetails cursor_animation {10, 0.3f};
   QTimer idle_timer {};

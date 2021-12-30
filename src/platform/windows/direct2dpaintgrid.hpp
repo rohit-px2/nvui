@@ -191,7 +191,7 @@ class D2DPaintGrid2 : public GridBase
   struct Snapshot
   {
     Viewport vp;
-    ID2D1Bitmap* image;
+    ComPtr<ID2D1Bitmap1> image;
   };
   template<typename Resource>
   struct WinDeleter
@@ -247,13 +247,14 @@ public:
   /// allow for better pixel precision.
   void update_position(double x, double y);
   /// Render this grid to a render target
-  void render(ID2D1RenderTarget* render_target);
+  void render(ID2D1DeviceContext* render_target);
   /// Draw the given cursor to the render target at the appropriate position
   void draw_cursor(ID2D1RenderTarget* target, const Cursor& cursor);
 private:
   std::vector<Snapshot> snapshots;
   D2DEditor* editor_area = nullptr;
-  ComPtr<ID2D1BitmapRenderTarget> render_target = nullptr;
+  ComPtr<ID2D1DeviceContext> render_target = nullptr;
+  ComPtr<ID2D1Bitmap1> bitmap = nullptr;
   QTimer move_update_timer {};
   float move_animation_time = -1.f; // Number of seconds till animation ends
   QPointF top_left = {0, 0};
@@ -338,7 +339,7 @@ private:
   );
   /// Returns a copy of src.
   /// NOTE: Must be released.
-  ID2D1Bitmap* copy_bitmap(ID2D1Bitmap* src);
+  ComPtr<ID2D1Bitmap1> copy_bitmap(ID2D1Bitmap1* src);
 };
 
 #endif // NVUI_PLATFORM_WINDOWS_DIRECT2DPAINTGRID_HPP

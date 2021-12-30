@@ -33,7 +33,12 @@ public:
   QPaintEngine* paintEngine() const override { return nullptr; }
   u32 font_for_ucs(u32 ucs);
   // Creates a bitmap render target with the given width and height.
-  ComPtr<ID2D1BitmapRenderTarget> create_render_target(u32 width, u32 height);
+  struct OffscreenRenderingPair
+  {
+    ComPtr<ID2D1DeviceContext> target;
+    ComPtr<ID2D1Bitmap1> bitmap;
+  };
+  OffscreenRenderingPair create_render_target(u32 width, u32 height);
   IDWriteFactory* dwrite_factory();
   const auto& fallback_list() const { return dw_formats; }
   ~D2DEditor() override;

@@ -1,16 +1,27 @@
-#ifndef NVUI_QEDITOR_HPP
-#define NVUI_QEDITOR_HPP
+#ifndef NVUI_D2DEDITOR_HPP
+#define NVUI_D2DEDITOR_HPP
 
-#include "font.hpp"
 #include "qt_editorui_base.hpp"
-#include <QWidget>
 
-class QEditor : public QWidget, public QtEditorUIBase
+#ifndef Q_OS_WIN
+#error "D2DEditor requires Windows."
+#endif // Q_OS_WIN
+
+#include <wrl/client.h>
+#include <d2d1.h>
+#include <d2d1_1.h>
+#include <dwrite.h>
+#include <dwrite_1.h>
+#include "direct2dpaintgrid.hpp"
+
+class D2DEditor : public QWidget, public QtEditorUIBase
 {
   Q_OBJECT
   using Base = QtEditorUIBase;
+  template<typename T>
+  using ComPtr = Microsoft::WRL::ComPtr<T>;
 public:
-  QEditor(
+  D2DEditor(
     int cols,
     int rows,
     std::unordered_map<std::string, bool> capabilities,
@@ -18,11 +29,14 @@ public:
     std::vector<std::string> nvim_args,
     QWidget* parent = nullptr
   );
-  ~QEditor() override;
   void setup() override;
-  const auto& fallback_list() const { return fonts; }
-  const auto& main_font() const { return first_font; }
+  QPaintEngine* paintEngine() const override { return nullptr; }
   u32 font_for_ucs(u32 ucs);
+  // Creates a bitmap render target with the given width and height.
+  ComPtr<ID2D1BitmapRenderTarget> create_render_target(u32 width, u32 height);
+  IDWriteFactory* dwrite_factory();
+  const auto& fallback_list() const { return dw_formats; }
+  ~D2DEditor() override;
 signals:
   void font_changed();
 protected:
@@ -41,17 +55,23 @@ protected:
   void keyPressEvent(QKeyEvent* event) override;
   bool focusNextPrevChild(bool) override { return false; }
 private:
-  u32 calc_fallback_index(u32 ucs);
+  void update_font_metrics();
   std::unique_ptr<PopupMenu> popup_new() override;
   std::unique_ptr<Cmdline> cmdline_new() override;
   void redraw() override;
   void create_grid(u32 x, u32 y, u32 w, u32 h, u64 id) override;
   void set_fonts(std::span<FontDesc> fonts) override;
+  u32 calc_fallback_index(u32 ucs);
 private:
-  std::unordered_map<u32, u32> fallback_indices;
-  void update_font_metrics();
-  QFont first_font;
-  std::vector<Font> fonts;
+  std::unordered_map<u32, u32> fallback_indices {};
+  std::vector<ComPtr<IDWriteFont>> dw_fonts;
+  std::vector<ComPtr<IDWriteTextFormat>> dw_formats;
+  ComPtr<IDWriteFactory> dw_factory = nullptr;
+  ComPtr<ID2D1Factory> d2d_factory = nullptr;
+  ComPtr<ID2D1DeviceContext> device_context = nullptr;
+  ComPtr<ID2D1HwndRenderTarget> hwnd_target = nullptr;
+  ComPtr<ID2D1Device> device = nullptr;
+  float current_point_size = 12.0f;
 };
 
-#endif // NVUI_QEDITOR_HPP
+#endif // NVUI_D2DEDITOR_HPP

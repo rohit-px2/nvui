@@ -20,7 +20,7 @@ void QPaintGrid::set_size(u16 w, u16 h)
 
 void QPaintGrid::set_pos(u16 new_x, u16 new_y)
 {
-  if (!editor_area->animations_enabled())
+  if (!editor_area->animations_enabled() || is_float())
   {
     GridBase::set_pos(new_x, new_y);
     update_position(new_x, new_y);
@@ -486,7 +486,7 @@ void QPaintGrid2::set_size(u16 w, u16 h)
 
 void QPaintGrid2::set_pos(u16 new_x, u16 new_y)
 {
-  if (!editor_area->animations_enabled())
+  if (!editor_area->animations_enabled() || is_float())
   {
     GridBase::set_pos(new_x, new_y);
     update_position(new_x, new_y);

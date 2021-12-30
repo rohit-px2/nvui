@@ -60,9 +60,9 @@ namespace hl
           ? Kind::Syntax
           : Kind::UI;
       }
-      if (auto* id = o.try_at("id"); id && id->convertible<int>())
+      if (auto* hid = o.try_at("id"); hid && hid->convertible<int>())
       {
-        state.id = (int) *id;
+        state.id = (int) *hid;
       }
       attr.state.push_back(std::move(state));
     }
@@ -115,7 +115,7 @@ void HLState::set_id_attr(int id, HLAttr attr)
   {
     // Shouldn't happen with the way Neovim gives us highlight
     // attributes but just to make sure
-    id_to_attr.resize(id + 1);
+    id_to_attr.resize((std::size_t) id + 1);
   }
   if (id == (int) id_to_attr.size())
   {

@@ -52,7 +52,7 @@ public:
     int width, int height, std::unordered_map<std::string, bool> capabilities
   );
   const HLState& hlstate() const;
-  virtual FontDimensions font_dimensions() const = 0;
+  FontDimensions font_dimensions() const;
   NvimDimensions nvim_dimensions() const;
   // Send "confirm qa" signal to Neovim to close.
   void confirm_qa();
@@ -179,13 +179,14 @@ protected:
   GridBase* find_grid(i64 grid_num);
   void send_redraw();
   void screen_resized(int screenwidth, int screenheight);
+  void set_font_dimensions(float width, float height);
 protected:
   HLState hl_state;
   Cursor n_cursor;
-  // Concrete inheritor must set the popup menu and
-  // cmdline upon construction
   std::unique_ptr<PopupMenu> popup_menu;
   std::unique_ptr<Cmdline> cmdline;
+  // This must get updated when changes are made to the dimensions
+  // of the font
   std::vector<std::unique_ptr<GridBase>> grids;
   std::vector<FontDesc> guifonts;
   std::unique_ptr<Nvim> nvim;
@@ -193,8 +194,10 @@ protected:
   bool grids_need_ordering = false;
   bool enable_mouse = false;
   bool done = false;
+  FontDimensions ms_font_dimensions;
 private:
   // Measures to prevent needless resizing requests
+  QSize pixel_dimensions;
   QSize dimensions;
   std::optional<QSize> queued_resize;
   bool resizing;

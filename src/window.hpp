@@ -25,6 +25,7 @@ class Window;
 
 #if defined(Q_OS_WIN)
 #include "wineditor.hpp"
+#include "platform/windows/d2deditor.hpp"
 #endif
 
 constexpr int tolerance = 10; //10px tolerance for resizing
@@ -131,7 +132,8 @@ private:
   template<typename T>
   using opt = std::optional<T>;
   std::pair<opt<QColor>, opt<QColor>> titlebar_colors;
-  QEditor editor_area;
+  //QEditor editor_area;
+  D2DEditor editor_area;
 signals:
   void win_state_changed(Qt::WindowStates new_state);
   void default_colors_changed(QColor fg, QColor bg);

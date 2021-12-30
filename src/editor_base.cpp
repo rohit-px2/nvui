@@ -16,7 +16,7 @@ EditorBase::EditorBase(
 : hl_state(), n_cursor(), popup_menu(nullptr),
   cmdline(nullptr), grids(),
   nvim(std::make_unique<Nvim>(nvim_path, nvim_args)),
-  ext(), grids_need_ordering(false)
+  ext(), grids_need_ordering(false), ms_font_dimensions {10, 10}
 {
   nvim->set_client_info(nvui_cinfo);
   nvim->set_var("nvui", 1);
@@ -267,12 +267,13 @@ void EditorBase::order_grids()
 
 void EditorBase::screen_resized(int sw, int sh)
 {
+  if (sw <= 0 || sh <= 0) return;
+  pixel_dimensions = {sw, sh};
   auto [font_width, font_height] = font_dimensions();
-  auto cols = sw / font_width;
-  auto rows = sh / font_height;
+  int cols = sw / font_width;
+  int rows = sh / font_height;
   cmdline->editor_resized(sw, sh);
-  dimensions.setWidth(cols);
-  dimensions.setHeight(rows);
+  dimensions = {cols, rows};
   nvim->resize(cols, rows);
 }
 
@@ -749,3 +750,17 @@ void EditorBase::create_grid(u32 x, u32 y, u32 w, u32 h, u64 id)
 void EditorBase::field_updated(std::string_view, const Object&) {}
 
 bool EditorBase::nvim_exited() const { return done; }
+
+FontDimensions EditorBase::font_dimensions() const
+{
+  return ms_font_dimensions;
+}
+
+void EditorBase::set_font_dimensions(float width, float height)
+{
+  if (width != ms_font_dimensions.width || height != ms_font_dimensions.height)
+  {
+    ms_font_dimensions = {width, height};
+    screen_resized(pixel_dimensions.width(), pixel_dimensions.height());
+  }
+}

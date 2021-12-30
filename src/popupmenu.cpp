@@ -340,7 +340,7 @@ void PopupMenuQ::update_dimensions()
   if (QSize(width, height) == size()) return;
   pixmap = QPixmap(width, height);
   resize(width, height);
-  pixmap.fill(hl_state->colors_for(*pmenu).bg.qcolor());
+  if (pmenu) pixmap.fill(hl_state->colors_for(*pmenu).bg.qcolor());
 }
 
 void PopupMenu::attach_cmdline(Cmdline* cmd)

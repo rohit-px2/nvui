@@ -65,8 +65,7 @@ QEditor::QEditor(
   setFocus();
   setMouseTracking(true);
   QFontMetricsF fm {first_font};
-  font_height = fm.height();
-  font_width = fm.horizontalAdvance('a');
+  set_font_dimensions(fm.horizontalAdvance('a'), fm.height());
 }
 
 QEditor::~QEditor() = default;
@@ -74,11 +73,6 @@ QEditor::~QEditor() = default;
 void QEditor::setup()
 {
   Base::setup();
-}
-
-FontDimensions QEditor::font_dimensions() const
-{
-  return {font_width, font_height};
 }
 
 std::unique_ptr<PopupMenu> QEditor::popup_new()
@@ -183,19 +177,20 @@ void QEditor::update_font_metrics()
 {
   QFontMetricsF metrics {first_font};
   float combined_height = std::max(metrics.height(), metrics.lineSpacing());
-  font_height = combined_height + linespacing();
+  double font_height = combined_height + linespacing();
   constexpr QChar any_char = 'a';
-  font_width = metrics.horizontalAdvance(any_char) + charspace;
+  double font_width = metrics.horizontalAdvance(any_char) + charspace;
   for(auto& f : fonts)
   {
     QFont old_font = f.font();
     old_font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
     f = old_font;
   }
+  set_font_dimensions(font_width, font_height);
   // This is safe because we created an instance of PopupMenuQ
   // in the popup_new() function
   auto* popup = static_cast<PopupMenuQ*>(popup_menu.get());
-  popup->font_changed(first_font, {font_width, font_height});
+  popup->font_changed(first_font, font_dimensions());
   screen_resized(width(), height());
   emit font_changed();
 }
@@ -210,6 +205,7 @@ void QEditor::paintEvent(QPaintEvent*)
   QPainter p(this);
   p.fillRect(rect(), hl_state.default_colors_get().bg().value_or(0).qcolor());
   auto [cols, rows] = nvim_dimensions();
+  auto [font_width, font_height] = font_dimensions();
   QRectF grid_clip_rect(0, 0, cols * font_width, rows * font_height);
   p.setClipRect(grid_clip_rect);
   p.setRenderHint(QPainter::SmoothPixmapTransform);
@@ -236,6 +232,8 @@ void QEditor::paintEvent(QPaintEvent*)
 u32 QEditor::font_for_ucs(u32 ucs)
 {
   if (ucs < 256) return 0;
+  auto it = fallback_indices.find(ucs);
+  if (it != fallback_indices.end()) return it->second;
   auto index = calc_fallback_index(ucs);
   fallback_indices[ucs] = index;
   return index;

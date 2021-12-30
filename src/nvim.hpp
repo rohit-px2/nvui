@@ -1,10 +1,6 @@
 #ifndef NVUI_NVIM_HPP
 #define NVUI_NVIM_HPP
 
-#ifndef __kernel_entry
-  #define __kernel_entry
-#endif
-
 #include <boost/process/pipe.hpp>
 #include <boost/process.hpp>
 #include <atomic>

@@ -62,10 +62,10 @@ private:
 
 struct AttrState
 {
-  Kind kind;
+  Kind kind = Kind::Syntax;
   std::string hi_name;
   std::string ui_name;
-  int id;
+  int id = 0;
 };
 
 enum FontOpts : std::uint8_t

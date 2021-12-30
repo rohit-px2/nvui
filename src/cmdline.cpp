@@ -221,7 +221,7 @@ QRect CmdlineQ::get_rect() const
 
 void CmdlineQ::set_font_family(std::string_view family)
 {
-  cmd_font.setFamily(QString::fromUtf8(family.data(), family.size()));
+  cmd_font.setFamily(QString::fromUtf8(family.data(), (int) family.size()));
 }
 
 void CmdlineQ::set_font_size(double point_size)

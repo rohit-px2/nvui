@@ -88,6 +88,8 @@ protected:
   void handle_wheel(QWheelEvent*);
   void handle_drop(QDropEvent*);
   void handle_drag(QDragEnterEvent*);
+  void handle_focuslost(QFocusEvent*);
+  void handle_focusgained(QFocusEvent*);
   void listen_for_notification(
     std::string method,
     std::function<void (const ObjectArray&)> func

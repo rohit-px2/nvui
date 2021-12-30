@@ -312,6 +312,15 @@ void QtEditorUIBase::handle_drag(QDragEnterEvent* event)
   if (event->mimeData()->hasUrls()) event->acceptProposedAction();
 }
 
+void QtEditorUIBase::handle_focuslost(QFocusEvent*)
+{
+  nvim->command("if exists('#FocusLost') | doautocmd <nomodeline> FocusLost | endif");
+}
+void QtEditorUIBase::handle_focusgained(QFocusEvent*)
+{
+  nvim->command("if exists('#FocusGained') | doautocmd <nomodeline> FocusGained | endif");
+}
+
 void QtEditorUIBase::set_animations_enabled(bool enabled)
 {
   animate = enabled;

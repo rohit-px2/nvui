@@ -39,6 +39,8 @@ protected:
   void mouseMoveEvent(QMouseEvent* event) override;
   void paintEvent(QPaintEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
+  void focusInEvent(QFocusEvent* event) override;
+  void focusOutEvent(QFocusEvent* event) override;
   bool focusNextPrevChild(bool) override { return false; }
 private:
   u32 calc_fallback_index(u32 ucs);

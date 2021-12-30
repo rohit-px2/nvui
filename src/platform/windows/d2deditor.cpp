@@ -199,6 +199,18 @@ void D2DEditor::keyPressEvent(QKeyEvent* event)
   Base::handle_key_press(event);
 }
 
+void D2DEditor::focusInEvent(QFocusEvent* event)
+{
+  Base::handle_focusgained(event);
+  QWidget::focusInEvent(event);
+}
+
+void D2DEditor::focusOutEvent(QFocusEvent* event)
+{
+  Base::handle_focuslost(event);
+  QWidget::focusOutEvent(event);
+}
+
 std::unique_ptr<PopupMenu> D2DEditor::popup_new()
 {
   return std::make_unique<PopupMenuQ>(&hl_state, this);

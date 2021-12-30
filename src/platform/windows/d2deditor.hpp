@@ -54,6 +54,8 @@ protected:
   void paintEvent(QPaintEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   bool focusNextPrevChild(bool) override { return false; }
+  void focusInEvent(QFocusEvent* event) override;
+  void focusOutEvent(QFocusEvent* event) override;
 private:
   void update_font_metrics();
   std::unique_ptr<PopupMenu> popup_new() override;

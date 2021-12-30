@@ -247,3 +247,15 @@ u32 QEditor::calc_fallback_index(u32 ucs)
   }
   return 0;
 }
+
+void QEditor::focusInEvent(QFocusEvent* event)
+{
+  Base::handle_focusgained(event);
+  QWidget::focusInEvent(event);
+}
+
+void QEditor::focusOutEvent(QFocusEvent* event)
+{
+  Base::handle_focuslost(event);
+  QWidget::focusOutEvent(event);
+}

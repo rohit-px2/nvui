@@ -1141,3 +1141,17 @@ void EditorArea::set_idling_time(double seconds)
   should_idle = true;
   idle_timer.setInterval(seconds * 1000);
 }
+
+// focusInEvent and focusOutEvent code taken from
+// https://github.com/equalsraf/neovim-qt/blob/e7a51dd58a4a10147d34e93d20b19eeeffc69814/src/gui/shell.cpp#L1640-L1656
+void EditorArea::focusInEvent(QFocusEvent* event)
+{
+  nvim->command("if exists('#FocusGained') | doautocmd <nomodeline> FocusGained | endif");
+  QWidget::focusInEvent(event);
+}
+
+void EditorArea::focusOutEvent(QFocusEvent* event)
+{
+  nvim->command("if exists('#FocusLost') | doautocmd <nomodeline> FocusLost | endif");
+  QWidget::focusOutEvent(event);
+}

@@ -564,6 +564,8 @@ protected:
   void dropEvent(QDropEvent* event) override;
   void dragEnterEvent(QDragEnterEvent* event) override;
   void inputMethodEvent(QInputMethodEvent* event) override;
+  void focusInEvent(QFocusEvent* event) override;
+  void focusOutEvent(QFocusEvent* event) override;
 };
 
 #endif // NVUI_EDITOR_HPP

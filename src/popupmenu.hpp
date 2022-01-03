@@ -5,6 +5,7 @@
 #include <QCompleter>
 #include <QDebug>
 #include <QPaintEvent>
+#include <QStaticText>
 #include <QStringBuilder>
 #include <span>
 #include <msgpack.hpp>
@@ -283,7 +284,7 @@ protected:
   virtual void do_show() = 0;
   virtual void do_hide() = 0;
   virtual void update_dimensions() = 0;
-  QRect calc_rect(int width, int height, int maxheight) const;
+  QRect calc_rect(int width, int height, int max_x, int max_y) const;
   /**
    * Add the given popupmenu items to the popup menu.
    */
@@ -350,15 +351,7 @@ public:
    * If offset is positive, nothing will happen. This is so that
    * the icons don't clip other things.
    */
-  inline void set_icon_size_offset(int offset)
-  {
-    if (offset > 0) return;
-    else
-    {
-      icon_size_offset = offset;
-      icon_manager.size_changed(dimensions.height + icon_size_offset);
-    }
-  }
+  void set_icon_size_offset(int offset);
 
   inline void set_icon_space(float space)
   {
@@ -398,6 +391,7 @@ protected:
   void paintEvent(QPaintEvent*) override;
 private:
   std::size_t max_possible_items() const;
+  int item_height() const;
   int max_items() const;
   void do_hide() override;
   void do_show() override;
@@ -407,10 +401,11 @@ private:
   QPixmap pixmap;
   PopupMenuIconManager icon_manager;
   bool icons_enabled = true;
-  float icon_space = 1.5f;
+  float icon_space = 1.1f;
   int icon_size_offset = 0;
   QFont pmenu_font;
   FontDimensions dimensions {0, 0};
+  QHash<QString, QStaticText> text_cache;
 };
 
 #endif // NVUI_POPUPMENU_HPP

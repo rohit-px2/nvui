@@ -53,6 +53,7 @@ void Cmdline::cmdline_cursor_pos(std::span<const Object> objs)
     cursor_pos = arr->at(0).try_convert<int>().value_or(0);
     // const auto level = arr->at(1).get<u64>();
   }
+  redraw();
 }
 
 void Cmdline::set_fg(Color fg)
@@ -261,6 +262,19 @@ void CmdlineQ::rect_changed(QRectF relative_rect)
   }
 }
 
+static void incx(
+  float& left, float& top, float adv, float maxwidth, float pad, float height
+)
+{
+  if (left + adv > maxwidth - pad)
+  {
+    left = pad;
+    top += height;
+    return;
+  }
+  left += adv;
+}
+
 int CmdlineQ::fitting_height() const
 {
   int maxwidth = width() - (border_width + padding) * 2;
@@ -268,8 +282,18 @@ int CmdlineQ::fitting_height() const
   QFontMetricsF fm {cmd_font};
   auto maxheight = fm.height() * contentstring.size();
   QRectF constraint(0, 0, maxwidth, maxheight);
-  auto bound = fm.boundingRect(constraint, Qt::TextWrapAnywhere, contentstring);
-  return bound.height() + (2 * (border_width + padding));
+  float pad = border_width + padding;
+  float left = pad;
+  float top = pad;
+  const auto adv_x = [&](float adv) {
+    incx(left, top, adv, width(), pad, fm.height());
+  };
+  for(const auto& c : contentstring)
+  {
+    if (c == '\n') { left = pad; top += fm.height(); }
+    else adv_x(fm.horizontalAdvance(c));
+  }
+  return top + fm.height() + pad;
 }
 
 void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
@@ -280,17 +304,13 @@ void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
   QFontMetricsF fm {cmd_font};
   float left = pad;
   float top = pad;
-  const auto incx = [&](float adv) {
-    if (left + adv > (width() - pad)) {
-      left = pad;
-      top += fm.height();
-    }
-    left += adv;
+  const auto adv_x = [&](float adv) {
+    incx(left, top, adv, width(), pad, fm.height());
   };
   for(const auto& line : block) {
     for(const auto& chunk : line) {
       for(const auto& c : chunk.text) {
-        incx(fm.horizontalAdvance(c));
+        adv_x(fm.horizontalAdvance(c));
       }
     }
     top += fm.height();
@@ -299,7 +319,7 @@ void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
   if (first_char) { ctn += first_char.value(); ++cursor_pos; }
   for(const auto& chunk : content) ctn += chunk.text;
   for(int i = 0; i < cursor_pos && i < ctn.size(); ++i) {
-    incx(fm.horizontalAdvance(ctn.at(i)));
+    adv_x(fm.horizontalAdvance(ctn.at(i)));
   }
   auto [rect, id, drawtext, opacity] = cursor.rect(
     fm.averageCharWidth(), fm.height(), 1.0f, false
@@ -313,25 +333,31 @@ void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
 void CmdlineQ::paintEvent(QPaintEvent*)
 {
   QFontMetricsF fm {cmd_font};
+  int offset = fm.ascent();
   QPainter p(this);
   p.setFont(cmd_font);
   auto contentstring = get_content_string();
   QColor bg = inner_bg.value_or(hl_state.default_bg()).qcolor();
   QColor fg = inner_fg.value_or(hl_state.default_fg()).qcolor();
-  p.fillRect(rect(), bg);
-  p.setPen(fg);
-  int pad = border_width + padding;
-  QRect bounding_rect = {pad, pad, width() - pad * 2, height() - pad * 2};
-  p.drawText(bounding_rect, Qt::TextWrapAnywhere, contentstring);
   if (border_width > 0.f)
   {
-    QPen pen;
-    pen.setWidthF(border_width);
-    pen.setColor(border_color.qcolor());
-    p.setPen(pen);
-    float mid = border_width / 2.f;
-    QRectF b_rect(QPointF {mid, mid}, QPointF {width() - mid, height() - mid});
-    p.drawRect(b_rect);
+    p.fillRect(rect(), border_color.qcolor());
+  }
+  p.setPen(fg);
+  int border = border_width;
+  QRect fill_rect(border, border, width() - 2 * border, height() - 2 * border);
+  p.fillRect(fill_rect, bg);
+  int pad = border_width + padding;
+  float left = pad;
+  float top = pad;
+  for(const auto& c : contentstring)
+  {
+    if (c == '\n') { left = pad; top += fm.height(); }
+    else
+    {
+      p.drawText(QPointF(left, top + offset), c);
+      incx(left, top, fm.horizontalAdvance(c), width(), pad, fm.height());
+    }
   }
   if (p_cursor) draw_cursor(p, *p_cursor);
 }

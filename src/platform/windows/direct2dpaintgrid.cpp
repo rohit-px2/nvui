@@ -420,11 +420,11 @@ D2DPaintGrid::d2pt D2DPaintGrid::pos() const
 D2DPaintGrid::d2rect D2DPaintGrid::rect() const
 {
   auto size = context->GetSize();
-  float left = top_left.x();
-  float top = top_left.y();
+  int left = top_left.x();
+  int top = top_left.y();
   float right = left + size.width;
   float bottom = top + size.height;
-  return {left, top, right, bottom};
+  return D2D1::RectF(left, top, right, bottom);
 }
 
 D2DPaintGrid::d2rect D2DPaintGrid::source_rect() const
@@ -961,11 +961,11 @@ D2DPaintGrid2::d2pt D2DPaintGrid2::pos() const
 D2DPaintGrid2::d2rect D2DPaintGrid2::rect() const
 {
   auto size = bitmap->GetSize();
-  float left = top_left.x();
-  float top = top_left.y();
+  int left = top_left.x();
+  int top = top_left.y();
   float right = left + size.width;
   float bottom = top + size.height;
-  return {left, top, right, bottom};
+  return D2D1::RectF(left, top, right, bottom);
 }
 
 D2DPaintGrid2::d2rect D2DPaintGrid2::source_rect() const
@@ -976,7 +976,7 @@ D2DPaintGrid2::d2rect D2DPaintGrid2::source_rect() const
 
 void D2DPaintGrid2::set_pos(u16 new_x, u16 new_y)
 {
-  if (!editor_area->animations_enabled())
+  if (!editor_area->animations_enabled() || is_float())
   {
     move_update_timer.stop();
     GridBase::set_pos(new_x, new_y);
@@ -1054,13 +1054,17 @@ ComPtr<ID2D1Bitmap1> D2DPaintGrid2::copy_bitmap(ID2D1Bitmap1* src)
   return dst;
 }
 
+static const auto interp = D2D1_BITMAP_INTERPOLATION_MODE_LINEAR;
+
 void D2DPaintGrid2::render(ID2D1DeviceContext* target)
 {
   auto&& [font_width, font_height] = editor_area->font_dimensions();
   auto sz = bitmap->GetSize();
   d2rect r = rect();
   auto bg = editor_area->default_bg().to_uint32();
-  QRectF rect {top_left.x(), top_left.y(), (qreal) sz.width, (qreal) sz.height};
+  auto tly = (int) top_left.y();
+  auto tlx = (int) top_left.x();
+  QRectF rect(tlx, tly, (qreal) sz.width, (qreal) sz.height);
   ID2D1SolidColorBrush* bg_brush = nullptr;
   target->CreateSolidColorBrush(D2D1::ColorF(bg), &bg_brush);
   // Sometimes in multigrid mode the root grid can 'peek through'
@@ -1076,7 +1080,7 @@ void D2DPaintGrid2::render(ID2D1DeviceContext* target)
       bitmap.Get(),
       &r,
       1.0f,
-      D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+      interp
     );
     return;
   }
@@ -1088,24 +1092,24 @@ void D2DPaintGrid2::render(ID2D1DeviceContext* target)
     const auto& snapshot = *it;
     float snapshot_top = snapshot.vp.topline * font_height;
     float offset = snapshot_top - cur_scroll_y;
-    auto pixmap_top = top_left.y() + offset;
-    d2pt pt = D2D1::Point2F(top_left.x(), pixmap_top);
+    auto pixmap_top = tly + offset;
+    d2pt pt = D2D1::Point2F(tlx, pixmap_top);
     r = D2D1::RectF(pt.x, pt.y, pt.x + sz.width, pt.y + sz.height);
     target->DrawBitmap(
       snapshot.image.Get(),
       &r,
       1.0f,
-      D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+      interp
     );
   }
   float offset = cur_snapshot_top - cur_scroll_y;
-  d2pt pt = D2D1::Point2F(top_left.x(), top_left.y() + offset);
+  d2pt pt = D2D1::Point2F(tlx, tly + offset);
   r = D2D1::RectF(pt.x, pt.y, pt.x + sz.width, pt.y + sz.height);
   target->DrawBitmap(
     bitmap.Get(),
     &r,
     1.0f,
-    D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+    interp
   );
   target->PopAxisAlignedClip();
 }
@@ -1124,7 +1128,7 @@ void D2DPaintGrid2::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
   float scale_factor = 1.0f;
   if (gc.double_width) scale_factor = 2.0f;
   const CursorRect rect = *cursor.rect(font_width, font_height, scale_factor);
-  ID2D1SolidColorBrush* brush = nullptr;
+  ComPtr<ID2D1SolidColorBrush> brush = nullptr;
   const HLAttr& attr = hl->attr_for_id(rect.hl_id);
   auto [fg, bg, sp] = attr.fg_bg_sp(hl->default_colors_get());
   if (attr.hl_id == 0) std::swap(fg, bg);
@@ -1133,7 +1137,7 @@ void D2DPaintGrid2::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
   auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());
   // Draw cursor background
   brush->SetOpacity(rect.opacity);
-  draw_bg(*target, bg, fill_rect, *brush);
+  draw_bg(*target, bg, fill_rect, *brush.Get());
   brush->SetOpacity(1.0f);
   if (rect.should_draw_text)
   {
@@ -1148,10 +1152,9 @@ void D2DPaintGrid2::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
     const auto end = D2D1::Point2F(start.x + (scale_factor * font_width), start.y + font_height);
     draw_text(
       *target, gc.text, fg, sp, fo, start, end,
-      font_width, font_height, *brush, text_formats[font_idx].Get(), false
+      font_width, font_height, *brush.Get(), text_formats[font_idx].Get(), true
     );
   }
-  SafeRelease(&brush);
 }
 
 D2DPaintGrid2::~D2DPaintGrid2()

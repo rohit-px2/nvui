@@ -175,16 +175,19 @@ void GridBase::viewport_changed(Viewport vp)
 }
 bool GridBase::is_float() const { return is_float_grid; }
 void GridBase::set_floating(bool f) noexcept { is_float_grid = f; }
+
 void GridBase::win_pos(u16 x, u16 y)
 {
-  set_pos(x, y);
   set_floating(false);
+  set_pos(x, y);
 }
+
 void GridBase::float_pos(u16 x, u16 y)
 {
-  set_pos(x, y);
   set_floating(true);
+  set_pos(x, y);
 }
+
 void GridBase::set_float_ordering_info(int zindex, const QPointF& p) noexcept
 {
   float_ordering_info = {zindex, p.x(), p.y()};

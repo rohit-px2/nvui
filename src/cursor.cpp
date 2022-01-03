@@ -408,13 +408,15 @@ std::optional<CursorRect> Cursor::rect(
     x = cur_x;
     y = cur_y;
   }
+  float topextend = varheight ? caret_extend_top : 0;
+  float botextend = varheight ? caret_extend_bottom : 0;
   auto crect = get_rect(
     cur_mode,
     y,
     x,
     font_width, font_height,
-    caret_extend_top,
-    caret_extend_bottom,
+    topextend,
+    botextend,
     scale
   );
   if (!varheight) return crect;

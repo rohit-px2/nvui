@@ -3,6 +3,7 @@
 #include "nvim_utils.hpp"
 #include "scalers.hpp"
 #include <QApplication>
+#include <QDir>
 #include <QMimeData>
 #include <fmt/format.h>
 
@@ -560,9 +561,6 @@ void QtEditorUIBase::register_command_handlers()
     [&](const auto&) {
       return tuple {scalers::scaler_names(), std::nullopt};
   }, &inheritor);
-  const auto script_dir = constants::script_dir().toStdString();
-  nvim->command(fmt::format("set rtp+={}", script_dir));
-  nvim->command("runtime! plugin/nvui.vim");
   nvim->set_var("nvui_tb_separator", " • ");
   nvim->exec_viml(R"(
   function! NvuiGetChan()
@@ -670,6 +668,7 @@ void QtEditorUIBase::register_command_handlers()
   autocmd BufEnter * call rpcnotify(g:nvui_rpc_chan, 'NVUI_TB_TITLE', NvuiGetTitle())
   autocmd DirChanged * call rpcnotify(g:nvui_rpc_chan, 'NVUI_TB_TITLE', NvuiGetTitle())
   )");
+  auto script_dir = constants::script_dir().toStdString();
   nvim->command(fmt::format("helptags {}", script_dir + "/doc"));
 }
 

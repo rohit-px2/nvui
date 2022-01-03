@@ -84,6 +84,7 @@ file(GLOB SOURCES
   src/nvim_utils.hpp
   src/qeditor.hpp
   src/qeditor.cpp
+  resources.qrc
 )
 if (WIN32)
   message("Windows detected.")

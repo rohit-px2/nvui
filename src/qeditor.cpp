@@ -93,7 +93,6 @@ void QEditor::resizeEvent(QResizeEvent* ev)
 
 void QEditor::mousePressEvent(QMouseEvent* ev)
 {
-  QWidget::mousePressEvent(ev);
   Base::handle_mouse_press(ev);
 }
 

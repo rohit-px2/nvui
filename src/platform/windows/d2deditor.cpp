@@ -12,11 +12,6 @@ static constexpr float default_dpi = 96.0f;
 
 using Microsoft::WRL::ComPtr;
 
-static void SafeRelease(auto** p)
-{
-  if (*p) { (*p)->Release(); *p = nullptr; }
-}
-
 static ComPtr<IDWriteFont>
 font_from_name(const std::wstring& name, IDWriteFontCollection* collection)
 {
@@ -88,15 +83,17 @@ D2DEditor::D2DEditor(
     reinterpret_cast<IUnknown**>(dw_factory.GetAddressOf())
   );
   D2D1_SIZE_U sz = D2D1::SizeU(width(), height());
+  auto hwnd_properties = D2D1::HwndRenderTargetProperties(hwnd, sz);
+  hwnd_properties.presentOptions = D2D1_PRESENT_OPTIONS_IMMEDIATELY;
   d2d_factory->CreateHwndRenderTarget(
     D2D1::RenderTargetProperties(),
-    D2D1::HwndRenderTargetProperties(hwnd, sz),
+    hwnd_properties,
     &hwnd_target
   );
   hwnd_target->QueryInterface(device_context.GetAddressOf());
   device_context->GetDevice(device.GetAddressOf());
   device_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
-  device_context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+  device_context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
   device_context->SetDpi(default_dpi, default_dpi);
 }
 
@@ -112,7 +109,6 @@ void D2DEditor::resizeEvent(QResizeEvent* event)
 void D2DEditor::mousePressEvent(QMouseEvent* event)
 {
   Base::handle_mouse_press(event);
-  QWidget::mousePressEvent(event);
 }
 
 void D2DEditor::mouseReleaseEvent(QMouseEvent* event)
@@ -251,6 +247,7 @@ void D2DEditor::set_fonts(std::span<FontDesc> fontlist)
   if (fontlist.empty()) return;
   dw_formats.clear();
   dw_fonts.clear();
+  fallback_indices.clear();
   for(auto it = fontlist.rbegin(); it != fontlist.rend(); ++it)
   {
     if (it->point_size > 0) current_point_size = it->point_size;

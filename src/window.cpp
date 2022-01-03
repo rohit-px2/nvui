@@ -55,6 +55,12 @@ static void windows_setup_frameless(HWND hwnd)
 
 using u32 = std::uint32_t;
 
+#ifdef Q_OS_WIN
+using EditorType = D2DEditor;
+#else
+using EditorType = QEditor;
+#endif
+
 Window::Window(
   std::string nvp,
   std::vector<std::string> nva,

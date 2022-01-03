@@ -213,15 +213,15 @@ commands for setting the maximum width and items displayed.
 
 :NvuiPopupMenuIconOffset {offset}		*:NvuiPopupMenuIconOffset*
 
-	{offset} must be a non-positive integer for this command to do anything.
-	Popup menu icons are created in a square shape, and their default size is
-	the height of the font. This command adds {offset} to the size of the icons
-	during size calculation, reducing the width and height of the icons by
-	the negative offset.
-	Ex. NvuiPopupMenuIconOffset -5
-	Decreases the popup menu icon size by 5 pixels.
-	To reset the size back to full, you can do
-	:NvuiPopupMenuIconOffset 0
+	{offset} must be an integer.
+	Increases the size of the icons by {offset} pixels. The size is always increased
+	relative to the height of the font used by the popup menu,
+	which is the first font you set through "set guifont".
+	E.g.
+		:NvuiPopupMenuIconOffset 5
+	Increases the size of the popup menu icons by 5 pixels.
+	Note: If offset is positive, this causes the height of each item in the
+	popup menu to increase.
 
 :NvuiPopupMenuBorderColor {color}		*:NvuiPopupMenuBorderColor*
 

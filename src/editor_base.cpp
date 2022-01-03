@@ -435,6 +435,7 @@ void EditorBase::option_set(std::span<const Object> objs)
     {
       guifonts = parse_guifont(value.get<std::string>());
       set_fonts(guifonts);
+      send_redraw();
     }
     field_updated(key, value);
   }
@@ -667,7 +668,8 @@ void EditorBase::win_float_pos(std::span<const Object> objs)
       using std::round;
       using std::ceil;
       auto [width, height] = font_dimensions();
-      auto pum_tr = popup_menu->get_rect().topRight();
+      auto pum_rect = popup_menu->get_rect();
+      auto pum_tr = pum_rect.topRight();
       anchor_pos = QPoint(ceil(pum_tr.x() / width), round(pum_tr.y() / height));
     }
     grid->winid = get_win(win);

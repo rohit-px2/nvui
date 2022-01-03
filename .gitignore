@@ -12,4 +12,4 @@ CMakeLists.txt.user
 *.cmd
 .ccls-cache/
 CMakeSettings.json
-.rgignore
+.ignore

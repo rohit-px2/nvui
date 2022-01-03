@@ -1,6 +1,7 @@
 #include "popupmenu.hpp"
 #include <iostream>
 #include <QPainter>
+#include <QStaticText>
 #include <QStringBuilder>
 #include <QStringLiteral>
 #include "cmdline.hpp"
@@ -71,10 +72,10 @@ void PopupMenuIconManager::load_icons(int width)
 
 const QPixmap* PopupMenuIconManager::icon_for_kind(const QString& kind)
 {
-  if (kind.isEmpty()) return nullptr;
+  if (kind.isEmpty()) return &icons["key"];
   QString iname = kind_to_iname(kind).trimmed();
   const auto it = icons.find(iname);
-  if (it == icons.end()) return nullptr;
+  if (it == icons.end()) return &icons["key"];
   else return &(*it);
 }
 
@@ -139,6 +140,7 @@ void PopupMenu::pum_show(
   {
     completion_items[selected].selected = true;
   }
+  cur_selected = selected;
   row = p_row;
   col = p_col;
   grid_num = p_grid_num;
@@ -185,11 +187,12 @@ void PopupMenu::update_highlight_attributes()
   pmenu_thumb = &hl_state->attr_for_id(hl_state->id_for_name("PmenuThumb"));
 }
 
-QRect PopupMenu::calc_rect(int width, int height, int maxheight) const
+QRect PopupMenu::calc_rect(int width, int height, int max_x, int max_y) const
 {
   if (cmdline)
   {
     auto r = cmdline->get_rect();
+    if (r.bottom() + height > max_y) height = max_y - r.bottom();
     return QRect {r.bottomLeft(), QSize {r.width(), height}};
   }
   else
@@ -198,15 +201,19 @@ QRect PopupMenu::calc_rect(int width, int height, int maxheight) const
     int x = (grid_x + col) * parent_dims.width;
     int y = (grid_y + row + 1) * fheight;
     // Prefer showing the popup menu under
-    if (y + height > maxheight && y - fheight - height >= 0)
+    if (y + height > max_y && y - fheight - height >= 0)
     {
       y -= (fheight + height);
     }
-    else if (y + height > maxheight && y - fheight - height < 0
-        && (y + height - maxheight) > -(y - fheight - height))
+    else if (y + height > max_y && y - fheight - height < 0
+        && (y + height - max_y) > -(y - fheight - height))
     {
       y = 0;
       height = (grid_y + row) * fheight;
+    }
+    if (x + width > max_x)
+    {
+      width = max_x - x - border_width;
     }
     return {x, y, width, height};
   }
@@ -224,7 +231,7 @@ std::size_t PopupMenuQ::max_possible_items() const
 {
   if (auto* parent = parentWidget())
   {
-    return parent->height() / dimensions.height;
+    return parent->height() / item_height();
   }
   return std::numeric_limits<std::size_t>::max();
 }
@@ -243,13 +250,14 @@ void PopupMenuQ::paint()
   }
   QPainter p(&pixmap);
   p.setFont(pmenu_font);
-  int cur_y = std::ceil(border_width);
+  int pad = border_width;
+  int cur_y = pad;
   bool nothing_selected = cur_selected == -1;
   if (nothing_selected) cur_selected = 0;
-  size_t maxitems = pixmap.height() / dimensions.height;
-  for(std::size_t i = 0; i < maxitems; ++i)
+  int maxitems = max_items();
+  for(int i = 0; i < maxitems; ++i)
   {
-    std::size_t index = (cur_selected + i) % completion_items.size();
+    int index = (cur_selected + i) % completion_items.size();
     if (completion_items[index].selected)
     {
       const auto& item = completion_items[index];
@@ -259,7 +267,7 @@ void PopupMenuQ::paint()
     {
       draw_with_attr(p, *pmenu, completion_items[index], cur_y);
     }
-    cur_y += dimensions.height;
+    cur_y += item_height();
   }
   if (nothing_selected) cur_selected = -1;
   update();
@@ -267,32 +275,56 @@ void PopupMenuQ::paint()
 
 void PopupMenuQ::font_changed(const QFont& font, FontDimensions dims)
 {
+  text_cache.clear();
   update_highlight_attributes();
   pmenu_font = font;
   dimensions = dims;
   QFontMetricsF fm {font};
   linespace = dimensions.height - fm.height();
   font_ascent = fm.ascent();
-  icon_manager.size_changed(dimensions.height + icon_size_offset);
+  icon_manager.size_changed(std::ceil(dimensions.height) + icon_size_offset);
   update_dimensions();
 }
 
 void PopupMenuQ::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem& item, int y)
 {
-  float offset = font_ascent + (linespace / 2.f);
+  //float offset = font_ascent + (linespace / 2.f);
   auto [fg, bg, sp] = attr.fg_bg_sp(hl_state->default_colors_get());
   font::set_opts(pmenu_font, attr.font_opts);
   p.setFont(pmenu_font);
-  const auto* icon_ptr = icon_manager.icon_for_kind(item.kind);
+  const auto* icon_ptr = cmdline ? nullptr : icon_manager.icon_for_kind(item.kind);
   int left = std::ceil(border_width);
-  p.fillRect(left, y, pixmap.width(), dimensions.height, bg.qcolor());
+  p.fillRect(left, y, pixmap.width(), item_height(), bg.qcolor());
   if (icon_ptr && icons_enabled)
   {
-    p.drawPixmap(QPoint {left, y}, *icon_ptr);
+    int height = item_height();
+    auto icon_bg = icon_manager.bg_for_kind(item.kind);
+    if (icon_bg) p.fillRect(QRect {left, y, height, height}, *icon_bg);
+    if (item.selected)
+    {
+      QPixmap clone = *icon_ptr;
+      QPainter pixmap_painter(&clone);
+      pixmap_painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+      pixmap_painter.fillRect(clone.rect(), fg.qcolor());
+      pixmap_painter.end();
+      p.drawPixmap(QPoint {left, y}, clone);
+    }
+    else
+    {
+      p.drawPixmap(QPoint {left, y}, *icon_ptr);
+    }
     left += icon_ptr->width() * icon_space;
   }
   p.setPen(fg.qcolor());
-  p.drawText(QPoint(left, y + offset), item.word);
+  auto it = text_cache.find(item.word);
+  if (it == text_cache.end())
+  {
+    it = text_cache.insert(item.word, QStaticText {item.word});
+    it->setPerformanceHint(QStaticText::AggressiveCaching);
+    it->prepare(QTransform(), pmenu_font);
+  }
+  int off = (item_height() - dimensions.height) / 2;
+  p.drawStaticText(left, y + off, *it);
 }
 
 PopupMenu::Rectangle
@@ -313,18 +345,15 @@ void PopupMenuQ::paintEvent(QPaintEvent*)
 {
   if (cmdline) move(cmdline->get_rect().bottomLeft());
   QPainter p(this);
-  p.drawPixmap(rect(), pixmap, rect());
-  QPen pen {border_color.qcolor()};
-  pen.setWidth(border_width);
-  p.setPen(std::move(pen));
-  QRect draw_rect = rect();
-  int offset = std::ceil(float(border_width) / 2.f);
-  draw_rect.adjust(0, 0, -offset, -offset);
-  p.drawRect(draw_rect);
+  int pad = border_width;
+  QRect r(pad, pad, width() - 2 * pad, height() - 2 * pad);
+  p.fillRect(rect(), border_color.qcolor());
+  p.drawPixmap(r, pixmap, r);
 }
 
 void PopupMenuQ::update_dimensions()
 {
+  text_cache.clear();
   QFontMetricsF metrics {pmenu_font};
   double text_width = longest_word_size * metrics.horizontalAdvance('W');
   int parent_height = parentWidget() ? parentWidget()->height() : INT_MAX;
@@ -337,16 +366,16 @@ void PopupMenuQ::update_dimensions()
     + (border_width * 2);
   if (attached_width) width = float(attached_width.value());
   width = std::min(width, parent_width);
-  int unconstrained_pmenu_height = completion_items.size() * dimensions.height;
+  int unconstrained_pmenu_height = completion_items.size() * item_height();
   int height = std::min(unconstrained_pmenu_height, parent_height);
-  height /= dimensions.height;
-  height *= dimensions.height;
   height += border_width * 2;
-  if (pixmap.size() == QSize(width, height)) return;
   width = std::max(double(width), metrics.averageCharWidth() * 15);
-  auto rect = calc_rect(width, height, parent_height);
+  auto rect = calc_rect(width, height, parent_width, parent_height);
   width = rect.width();
   height = rect.height();
+  height /= item_height();
+  height *= item_height();
+  height += border_width * 2;
   move(rect.topLeft());
   if (QSize(width, height) == size()) return;
   pixmap = QPixmap(width, height);
@@ -368,7 +397,10 @@ void PopupMenu::detach_cmdline()
   update_dimensions();
 }
 
-QRect PopupMenuQ::get_rect() const { return rect(); }
+QRect PopupMenuQ::get_rect() const
+{
+  return {pos(), size()};
+}
 
 void PopupMenuQ::do_show() { show(); }
 void PopupMenuQ::do_hide() { hide(); }
@@ -419,4 +451,19 @@ void PopupMenuQ::register_nvim(Nvim& nvim)
     [&](const auto&) {
       return tuple {icon_list(), std::nullopt};
   }, this);
+}
+
+void PopupMenuQ::set_icon_size_offset(int offset)
+{
+  icon_size_offset = offset;
+  icon_manager.size_changed(std::ceil(dimensions.height) + offset);
+}
+
+int PopupMenuQ::item_height() const
+{
+  if (icon_size_offset > 0)
+  {
+    return std::ceil(dimensions.height) + icon_size_offset;
+  }
+  return std::ceil(dimensions.height);
 }

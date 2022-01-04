@@ -270,9 +270,24 @@ static void incx(
   {
     left = pad;
     top += height;
-    return;
   }
   left += adv;
+}
+
+static std::tuple<float, float> draw_pos(
+  float left,
+  float top,
+  float adv,
+  float maxwidth,
+  float pad,
+  float height
+)
+{
+  if (left + adv > maxwidth - pad)
+  {
+    return {pad, top + height};
+  }
+  return {left, top};
 }
 
 int CmdlineQ::fitting_height() const
@@ -313,12 +328,14 @@ void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
         adv_x(fm.horizontalAdvance(c));
       }
     }
+    left = pad;
     top += fm.height();
   }
+  int cursorpos = cursor_pos;
   QString ctn;
-  if (first_char) { ctn += first_char.value(); ++cursor_pos; }
+  if (first_char) { ctn += first_char.value(); ++cursorpos; }
   for(const auto& chunk : content) ctn += chunk.text;
-  for(int i = 0; i < cursor_pos && i < ctn.size(); ++i) {
+  for(int i = 0; i < cursorpos && i < ctn.size(); ++i) {
     adv_x(fm.horizontalAdvance(ctn.at(i)));
   }
   auto [rect, id, drawtext, opacity] = cursor.rect(
@@ -355,8 +372,10 @@ void CmdlineQ::paintEvent(QPaintEvent*)
     if (c == '\n') { left = pad; top += fm.height(); }
     else
     {
-      p.drawText(QPointF(left, top + offset), c);
-      incx(left, top, fm.horizontalAdvance(c), width(), pad, fm.height());
+      auto adv = fm.horizontalAdvance(c);
+      auto [x, y] = draw_pos(left, top, adv, width(), pad, fm.height());
+      p.drawText(QPointF(x, y + offset), c);
+      incx(left, top, adv, width(), pad, fm.height());
     }
   }
   if (p_cursor) draw_cursor(p, *p_cursor);

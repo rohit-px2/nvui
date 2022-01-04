@@ -5,6 +5,7 @@
 #include <dwrite.h>
 #include <dwrite_1.h>
 #include <wrl/client.h>
+#include "nvim_utils.hpp"
 
 using DWriteFactory = IDWriteFactory;
 
@@ -60,7 +61,8 @@ D2DEditor::D2DEditor(
   std::unordered_map<std::string, bool> capabilities,
   std::string nvim_path,
   std::vector<std::string> nvim_args,
-  QWidget* parent
+  QWidget* parent,
+  bool vsync
 )
 : QWidget(parent),
   QtEditorUIBase(*this, cols, rows, std::move(capabilities),
@@ -84,7 +86,10 @@ D2DEditor::D2DEditor(
   );
   D2D1_SIZE_U sz = D2D1::SizeU(width(), height());
   auto hwnd_properties = D2D1::HwndRenderTargetProperties(hwnd, sz);
-  hwnd_properties.presentOptions = D2D1_PRESENT_OPTIONS_IMMEDIATELY;
+  if (!vsync)
+  {
+    hwnd_properties.presentOptions = D2D1_PRESENT_OPTIONS_IMMEDIATELY;
+  }
   d2d_factory->CreateHwndRenderTarget(
     D2D1::RenderTargetProperties(),
     hwnd_properties,
@@ -113,7 +118,6 @@ void D2DEditor::mousePressEvent(QMouseEvent* event)
 
 void D2DEditor::mouseReleaseEvent(QMouseEvent* event)
 {
-
   Base::handle_mouse_release(event);
   QWidget::mouseReleaseEvent(event);
 }
@@ -238,6 +242,39 @@ std::unique_ptr<Cmdline> D2DEditor::cmdline_new()
 void D2DEditor::setup()
 {
   Base::setup();
+  listen_for_notification("NVUI_VSYNC", paramify<bool>([this](bool sync) {
+    if (sync == vsync) return;
+    set_vsync(sync);
+  }));
+  listen_for_notification("NVUI_TOGGLE_VSYNC", [this](const auto&) {
+    set_vsync(!vsync);
+  });
+}
+
+void D2DEditor::set_vsync(bool sync)
+{
+  auto hwnd = (HWND) winId();
+  auto size = D2D1::SizeU(width(), height());
+  auto properties = D2D1::HwndRenderTargetProperties(hwnd, size);
+  if (!sync)
+  {
+    // This disables vsync
+    properties.presentOptions = D2D1_PRESENT_OPTIONS_IMMEDIATELY;
+  }
+  device_context = nullptr;
+  d2d_factory->CreateHwndRenderTarget(
+    D2D1::RenderTargetProperties(),
+    properties,
+    hwnd_target.ReleaseAndGetAddressOf()
+  );
+  hwnd_target->QueryInterface(device_context.ReleaseAndGetAddressOf());
+  device_context->GetDevice(device.ReleaseAndGetAddressOf());
+  device_context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+  device_context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+  device_context->SetDpi(default_dpi, default_dpi);
+  vsync = sync;
+  emit render_targets_updated();
+  update();
 }
 
 void D2DEditor::redraw() { update(); }
@@ -330,7 +367,7 @@ void D2DEditor::update_font_metrics()
   auto firstnamelength = format->GetFontFamilyNameLength();
   std::wstring name;
   name.resize(firstnamelength + 1);
-  format->GetFontFamilyName(name.data(), name.size());
+  format->GetFontFamilyName(name.data(), (UINT32) name.size());
   QFont f;
   f.setFamily(QString::fromWCharArray(name.c_str()));
   f.setPointSizeF(current_point_size);

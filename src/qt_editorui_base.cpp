@@ -15,7 +15,7 @@ QtEditorUIBase::QtEditorUIBase(
   std::string nvim_path,
   std::vector<std::string> nvim_args
 )
-: EditorBase(std::move(nvim_path), std::move(nvim_args)),
+: EditorBase(std::move(nvim_path), std::move(nvim_args), &inheritor_instance),
   inheritor(inheritor_instance),
   ui_attach_info {cols, rows, std::move(capabilities)}
 {
@@ -30,7 +30,7 @@ void QtEditorUIBase::setup()
 {
   Base::setup();
   register_command_handlers();
-  QObject::connect(&n_cursor, &Cursor::anim_state_changed, [this] {
+  QObject::connect(&n_cursor, &Cursor::anim_state_changed, &inheritor, [this] {
     inheritor.update();
   });
 }

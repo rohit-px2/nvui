@@ -302,6 +302,7 @@ void PopupMenuQ::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem
     if (icon_bg) p.fillRect(QRect {left, y, height, height}, *icon_bg);
     if (item.selected)
     {
+      // Blend pixmap in with selected color
       QPixmap clone = *icon_ptr;
       QPainter pixmap_painter(&clone);
       pixmap_painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
@@ -366,7 +367,7 @@ void PopupMenuQ::update_dimensions()
     + (border_width * 2);
   if (attached_width) width = float(attached_width.value());
   width = std::min(width, parent_width);
-  int unconstrained_pmenu_height = completion_items.size() * item_height();
+  int unconstrained_pmenu_height = (int) completion_items.size() * item_height();
   int height = std::min(unconstrained_pmenu_height, parent_height);
   height += border_width * 2;
   width = std::max(double(width), metrics.averageCharWidth() * 15);

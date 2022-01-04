@@ -38,7 +38,8 @@ public:
   using HandlerFunc = std::function<void (std::span<const Object>)>;
   EditorBase(
     std::string nvim_path,
-    std::vector<std::string> nvim_args
+    std::vector<std::string> nvim_args,
+    QObject* thread_target_obj = qApp
   );
   // Sets up the EditorBase to handle Neovim events.
   // This also creates instances of the cmdline and popup menu
@@ -197,6 +198,7 @@ protected:
   FontDimensions ms_font_dimensions;
 private:
   // Measures to prevent needless resizing requests
+  QObject* target_object;
   QSize pixel_dimensions;
   QSize dimensions;
   std::optional<QSize> queued_resize;

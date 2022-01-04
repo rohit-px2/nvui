@@ -222,7 +222,7 @@ public:
       layout_cache(2000)
   {
     update_render_target();
-    initialize_cache();
+    init_connections();
     initialize_scroll_animation();
     initialize_move_animation();
   }
@@ -279,8 +279,8 @@ private:
   void update_render_target();
   /// Initialize the device contexts and bitmap.
   void initialize_context();
-  /// Initialize the cache
-  void initialize_cache();
+  /// Create connections
+  void init_connections();
   /// Initialize the move animation
   void initialize_move_animation();
   /// Initialize the scroll animation

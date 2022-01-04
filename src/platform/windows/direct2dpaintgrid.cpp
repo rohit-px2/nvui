@@ -634,10 +634,14 @@ void D2DPaintGrid2::update_render_target()
   render_target->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
 }
 
-void D2DPaintGrid2::initialize_cache()
+void D2DPaintGrid2::init_connections()
 {
-  QObject::connect(editor_area, &D2DEditor::font_changed, this, [&] {
+  QObject::connect(editor_area, &D2DEditor::font_changed, this, [this] {
     layout_cache.clear();
+  });
+  QObject::connect(editor_area, &D2DEditor::render_targets_updated, this, [this] {
+    update_render_target();
+    send_redraw();
   });
 }
 
@@ -697,8 +701,8 @@ void D2DPaintGrid2::process_events()
   if (evt_q.empty()) return;
   auto* context = render_target.Get();
   context->BeginDraw();
-  ID2D1SolidColorBrush* fg_brush = nullptr;
-  ID2D1SolidColorBrush* bg_brush = nullptr;
+  ComPtr<ID2D1SolidColorBrush> fg_brush = nullptr;
+  ComPtr<ID2D1SolidColorBrush> bg_brush = nullptr;
   u32 fg = editor_area->default_fg().to_uint32();
   u32 bg = editor_area->default_bg().to_uint32();
   context->CreateSolidColorBrush(d2color(fg), &fg_brush);
@@ -712,21 +716,19 @@ void D2DPaintGrid2::process_events()
       {
         d2rect r = source_rect();
         bg_brush->SetColor(d2color(bg));
-        context->FillRectangle(r, bg_brush);
+        context->FillRectangle(r, bg_brush.Get());
         break;
       }
       case PaintKind::Redraw:
-        draw(context, {0, 0, cols, rows}, fg_brush, bg_brush);
+        draw(context, {0, 0, cols, rows}, fg_brush.Get(), bg_brush.Get());
         clear_event_queue();
         break;
       case PaintKind::Draw:
-        draw(context, evt.rect, fg_brush, bg_brush);
+        draw(context, evt.rect, fg_brush.Get(), bg_brush.Get());
         break;
     }
     if (!evt_q.empty()) evt_q.pop();
   }
-  SafeRelease(&fg_brush);
-  SafeRelease(&bg_brush);
   context->EndDraw();
 }
 
@@ -1041,7 +1043,7 @@ ComPtr<ID2D1Bitmap1> D2DPaintGrid2::copy_bitmap(ID2D1Bitmap1* src)
   auto size = src->GetPixelSize();
   ComPtr<ID2D1Bitmap1> dst = nullptr;
   render_target->CreateBitmap(
-    size ,nullptr, 0,
+    size, nullptr, 0,
     D2D1::BitmapProperties1(
       D2D1_BITMAP_OPTIONS_TARGET,
       src->GetPixelFormat()
@@ -1065,15 +1067,14 @@ void D2DPaintGrid2::render(ID2D1DeviceContext* target)
   auto tly = (int) top_left.y();
   auto tlx = (int) top_left.x();
   QRectF rect(tlx, tly, (qreal) sz.width, (qreal) sz.height);
-  ID2D1SolidColorBrush* bg_brush = nullptr;
+  ComPtr<ID2D1SolidColorBrush> bg_brush = nullptr;
   target->CreateSolidColorBrush(D2D1::ColorF(bg), &bg_brush);
   // Sometimes in multigrid mode the root grid can 'peek through'
   // by 1 pixel, because of rounding error
   // Increase the width of the fill rectangle by 1 on each side
   // to correct this
   auto fill_rect = D2D1::RectF(r.left - 1, r.top, r.right + 1, r.bottom);
-  target->FillRectangle(fill_rect, bg_brush);
-  SafeRelease(&bg_brush);
+  target->FillRectangle(fill_rect, bg_brush.Get());
   if (!editor_area->animations_enabled() || !is_scrolling)
   {
     target->DrawBitmap(
@@ -1157,6 +1158,4 @@ void D2DPaintGrid2::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
   }
 }
 
-D2DPaintGrid2::~D2DPaintGrid2()
-{
-}
+D2DPaintGrid2::~D2DPaintGrid2() = default;

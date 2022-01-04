@@ -11,17 +11,19 @@ static const Nvim::ClientInfo nvui_cinfo {
 
 EditorBase::EditorBase(
   std::string nvim_path,
-  std::vector<std::string> nvim_args
+  std::vector<std::string> nvim_args,
+  QObject* thread_target_obj
 )
 : hl_state(), n_cursor(), popup_menu(nullptr),
   cmdline(nullptr), grids(),
   nvim(std::make_unique<Nvim>(nvim_path, nvim_args)),
-  ext(), grids_need_ordering(false), ms_font_dimensions {10, 10}
+  ext(), grids_need_ordering(false), ms_font_dimensions {10, 10},
+  target_object(thread_target_obj)
 {
   nvim->set_client_info(nvui_cinfo);
   nvim->set_var("nvui", 1);
   nvim->on_exit([this] {
-    QMetaObject::invokeMethod(qApp, [this] {
+    QMetaObject::invokeMethod(target_object, [this] {
       done = true;
       do_close();
     });
@@ -195,7 +197,7 @@ void EditorBase::register_handlers()
     win_viewport(objs);
   });
   nvim->set_notification_handler("redraw", [this](Object msg) {
-    QMetaObject::invokeMethod(qApp, [this, o = std::move(msg)] {
+    QMetaObject::invokeMethod(target_object, [this, o = std::move(msg)] {
       handle_redraw(std::move(o));
     });
   });

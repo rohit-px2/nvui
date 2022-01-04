@@ -27,7 +27,8 @@ public:
     std::unordered_map<std::string, bool> capabilities,
     std::string nvim_path,
     std::vector<std::string> nvim_args,
-    QWidget* parent = nullptr
+    QWidget* parent = nullptr,
+    bool vsync = true
   );
   void setup() override;
   QPaintEngine* paintEngine() const override { return nullptr; }
@@ -44,6 +45,7 @@ public:
   ~D2DEditor() override;
 signals:
   void font_changed();
+  void render_targets_updated();
 protected:
   void linespace_changed(float new_ls) override;
   void charspace_changed(float new_cs) override;
@@ -62,6 +64,7 @@ protected:
   void focusInEvent(QFocusEvent* event) override;
   void focusOutEvent(QFocusEvent* event) override;
 private:
+  void set_vsync(bool);
   void update_font_metrics();
   std::unique_ptr<PopupMenu> popup_new() override;
   std::unique_ptr<Cmdline> cmdline_new() override;
@@ -79,6 +82,7 @@ private:
   ComPtr<ID2D1HwndRenderTarget> hwnd_target = nullptr;
   ComPtr<ID2D1Device> device = nullptr;
   float current_point_size = 12.0f;
+  bool vsync = true;
 };
 
 #endif // NVUI_D2DEDITOR_HPP

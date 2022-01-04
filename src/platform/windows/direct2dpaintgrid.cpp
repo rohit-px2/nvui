@@ -1168,7 +1168,8 @@ void D2DPaintGrid2::scrolled(int top, int bot, int left, int right, int rows)
     right * font_width,
     bot * font_height
   );
-  bitmap->CopyFromBitmap(&dest_tl, bitmap.Get(), &rect);
+  auto cloned = copy_bitmap(bitmap.Get());
+  bitmap->CopyFromBitmap(&dest_tl, cloned.Get(), &rect);
 }
 
 D2DPaintGrid2::~D2DPaintGrid2() = default;

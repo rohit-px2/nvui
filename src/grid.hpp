@@ -148,6 +148,7 @@ protected:
   // gets drawn over, and it looks bad.
   bool modified = false;
   bool is_msg_grid = false;
+  virtual void scrolled(int top, int bot, int left, int right, int rows);
 };
 
 #endif // NVUI_GRID_HPP

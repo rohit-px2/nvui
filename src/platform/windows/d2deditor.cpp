@@ -114,6 +114,10 @@ void D2DEditor::resizeEvent(QResizeEvent* event)
 void D2DEditor::mousePressEvent(QMouseEvent* event)
 {
   Base::handle_mouse_press(event);
+  if (cursor() != Qt::ArrowCursor)
+  {
+    QWidget::mousePressEvent(event);
+  }
 }
 
 void D2DEditor::mouseReleaseEvent(QMouseEvent* event)

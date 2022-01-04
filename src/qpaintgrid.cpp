@@ -529,8 +529,10 @@ void QPaintGrid2::draw_text(
     static_text->setPerformanceHint(QStaticText::AggressiveCaching);
     static_text->prepare(QTransform(), font);
   }
+  auto text_size = static_text->size();
   double y = rect.y();
-  y -= (static_text->size().height() - font_height);
+  y -= (text_size.height() + editor_area->linespacing() - font_height);
+  y += (editor_area->linespacing() / 2.);
   painter.setClipRect(rect);
   painter.setPen(fg.qcolor());
   painter.drawStaticText(QPointF {rect.x(), y}, *static_text);
@@ -868,4 +870,15 @@ void QPaintGrid2::draw_cursor(QPainter& painter, const Cursor& cursor)
       opts, chosen_font, font_width, font_height
     );
   }
+}
+
+void QPaintGrid2::scrolled(int top, int bot, int left, int right, int rows)
+{
+  auto [font_width, font_height] = editor_area->font_dimensions();
+  QPoint top_left = QPoint(left * font_width, top * font_height);
+  QSize scroll_dims(right - left, bot - top);
+  scroll_dims.scale(font_width, font_height, Qt::IgnoreAspectRatio);
+  QRect orig_rect = {top_left, scroll_dims};
+  int scroll_height = -rows * font_height;
+  pixmap.scroll(0, scroll_height, orig_rect);
 }

@@ -81,9 +81,14 @@ void GridBase::scroll(int top, int bot, int left, int right, int rows)
       }
     }
   }
+  modified = true;
+  scrolled(top, bot, left, right, rows);
+}
+
+void GridBase::scrolled(int top, int bot, int left, int right, int)
+{
   auto rect = QRect(left, top, (right - left), (bot - top));
   send_draw(rect);
-  modified = true;
 }
 
 void GridBase::set_text(

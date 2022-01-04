@@ -1158,4 +1158,17 @@ void D2DPaintGrid2::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
   }
 }
 
+void D2DPaintGrid2::scrolled(int top, int bot, int left, int right, int rows)
+{
+  auto [font_width, font_height] = editor_area->font_dimensions();
+  auto dest_tl = D2D1::Point2U(left * font_width, (top - rows) * font_height);
+  auto rect = D2D1::RectU(
+    left * font_width,
+    top * font_height,
+    right * font_width,
+    bot * font_height
+  );
+  bitmap->CopyFromBitmap(&dest_tl, bitmap.Get(), &rect);
+}
+
 D2DPaintGrid2::~D2DPaintGrid2() = default;

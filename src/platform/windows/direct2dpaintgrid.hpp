@@ -340,6 +340,8 @@ private:
   /// Returns a copy of src.
   /// NOTE: Must be released.
   ComPtr<ID2D1Bitmap1> copy_bitmap(ID2D1Bitmap1* src);
+protected:
+  void scrolled(int top, int bot, int left, int right, int rows) override;
 };
 
 #endif // NVUI_PLATFORM_WINDOWS_DIRECT2DPAINTGRID_HPP

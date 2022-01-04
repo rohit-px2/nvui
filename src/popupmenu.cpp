@@ -258,14 +258,14 @@ void PopupMenuQ::paint()
   for(int i = 0; i < maxitems; ++i)
   {
     int index = (cur_selected + i) % completion_items.size();
-    if (completion_items[index].selected)
+    const auto& item = completion_items.at(index);
+    if (item.selected)
     {
-      const auto& item = completion_items[index];
       draw_with_attr(p, *pmenu_sel, item, cur_y);
     }
     else
     {
-      draw_with_attr(p, *pmenu, completion_items[index], cur_y);
+      draw_with_attr(p, *pmenu, item, cur_y);
     }
     cur_y += item_height();
   }
@@ -324,7 +324,7 @@ void PopupMenuQ::draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem
     it->setPerformanceHint(QStaticText::AggressiveCaching);
     it->prepare(QTransform(), pmenu_font);
   }
-  int off = (item_height() - dimensions.height) / 2;
+  int off = (item_height() - dimensions.height + linespace) / 2;
   p.drawStaticText(left, y + off, *it);
 }
 

@@ -45,11 +45,11 @@ std::function<void (const ObjectArray&)> paramify(Func&& f)
 
 // Run a function when the given Nvim object receieves a notification
 // with name 'method_name'.
-void listen_for_notification(
+inline void listen_for_notification(
   Nvim& nvim,
   std::string method,
   std::function<void (const ObjectArray&)> func,
-  auto* target
+  QObject* target
 )
 {
   nvim.set_notification_handler(
@@ -77,7 +77,7 @@ void handle_request(
   std::function<
     std::tuple<std::optional<Res>, std::optional<Err>> (const ObjectArray&)
   > func,
-  auto* target
+  QObject* target
 )
 {
   nvim.set_request_handler(

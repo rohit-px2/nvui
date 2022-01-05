@@ -278,7 +278,9 @@ void QPaintGrid::process_events()
         clear_event_queue();
         return;
       case PaintKind::Draw:
-        draw(p, evt.rect, offset);
+        draw(p, evt.draw_info().rect, offset);
+        break;
+      case PaintKind::Scroll:
         break;
     }
     evt_q.pop();
@@ -680,8 +682,25 @@ void QPaintGrid2::process_events()
         clear_event_queue();
         return;
       case PaintKind::Draw:
-        draw(p, evt.rect, offset);
+        draw(p, evt.draw_info().rect, offset);
         break;
+      case PaintKind::Scroll:
+      {
+        auto [font_width, font_height] = editor_area->font_dimensions();
+        const auto& [rect, dx, dy] = evt.scroll_info();
+        QRect r(
+          rect.x() * font_width,
+          rect.y() * font_height,
+          rect.width() * font_width,
+          rect.height() * font_height
+        );
+        // This would probably be faster using QPixmap::scroll
+        // but it doesn't want to work
+        QPixmap px = pixmap.copy(r);
+        QPoint tl((rect.x() + dx) * font_width, (rect.y() + dy) * font_height);
+        p.drawPixmap(tl, px, px.rect());
+        break;
+      }
     }
     evt_q.pop();
   }
@@ -872,13 +891,3 @@ void QPaintGrid2::draw_cursor(QPainter& painter, const Cursor& cursor)
   }
 }
 
-void QPaintGrid2::scrolled(int top, int bot, int left, int right, int rows)
-{
-  auto [font_width, font_height] = editor_area->font_dimensions();
-  QPoint top_left = QPoint(left * font_width, top * font_height);
-  QSize scroll_dims(right - left, bot - top);
-  scroll_dims.scale(font_width, font_height, Qt::IgnoreAspectRatio);
-  QRect orig_rect = {top_left, scroll_dims};
-  int scroll_height = -rows * font_height;
-  pixmap.scroll(0, scroll_height, orig_rect);
-}

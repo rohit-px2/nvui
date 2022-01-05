@@ -125,7 +125,9 @@ void D2DPaintGrid::process_events()
         clear_event_queue();
         break;
       case PaintKind::Draw:
-        draw(context, evt.rect, fg_brush, bg_brush);
+        draw(context, evt.draw_info().rect, fg_brush, bg_brush);
+        break;
+      case PaintKind::Scroll:
         break;
     }
     if (!evt_q.empty()) evt_q.pop();
@@ -724,8 +726,10 @@ void D2DPaintGrid2::process_events()
         clear_event_queue();
         break;
       case PaintKind::Draw:
-        draw(context, evt.rect, fg_brush.Get(), bg_brush.Get());
+        draw(context, evt.draw_info().rect, fg_brush.Get(), bg_brush.Get());
         break;
+      case PaintKind::Scroll:
+        scroll_bitmap(evt.scroll_info());
     }
     if (!evt_q.empty()) evt_q.pop();
   }
@@ -1039,7 +1043,6 @@ void D2DPaintGrid2::viewport_changed(Viewport vp)
 
 ComPtr<ID2D1Bitmap1> D2DPaintGrid2::copy_bitmap(ID2D1Bitmap1* src)
 {
-  Q_UNUSED(src);
   auto size = src->GetPixelSize();
   ComPtr<ID2D1Bitmap1> dst = nullptr;
   render_target->CreateBitmap(
@@ -1158,18 +1161,19 @@ void D2DPaintGrid2::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
   }
 }
 
-void D2DPaintGrid2::scrolled(int top, int bot, int left, int right, int rows)
+void D2DPaintGrid2::scroll_bitmap(const ScrollEventInfo& info)
 {
   auto [font_width, font_height] = editor_area->font_dimensions();
-  auto dest_tl = D2D1::Point2U(left * font_width, (top - rows) * font_height);
-  auto rect = D2D1::RectU(
-    left * font_width,
-    top * font_height,
-    right * font_width,
-    bot * font_height
+  const auto& [rect, dx, dy] = info;
+  auto dest_tl = D2D1::Point2U((rect.x() + dx) * font_width, (rect.y() + dy) * font_height); 
+  auto src_rect = D2D1::RectU(
+    rect.x() * font_width,
+    rect.y() * font_height,
+    rect.right() * font_width,
+    rect.bottom() * font_height
   );
-  auto cloned = copy_bitmap(bitmap.Get());
-  bitmap->CopyFromBitmap(&dest_tl, cloned.Get(), &rect);
+  ComPtr<ID2D1Bitmap1> copy = copy_bitmap(bitmap.Get());
+  bitmap->CopyFromBitmap(&dest_tl, copy.Get(), &src_rect);
 }
 
 D2DPaintGrid2::~D2DPaintGrid2() = default;

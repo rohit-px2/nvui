@@ -200,8 +200,6 @@ private:
   void initialize_move_animation();
   /// Update the grid's position (new position can be found through pos()).
   void update_position(double new_x, double new_y);
-protected:
-  void scrolled(int top, int bot, int left, int right, int rows) override;
 private:
   std::vector<Snapshot> snapshots;
   /// Links up with the default Qt rendering

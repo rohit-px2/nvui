@@ -16,6 +16,38 @@ bool GridBase::FloatOrderInfo::operator<(const FloatOrderInfo& other) const
     : zindex < other.zindex;
 }
 
+ScrollEventInfo GridBase::convert_grid_scroll_args(
+  int top,
+  int bot,
+  int left,
+  int right,
+  int rows,
+  int cols
+)
+{
+  // Positive means upward,
+  // Negative is downward.
+  // dy is negative when rows is positive,
+  // and positive when rows is negative
+  // Don't know about cols right now but it's not being used
+  if (rows > 0)
+  {
+    return {
+      QRect(QPoint(left, top + rows), QPoint(right, bot)),
+      -cols,
+      -rows,
+    };
+  }
+  else
+  {
+    return {
+      QRect(QPoint(left, top), QPoint(right, bot + rows)),
+      -cols,
+      -rows,
+    };
+  }
+}
+
 GridBase::GridBase(
   u16 x,
   u16 y,
@@ -63,6 +95,10 @@ void GridBase::scroll(int top, int bot, int left, int right, int rows)
 {
   if (rows > 0)
   {
+    // Original region is
+    // (top + rows) .. bot (exclusive)
+    // Scrolled region is
+    // top .. bot - rows
     for(int y = top; y < (bot - rows); ++y)
     {
       for(int x = left; x < right && x < cols; ++x)
@@ -73,6 +109,10 @@ void GridBase::scroll(int top, int bot, int left, int right, int rows)
   }
   else if (rows < 0)
   {
+    // Original region is
+    // top .. bot + rows (exclusive)
+    // Scrolled region is
+    // top - rows .. bot
     for(int y = (bot-1); y >= (top - rows); --y)
     {
       for(int x = left; x <= right && x < cols; ++x)
@@ -81,14 +121,8 @@ void GridBase::scroll(int top, int bot, int left, int right, int rows)
       }
     }
   }
+  evt_q.push({PaintKind::Scroll, convert_grid_scroll_args(top, bot, left, right, rows)});
   modified = true;
-  scrolled(top, bot, left, right, rows);
-}
-
-void GridBase::scrolled(int top, int bot, int left, int right, int)
-{
-  auto rect = QRect(left, top, (right - left), (bot - top));
-  send_draw(rect);
 }
 
 void GridBase::set_text(
@@ -151,16 +185,16 @@ void GridBase::set_pos(QPoint p) { set_pos(p.x(), p.y()); }
 void GridBase::send_redraw()
 {
   clear_event_queue();
-  evt_q.push({PaintKind::Redraw, 0, QRect()});
+  evt_q.push({PaintKind::Redraw, RedrawEventInfo {}});
 }
 void GridBase::send_clear()
 {
   clear_event_queue();
-  evt_q.push({PaintKind::Clear, 0, QRect()});
+  evt_q.push({PaintKind::Clear, ClearEventInfo {}});
 }
 void GridBase::send_draw(QRect r)
 {
-  evt_q.push({PaintKind::Draw, 0, r});
+  evt_q.push({PaintKind::Draw, DrawEventInfo {r}});
 }
 /// Grid's top left position
 QPoint GridBase::top_left() { return {x, y}; };

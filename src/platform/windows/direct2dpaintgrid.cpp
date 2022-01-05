@@ -730,6 +730,7 @@ void D2DPaintGrid2::process_events()
         break;
       case PaintKind::Scroll:
         scroll_bitmap(evt.scroll_info());
+        break;
     }
     if (!evt_q.empty()) evt_q.pop();
   }

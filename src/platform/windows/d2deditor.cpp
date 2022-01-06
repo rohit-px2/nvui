@@ -178,6 +178,8 @@ D2DEditor::create_render_target(u32 width, u32 height)
     &bitmap
   );
   target->SetTarget(bitmap.Get());
+  target->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+  target->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
   target->SetDpi(default_dpi, default_dpi);
   return {target, bitmap};
 }

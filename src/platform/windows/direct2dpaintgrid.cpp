@@ -1045,6 +1045,13 @@ void D2DPaintGrid2::viewport_changed(Viewport vp)
 ComPtr<ID2D1Bitmap1> D2DPaintGrid2::copy_bitmap(ID2D1Bitmap1* src)
 {
   auto size = src->GetPixelSize();
+  return copy_bitmap(src, D2D1::RectU(0, 0, size.width, size.height));
+}
+
+ComPtr<ID2D1Bitmap1>
+D2DPaintGrid2::copy_bitmap(ID2D1Bitmap1* src, D2D1_RECT_U rect)
+{
+  auto size = D2D1::SizeU(rect.right - rect.left, rect.bottom - rect.top);
   ComPtr<ID2D1Bitmap1> dst = nullptr;
   render_target->CreateBitmap(
     size, nullptr, 0,
@@ -1055,8 +1062,7 @@ ComPtr<ID2D1Bitmap1> D2DPaintGrid2::copy_bitmap(ID2D1Bitmap1* src)
     &dst
   );
   auto tl = D2D1::Point2U(0, 0);
-  auto src_rect = D2D1::RectU(0, 0, size.width, size.height);
-  dst->CopyFromBitmap(&tl, src, &src_rect);
+  dst->CopyFromBitmap(&tl, src, &rect);
   return dst;
 }
 
@@ -1173,8 +1179,10 @@ void D2DPaintGrid2::scroll_bitmap(const ScrollEventInfo& info)
     rect.right() * font_width,
     rect.bottom() * font_height
   );
-  ComPtr<ID2D1Bitmap1> copy = copy_bitmap(bitmap.Get());
-  bitmap->CopyFromBitmap(&dest_tl, copy.Get(), &src_rect);
+  ComPtr<ID2D1Bitmap1> copy = copy_bitmap(bitmap.Get(), src_rect);
+  auto size = copy->GetPixelSize();
+  auto copied_rect = D2D1::RectU(0, 0, size.width, size.height);
+  bitmap->CopyFromBitmap(&dest_tl, copy.Get(), &copied_rect);
 }
 
 D2DPaintGrid2::~D2DPaintGrid2() = default;

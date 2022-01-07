@@ -196,6 +196,8 @@ protected:
   bool enable_mouse = false;
   bool done = false;
   FontDimensions ms_font_dimensions;
+  std::string path_to_nvim;
+  std::vector<std::string> args_to_nvim;
 private:
   // Measures to prevent needless resizing requests
   QObject* target_object;

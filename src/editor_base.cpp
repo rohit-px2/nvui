@@ -18,6 +18,8 @@ EditorBase::EditorBase(
   cmdline(nullptr), grids(),
   nvim(std::make_unique<Nvim>(nvim_path, nvim_args)),
   ext(), grids_need_ordering(false), ms_font_dimensions {10, 10},
+  path_to_nvim(nvim_path),
+  args_to_nvim(nvim_args),
   target_object(thread_target_obj)
 {
   nvim->set_client_info(nvui_cinfo);

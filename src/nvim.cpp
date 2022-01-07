@@ -180,6 +180,11 @@ void Nvim::read_error_sync()
   }
 }
 
+std::vector<std::string> Nvim::default_args()
+{
+  return {"--embed"};
+}
+
 int Nvim::exit_code()
 {
   if (nvim.running())

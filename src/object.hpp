@@ -28,6 +28,7 @@ struct Error
 
 struct Object
 {
+  static const Object null;
   using Map = boost::container::flat_map<std::string, Object, std::less<>>;
   using Array = std::vector<Object>;
   using null_type = std::monostate;
@@ -99,6 +100,7 @@ struct Object
   bool is_unsigned() const { return has<unsigned_type>(); }
   bool is_float() const { return has<float_type>(); }
   bool is_ext() const { return has<ext_type>(); }
+  bool is_bool() const { return has<bool>(); }
   template<typename T>
   bool has() const noexcept
   {
@@ -178,21 +180,21 @@ struct Object
     return {};
   }
 
-  const Object* try_at(std::string_view s) const noexcept
+  const Object& try_at(std::string_view s) const noexcept
   {
-    if (!has<Map>()) return nullptr;
+    if (!has<Map>()) return null;
     const auto& mp = get<Map>();
     const auto it = mp.find(s);
-    if (it == mp.cend()) return nullptr;
-    return &it->second;
+    if (it == mp.cend()) return null;
+    return it->second;
   }
 
-  const Object* try_at(std::size_t idx) const noexcept
+  const Object& try_at(std::size_t idx) const noexcept
   {
-    if (!has<Array>()) return nullptr;
+    if (!has<Array>()) return null;
     const auto& arr = get<Array>();
-    if (idx >= arr.size()) return nullptr;
-    return &arr.at(idx);
+    if (idx >= arr.size()) return null;
+    return arr.at(idx);
   }
 
 private:

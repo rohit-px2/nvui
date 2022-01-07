@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <iostream>
 #include <QObject>
+#include <QInputDialog>
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QPushButton>
@@ -55,12 +56,6 @@ static void windows_setup_frameless(HWND hwnd)
 
 using u32 = std::uint32_t;
 
-#ifdef Q_OS_WIN
-using EditorType = D2DEditor;
-#else
-using EditorType = QEditor;
-#endif
-
 Window::Window(
   std::string nvp,
   std::vector<std::string> nva,
@@ -73,91 +68,184 @@ Window::Window(
 : QMainWindow(parent),
   resizing(false),
   title_bar(std::make_unique<TitleBar>("nvui", this)),
-  editor_area(width, height, std::move(capabilities), nvp, std::move(nva))
+  editor_stack()
 {
-  editor_area.setup();
+  auto* editor_area = new EditorType(
+    width, height, std::move(capabilities), std::move(nvp), std::move(nva)
+  );
+  editor_stack.addWidget(editor_area);
+  editor_area->setup();
   setMouseTracking(true);
   prev_state = windowState();
-  const auto [font_width, font_height] = editor_area.font_dimensions();
+  const auto [font_width, font_height] = editor_area->font_dimensions();
   resize(width * font_width, height * font_height);
   if (custom_titlebar) enable_frameless_window();
   else title_bar->hide();
   QObject::connect(title_bar.get(), &TitleBar::resize_move, this, &Window::resize_or_move);
   setWindowIcon(QIcon(constants::appicon()));
-  connect_editor_signals(editor_area);
-  setCentralWidget(&editor_area);
-  editor_area.setFocus();
-  editor_area.attach();
+  connect_editor_signals(*editor_area);
+  editor_area->setFocus();
+  editor_area->attach();
+  setCentralWidget(&editor_stack);
+  editor_stack.setCurrentIndex(0);
 }
 
-void Window::connect_editor_signals(QtEditorUIBase& editor)
+QtEditorUIBase& Window::current_editor()
 {
+  return *static_cast<EditorType*>(editor_stack.currentWidget());
+}
+
+void Window::connect_editor_signals(EditorType& editor)
+{
+  using namespace std;
   auto* signaller = editor.ui_signaller();
   connect(
-    signaller, &UISignaller::default_colors_changed,
+    signaller, &UISignaller::default_colors_changed, this,
     [this](QColor fg, QColor bg) {
       default_fg = fg;
       default_bg = bg;
       update_titlebar_colors(fg, bg);
     }
   );
-  connect(signaller, &UISignaller::closed,
-    [this] { close(); }
+  connect(signaller, &UISignaller::closed, this,
+    [this, p_editor = &editor] {
+      remove_editor(p_editor);
+    }
   );
-  connect(signaller, &UISignaller::fullscreen_set, [this](bool b) {
+  connect(signaller, &UISignaller::editor_spawned, this,
+    [this](string nvp, unordered_map<string, bool> capabilities, vector<string> args) {
+      auto nvim_dims = current_editor().nvim_dimensions();
+      create_editor(
+        nvim_dims.width, nvim_dims.height,
+        nvp, std::move(args), std::move(capabilities)
+      );
+  });
+  connect(signaller, &UISignaller::editor_switched, this, [this](std::size_t idx) {
+    make_active_editor(idx);
+  });
+  connect(signaller, &UISignaller::fullscreen_set, this, [this](bool b) {
     set_fullscreen(b);
   });
-  connect(signaller, &UISignaller::fullscreen_toggled, [this] {
+  connect(signaller, &UISignaller::fullscreen_toggled, this, [this] {
     if (isFullScreen()) set_fullscreen(false);
     else set_fullscreen(true);
   });
-  connect(signaller, &UISignaller::frame_set, [this](bool frame) {
+  connect(signaller, &UISignaller::frame_set, this, [this](bool frame) {
     if (frame) disable_frameless_window();
     else enable_frameless_window();
   });
-  connect(signaller, &UISignaller::frame_toggled, [this] {
+  connect(signaller, &UISignaller::frame_toggled, this, [this] {
     if (is_frameless()) disable_frameless_window();
     else enable_frameless_window();
   });
-  connect(signaller, &UISignaller::titlebar_set, [this](bool tb) {
+  connect(signaller, &UISignaller::titlebar_set, this, [this](bool tb) {
     if (tb) { enable_frameless_window(); title_bar->show(); }
     else disable_frameless_window();
   });
-  connect(signaller, &UISignaller::titlebar_toggled, [this] {
+  connect(signaller, &UISignaller::titlebar_toggled, this, [this] {
     if (is_frameless()) disable_frameless_window();
     else enable_frameless_window();
   });
-  connect(signaller, &UISignaller::window_opacity_changed, [this](double opa) {
+  connect(signaller, &UISignaller::window_opacity_changed, this, [this](double opa) {
     setWindowOpacity(opa);
   });
-  connect(signaller, &UISignaller::titlebar_font_family_set, [this](QString f) {
+  connect(signaller, &UISignaller::titlebar_font_family_set, this, [this](QString f) {
     title_bar->set_font_family(f);
   });
-  connect(signaller, &UISignaller::titlebar_font_size_set, [this](double ps) {
+  connect(signaller, &UISignaller::titlebar_font_size_set, this, [this](double ps) {
     title_bar->set_font_size(ps);
   });
-  connect(signaller, &UISignaller::title_changed, [this](QString title) {
+  connect(signaller, &UISignaller::title_changed, this, [this](QString title) {
     title_bar->set_title_text(title);
   });
-  connect(signaller, &UISignaller::titlebar_fg_set, [this](QColor fg) {
+  connect(signaller, &UISignaller::titlebar_fg_set, this, [this](QColor fg) {
     titlebar_colors.first = fg;
     update_titlebar_colors(default_fg, default_bg);
   });
-  connect(signaller, &UISignaller::titlebar_bg_set, [this](QColor bg) {
+  connect(signaller, &UISignaller::titlebar_bg_set, this, [this](QColor bg) {
     titlebar_colors.second = bg;
     update_titlebar_colors(default_fg, default_bg);
   });
-  connect(signaller, &UISignaller::titlebar_colors_unset, [this] {
+  connect(signaller, &UISignaller::titlebar_colors_unset, this, [this] {
     titlebar_colors.first.reset();
     titlebar_colors.second.reset();
     update_titlebar_colors(default_fg, default_bg);
   });
-  connect(signaller, &UISignaller::titlebar_fg_bg_set,
+  connect(signaller, &UISignaller::titlebar_fg_bg_set, this,
     [this](QColor fg, QColor bg) {
       titlebar_colors.first = fg;
       titlebar_colors.second = bg;
       update_titlebar_colors(default_fg, default_bg);
   });
+  connect(signaller, &UISignaller::editor_changed_previous, this, [this] {
+    if (editor_stack.count() == 1) return;
+    int active = editor_stack.currentIndex();
+    if (active == 0) active = editor_stack.count() - 1;
+    else active -= 1;
+    make_active_editor(active);
+  });
+  connect(signaller, &UISignaller::editor_changed_next, this, [this] {
+    if (editor_stack.count() == 1) return;
+    int active = editor_stack.currentIndex();
+    if (active == editor_stack.count() - 1) active = 0;
+    else active += 1;
+    make_active_editor(active);
+  });
+  connect(signaller, &UISignaller::editor_selection_list_opened, this, [this] {
+    select_editor_from_dialog();
+  });
+}
+
+void Window::select_editor_from_dialog()
+{
+  QStringList items;
+  for(int i = 0; i < editor_stack.count(); ++i)
+  {
+    auto* editor = static_cast<EditorType*>(editor_stack.widget(i));
+    QString cwd = QString::fromStdString(editor->current_dir());
+    items.append(QString("%1 - %2").arg(i).arg(cwd));
+  }
+  QInputDialog dialog;
+  dialog.setComboBoxItems(items);
+  dialog.setWindowTitle(tr("Editor Selection"));
+  dialog.setLabelText(tr("Choose the current editor instance to display."));
+  dialog.exec();
+  if (dialog.result() == QDialog::Rejected) return;
+  int selected = dialog.comboBoxItems().indexOf(dialog.textValue());
+  if (selected < 0 || selected >= editor_stack.count()) return;
+  make_active_editor(selected);
+}
+
+void Window::remove_editor(EditorType* editor)
+{
+  editor_stack.removeWidget(editor);
+  if (editor_stack.count() == 0) close();
+  else
+  {
+		make_active_editor(0);
+  }
+}
+
+void Window::make_active_editor(std::size_t index)
+{
+  if (int(index) >= editor_stack.count()) return;
+  editor_stack.setCurrentIndex(index);
+  editor_stack.currentWidget()->setFocus();
+}
+
+void Window::create_editor(
+  int width, int height, std::string nvim_path, std::vector<std::string> args,
+  std::unordered_map<std::string, bool> capabilities
+)
+{
+  auto* editor = new EditorType(
+    width, height, std::move(capabilities), nvim_path, std::move(args)
+  );
+  editor->setup();
+  connect_editor_signals(*editor);
+  editor->attach();
+  int index = editor_stack.addWidget(editor);
+  editor_stack.setCurrentIndex(index);
 }
 
 enum ResizeType
@@ -444,10 +532,16 @@ void Window::update_titlebar_colors(QColor fg, QColor bg)
 
 void Window::closeEvent(QCloseEvent* event)
 {
-  if (editor_area.nvim_exited()) event->accept();
+  // This first case should never happen since
+  // the window should automatically close once all the editors
+  // are closed
+  if (editor_stack.count() <= 0) close();
   else
   {
     event->ignore();
-    editor_area.confirm_qa();
+    for(int i = 0; i < editor_stack.count(); ++i)
+    {
+      static_cast<EditorType*>(editor_stack.widget(i))->confirm_qa();
+    }
   }
 }

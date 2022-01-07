@@ -255,6 +255,10 @@ void D2DEditor::setup()
   listen_for_notification("NVUI_TOGGLE_VSYNC", [this](const auto&) {
     set_vsync(!vsync);
   });
+  nvim->exec_viml(R"(
+    command! -nargs=1 NvuiVsync call rpcnotify(g:nvui_rpc_chan, "NVUI_VSYNC", <args>)
+    command! NvuiToggleVsync call rpcnotify(g:nvui_rpc_chan, "NVUI_TOGGLE_VSYNC")
+  )");
 }
 
 void D2DEditor::set_vsync(bool sync)

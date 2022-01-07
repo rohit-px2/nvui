@@ -46,23 +46,23 @@ namespace hl
     for(const auto& o : *info_arr)
     {
       AttrState state;
-      if (auto* hi_name = o.try_at("hi_name"); hi_name && hi_name->is_string())
+      if (auto* hi_name = o.try_at("hi_name").string())
       {
-        state.hi_name = hi_name->get<std::string>();
+        state.hi_name = *hi_name;
       }
-      if (auto* ui_name = o.try_at("ui_name"); ui_name && ui_name->is_string())
+      if (auto* ui_name = o.try_at("ui_name").string())
       {
-        state.ui_name = ui_name->get<std::string>();
+        state.ui_name = *ui_name;
       }
-      if (auto* kind = o.try_at("kind"); kind && kind->is_string())
+      if (auto* kind = o.try_at("kind").string())
       {
-        state.hi_name = kind->get<std::string>() == "syntax"
+        state.hi_name = *kind == "syntax"
           ? Kind::Syntax
           : Kind::UI;
       }
-      if (auto* hid = o.try_at("id"); hid && hid->convertible<int>())
+      if (auto hid = o.try_at("id").try_convert<int>())
       {
-        state.id = (int) *hid;
+        state.id = hid.value();
       }
       attr.state.push_back(std::move(state));
     }

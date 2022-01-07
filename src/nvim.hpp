@@ -220,6 +220,7 @@ public:
   template<typename T>
   void ui_set_option(const std::string& name, T&& val);
   void set_client_info(const ClientInfo& info);
+  static std::vector<std::string> default_args();
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;

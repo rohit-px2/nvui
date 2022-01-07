@@ -17,7 +17,8 @@ QtEditorUIBase::QtEditorUIBase(
 )
 : EditorBase(std::move(nvim_path), std::move(nvim_args), &inheritor_instance),
   inheritor(inheritor_instance),
-  ui_attach_info {cols, rows, std::move(capabilities)}
+  ui_attach_info {cols, rows, std::move(capabilities)},
+  cwd()
 {
   idle_timer.setSingleShot(true);
   idle_timer.setInterval(100000);
@@ -31,6 +32,12 @@ void QtEditorUIBase::setup()
   Base::setup();
   register_command_handlers();
   QObject::connect(&n_cursor, &Cursor::anim_state_changed, &inheritor, [this] {
+    inheritor.update();
+  });
+  QObject::connect(&n_cursor, &Cursor::cursor_hidden, &inheritor, [this] {
+    inheritor.update();
+  });
+  QObject::connect(&n_cursor, &Cursor::cursor_visible, &inheritor, [this] {
     inheritor.update();
   });
 }
@@ -556,6 +563,31 @@ void QtEditorUIBase::register_command_handlers()
     paramify<double>([this](double seconds) {
       idle_timer.setInterval(seconds * 1000);
   }));
+  on("NVUI_EDITOR_SPAWN", [this](const ObjectArray& params) {
+    if (params.empty()) spawn_editor_with_params(Object::null);
+    else spawn_editor_with_params(params.front());
+  });
+  on("NVUI_EDITOR_SWITCH", paramify<int>([this](int index) {
+    if (index < 0)
+    {
+      nvim->err_write("Editor index cannot be negative.\n");
+      return;
+    }
+    emit signaller.editor_switched(std::size_t(index));
+  }));
+  on("NVUI_DIR_CHANGED", paramify<std::string>([this](std::string dir) {
+    cwd = std::move(dir);
+    emit signaller.cwd_changed(current_dir());
+  }));
+  on("NVUI_EDITOR_PREV", [this](const auto&) {
+    emit signaller.editor_changed_previous();
+  });
+  on("NVUI_EDITOR_NEXT", [this](const auto&) {
+    emit signaller.editor_changed_next();
+  });
+  on("NVUI_EDITOR_SELECT", [this](const auto&) {
+    emit signaller.editor_selection_list_opened();
+  });
   using namespace std;
   handle_request<vector<string>, int>(*nvim, "NVUI_SCALER_NAMES",
     [&](const auto&) {
@@ -662,11 +694,21 @@ void QtEditorUIBase::register_command_handlers()
   command! NvuiIMEEnable call rpcnotify(g:nvui_rpc_chan, 'NVUI_IME_SET', v:true)
   command! NvuiIMEDisable call rpcnotify(g:nvui_rpc_chan, 'NVUI_IME_SET', v:false)
   command! NvuiIMEToggle call rpcnotify(g:nvui_rpc_chan, 'NVUI_IME_TOGGLE')
+  command! -nargs=? NvuiEditorSpawn call rpcnotify(g:nvui_rpc_chan, 'NVUI_EDITOR_SPAWN', <args>)
+  command! -nargs=1 NvuiEditorSwitch call rpcnotify(g:nvui_rpc_chan, 'NVUI_EDITOR_SWITCH', <args>)
+  command! NvuiEditorPrev call rpcnotify(g:nvui_rpc_chan, 'NVUI_EDITOR_PREV')
+  command! NvuiEditorNext call rpcnotify(g:nvui_rpc_chan, 'NVUI_EDITOR_NEXT')
+  command! NvuiEditorSelect call rpcnotify(g:nvui_rpc_chan, 'NVUI_EDITOR_SELECT')
   function! NvuiGetTitle()
     return NvuiGet_title()
   endfunction
-  autocmd BufEnter * call rpcnotify(g:nvui_rpc_chan, 'NVUI_TB_TITLE', NvuiGetTitle())
-  autocmd DirChanged * call rpcnotify(g:nvui_rpc_chan, 'NVUI_TB_TITLE', NvuiGetTitle())
+  augroup nvui_autocmds
+    autocmd!
+    autocmd BufEnter * call rpcnotify(g:nvui_rpc_chan, 'NVUI_TB_TITLE', NvuiGetTitle())
+    autocmd DirChanged * call rpcnotify(g:nvui_rpc_chan, 'NVUI_TB_TITLE', NvuiGetTitle())
+    autocmd DirChanged * call rpcnotify(g:nvui_rpc_chan, 'NVUI_DIR_CHANGED', getcwd())
+  augroup END
+  call rpcnotify(g:nvui_rpc_chan, 'NVUI_DIR_CHANGED', getcwd())
   )");
   auto script_dir = constants::script_dir().toStdString();
   nvim->command(fmt::format("helptags {}", script_dir + "/doc"));
@@ -723,3 +765,41 @@ void QtEditorUIBase::cursor_moved()
 {
   qApp->inputMethod()->update(Qt::ImCursorRectangle);
 }
+
+void QtEditorUIBase::spawn_editor_with_params(const Object& params)
+{
+  auto nvim_path = params.try_at("nvim").try_convert<std::string>().value_or(path_to_nvim);
+  auto multigrid = params.try_at("multigrid").try_convert<bool>().value_or(ext.multigrid);
+  auto popup = params.try_at("popupmenu").try_convert<bool>().value_or(ext.popupmenu);
+  auto cmdline = params.try_at("cmdline").try_convert<bool>().value_or(ext.cmdline);
+  std::unordered_map<std::string, bool> capabilities = {
+    {"ext_multigrid", multigrid},
+    {"ext_popupmenu", popup},
+    {"ext_cmdline", cmdline},
+    {"ext_linegrid", true},
+    {"ext_hlstate", false},
+    {"ext_tabline", false},
+  };
+  std::vector<std::string> args = Nvim::default_args();
+  bool all_strings = true;
+  if (auto arglist = params.try_at("nvim_args").array())
+  {
+    for(const auto& arg : *arglist)
+    {
+      if (!arg.is_string())
+      {
+        all_strings = false;
+        break;
+      }
+      args.push_back(arg.get<std::string>());
+    }
+    if (!all_strings)
+    {
+      args = Nvim::default_args();
+      nvim->err_write("Some arguments to nvim were not strings.\n");
+    }
+  }
+  emit signaller.editor_spawned(nvim_path, std::move(capabilities), std::move(args));
+}
+
+std::string QtEditorUIBase::current_dir() const { return cwd; }

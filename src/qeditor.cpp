@@ -64,8 +64,6 @@ QEditor::QEditor(
   setFocusPolicy(Qt::StrongFocus);
   setFocus();
   setMouseTracking(true);
-  QFontMetricsF fm {first_font};
-  set_font_dimensions(fm.horizontalAdvance('a'), fm.height());
 }
 
 QEditor::~QEditor() = default;

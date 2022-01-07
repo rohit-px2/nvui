@@ -5,6 +5,7 @@
 #include <QMainWindow>
 #include <QWidget>
 #include <QFont>
+#include <QStackedWidget>
 #include <QToolBar>
 #include <QLayout>
 #include "decide_renderer.hpp"
@@ -37,6 +38,11 @@ constexpr int tolerance = 10; //10px tolerance for resizing
 class Window : public QMainWindow
 {
   Q_OBJECT
+#if defined(USE_DIRECT2D)
+  using EditorType = D2DEditor;
+#elif defined(USE_QPAINTER)
+  using EditorType = QEditor;
+#endif
 public:
   Window(
     std::string nvim_path,
@@ -63,10 +69,10 @@ public slots:
   void maximize();
   /**
    * Connects to the signals emitted
-   * by the QtEditorUIBase object.
+   * by the editor.
    * These signals get emitted by its UISignaller.
    */
-  void connect_editor_signals(QtEditorUIBase&);
+  void connect_editor_signals(EditorType&);
 private:
   /**
    * Disable the frameless window.
@@ -122,6 +128,14 @@ private:
    * Otherwise, it uses the default colors.
    */
   void update_titlebar_colors(QColor fg, QColor bg);
+  void remove_editor(EditorType* editor);
+  void make_active_editor(std::size_t index);
+  void create_editor(
+    int width, int height, std::string nvim_path, std::vector<std::string> args,
+    std::unordered_map<std::string, bool> capabilities
+  );
+  void select_editor_from_dialog();
+  QtEditorUIBase& current_editor();
   bool resizing;
   bool maximized = false;
   bool moving = false;
@@ -132,11 +146,7 @@ private:
   template<typename T>
   using opt = std::optional<T>;
   std::pair<opt<QColor>, opt<QColor>> titlebar_colors;
-#if defined(USE_DIRECT2D)
-  D2DEditor editor_area;
-#elif defined(USE_QPAINTER)
-  QEditor editor_area;
-#endif
+  QStackedWidget editor_stack;
 signals:
   void win_state_changed(Qt::WindowStates new_state);
   void default_colors_changed(QColor fg, QColor bg);

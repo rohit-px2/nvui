@@ -35,6 +35,19 @@ signals:
   void titlebar_fg_bg_set(QColor fg, QColor bg);
   void default_colors_changed(QColor fg, QColor bg);
   void closed();
+  void editor_spawned(
+    std::string nvim_path,
+    std::unordered_map<std::string, bool> capabilities,
+    std::vector<std::string> args
+  );
+  void editor_switched(std::size_t index);
+  // Moving to next/prev editor
+  void editor_changed_next();
+  void editor_changed_previous();
+  void cwd_changed(std::string dir);
+  // Open a selection list to see and switch between currently open
+  // editor instances.
+  void editor_selection_list_opened();
 };
 
 // Does not inherit from a widget type,
@@ -72,6 +85,7 @@ public:
   // inherits from QObject there will be ambiguity
   // since QWidget inherits from QObject
   UISignaller* ui_signaller();
+  std::string current_dir() const;
 protected:
   bool idling() const;
   // Handling UI events.
@@ -97,6 +111,7 @@ protected:
   virtual void linespace_changed(float new_ls) = 0;
   virtual void charspace_changed(float new_cs) = 0;
 private:
+  void spawn_editor_with_params(const Object& params);
   void cursor_moved() override;
   void typed();
   void unhide_cursor();
@@ -171,6 +186,8 @@ protected:
   // This class is responsible for emitting signals
   // so that QtEditorUIBase doesn't have to inherit from QObject
   UISignaller signaller;
+private:
+  std::string cwd;
 };
 
 #endif // NVUI_QT_EDITORUI_BASE_HPP

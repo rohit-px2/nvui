@@ -45,7 +45,7 @@ namespace constants
 	/// Directory for runtime files (doc)
 	inline const QString& script_dir()
 	{
-		static const QString dir = "../vim";
+		static const QString dir = normalize_path("../vim");
 		return dir;
 	}
 

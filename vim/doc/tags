@@ -17,6 +17,11 @@
 :NvuiCursorFrametime	nvui.txt	/*:NvuiCursorFrametime*
 :NvuiCursorHideWhileTyping	nvui.txt	/*:NvuiCursorHideWhileTyping*
 :NvuiCursorScaler	nvui.txt	/*:NvuiCursorScaler*
+:NvuiEditorNext	nvui.txt	/*:NvuiEditorNext*
+:NvuiEditorPrev	nvui.txt	/*:NvuiEditorPrev*
+:NvuiEditorSelect	nvui.txt	/*:NvuiEditorSelect*
+:NvuiEditorSpawn	nvui.txt	/*:NvuiEditorSpawn*
+:NvuiEditorSwitch	nvui.txt	/*:NvuiEditorSwitch*
 :NvuiFrameless	nvui.txt	/*:NvuiFrameless*
 :NvuiFullscreen	nvui.txt	/*:NvuiFullscreen*
 :NvuiIMEDisable	nvui.txt	/*:NvuiIMEDisable*
@@ -54,8 +59,8 @@
 :NvuiTitlebarUnsetColors	nvui.txt	/*:NvuiTitlebarUnsetColors*
 :NvuiToggleFrameless	nvui.txt	/*:NvuiToggleFrameless*
 :NvuiToggleFullscreen	nvui.txt	/*:NvuiToggleFullscreen*
+:nvui-instances	nvui.txt	/*:nvui-instances*
 nvui-cmdline	nvui.txt	/*nvui-cmdline*
-nvui-commands	nvui.txt	/*nvui-commands*
 nvui-cursor	nvui.txt	/*nvui-cursor*
 nvui-general	nvui.txt	/*nvui-general*
 nvui-ime	nvui.txt	/*nvui-ime*

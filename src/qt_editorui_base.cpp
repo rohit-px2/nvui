@@ -708,6 +708,7 @@ void QtEditorUIBase::register_command_handlers()
   )");
   auto script_dir = constants::script_dir().toStdString();
   nvim->command(fmt::format("helptags {}", script_dir + "/doc"));
+  nvim->command(fmt::format("set rtp+={}", script_dir));
 }
 
 void QtEditorUIBase::listen_for_notification(

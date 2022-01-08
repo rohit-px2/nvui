@@ -152,8 +152,8 @@ void D2DEditor::inputMethodEvent(QInputMethodEvent* event)
 
 void D2DEditor::mouseMoveEvent(QMouseEvent* event)
 {
-  Base::handle_mouse_move(event);
   QWidget::mouseMoveEvent(event);
+  Base::handle_mouse_move(event);
 }
 
 D2DEditor::OffscreenRenderingPair

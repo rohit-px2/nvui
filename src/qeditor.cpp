@@ -126,8 +126,8 @@ void QEditor::inputMethodEvent(QInputMethodEvent* ev)
 
 void QEditor::mouseMoveEvent(QMouseEvent* ev)
 {
-  QWidget::mouseMoveEvent(ev);
   Base::handle_mouse_move(ev);
+  QWidget::mouseMoveEvent(ev);
 }
 
 void QEditor::keyPressEvent(QKeyEvent* ev)

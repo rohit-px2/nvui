@@ -68,12 +68,13 @@ Window::Window(
 : QMainWindow(parent),
   resizing(false),
   title_bar(std::make_unique<TitleBar>("nvui", this)),
-  editor_stack()
+  editor_stack(new QStackedWidget())
 {
   auto* editor_area = new EditorType(
     width, height, std::move(capabilities), std::move(nvp), std::move(nva)
   );
-  editor_stack.addWidget(editor_area);
+  editor_stack->setMouseTracking(true);
+  editor_stack->addWidget(editor_area);
   editor_area->setup();
   setMouseTracking(true);
   prev_state = windowState();
@@ -86,13 +87,20 @@ Window::Window(
   connect_editor_signals(*editor_area);
   editor_area->setFocus();
   editor_area->attach();
-  setCentralWidget(&editor_stack);
-  editor_stack.setCurrentIndex(0);
+  setCentralWidget(editor_stack);
+  editor_stack->setCurrentIndex(0);
 }
 
 QtEditorUIBase& Window::current_editor()
 {
-  return *static_cast<EditorType*>(editor_stack.currentWidget());
+  return *static_cast<EditorType*>(editor_stack->currentWidget());
+}
+
+void Window::update_default_colors(QColor fg, QColor bg)
+{
+  default_fg = fg;
+  default_bg = bg;
+  update_titlebar_colors(fg, bg);
 }
 
 void Window::connect_editor_signals(EditorType& editor)
@@ -102,9 +110,7 @@ void Window::connect_editor_signals(EditorType& editor)
   connect(
     signaller, &UISignaller::default_colors_changed, this,
     [this](QColor fg, QColor bg) {
-      default_fg = fg;
-      default_bg = bg;
-      update_titlebar_colors(fg, bg);
+      update_default_colors(fg, bg);
     }
   );
   connect(signaller, &UISignaller::closed, this,
@@ -178,16 +184,16 @@ void Window::connect_editor_signals(EditorType& editor)
       update_titlebar_colors(default_fg, default_bg);
   });
   connect(signaller, &UISignaller::editor_changed_previous, this, [this] {
-    if (editor_stack.count() == 1) return;
-    int active = editor_stack.currentIndex();
-    if (active == 0) active = editor_stack.count() - 1;
+    if (editor_stack->count() == 1) return;
+    int active = editor_stack->currentIndex();
+    if (active == 0) active = editor_stack->count() - 1;
     else active -= 1;
     make_active_editor(active);
   });
   connect(signaller, &UISignaller::editor_changed_next, this, [this] {
-    if (editor_stack.count() == 1) return;
-    int active = editor_stack.currentIndex();
-    if (active == editor_stack.count() - 1) active = 0;
+    if (editor_stack->count() == 1) return;
+    int active = editor_stack->currentIndex();
+    if (active == editor_stack->count() - 1) active = 0;
     else active += 1;
     make_active_editor(active);
   });
@@ -199,9 +205,9 @@ void Window::connect_editor_signals(EditorType& editor)
 void Window::select_editor_from_dialog()
 {
   QStringList items;
-  for(int i = 0; i < editor_stack.count(); ++i)
+  for(int i = 0; i < editor_stack->count(); ++i)
   {
-    auto* editor = static_cast<EditorType*>(editor_stack.widget(i));
+    auto* editor = static_cast<EditorType*>(editor_stack->widget(i));
     QString cwd = QString::fromStdString(editor->current_dir());
     items.append(QString("%1 - %2").arg(i).arg(cwd));
   }
@@ -212,25 +218,27 @@ void Window::select_editor_from_dialog()
   dialog.exec();
   if (dialog.result() == QDialog::Rejected) return;
   int selected = dialog.comboBoxItems().indexOf(dialog.textValue());
-  if (selected < 0 || selected >= editor_stack.count()) return;
+  if (selected < 0 || selected >= editor_stack->count()) return;
   make_active_editor(selected);
 }
 
 void Window::remove_editor(EditorType* editor)
 {
-  editor_stack.removeWidget(editor);
-  if (editor_stack.count() == 0) close();
+  editor_stack->removeWidget(editor);
+  if (editor_stack->count() == 0) close();
   else
   {
-		make_active_editor(0);
+    make_active_editor(0);
   }
 }
 
-void Window::make_active_editor(std::size_t index)
+void Window::make_active_editor(int index)
 {
-  if (int(index) >= editor_stack.count()) return;
-  editor_stack.setCurrentIndex(index);
-  editor_stack.currentWidget()->setFocus();
+  if (index >= editor_stack->count()) return;
+  editor_stack->setCurrentIndex(index);
+  editor_stack->currentWidget()->setFocus();
+  auto& editor = current_editor();
+  update_default_colors(editor.default_fg().qcolor(), editor.default_bg().qcolor());
 }
 
 void Window::create_editor(
@@ -238,14 +246,22 @@ void Window::create_editor(
   std::unordered_map<std::string, bool> capabilities
 )
 {
-  auto* editor = new EditorType(
-    width, height, std::move(capabilities), nvim_path, std::move(args)
-  );
+  EditorType* editor = nullptr;
+  try
+  {
+    editor = new EditorType(
+      width, height, std::move(capabilities), nvim_path, std::move(args)
+    );
+  }
+  catch(...)
+  {
+    return;
+  }
   editor->setup();
   connect_editor_signals(*editor);
   editor->attach();
-  int index = editor_stack.addWidget(editor);
-  editor_stack.setCurrentIndex(index);
+  int index = editor_stack->addWidget(editor);
+  make_active_editor(index);
 }
 
 enum ResizeType
@@ -535,13 +551,13 @@ void Window::closeEvent(QCloseEvent* event)
   // This first case should never happen since
   // the window should automatically close once all the editors
   // are closed
-  if (editor_stack.count() <= 0) close();
+  if (editor_stack->count() <= 0) close();
   else
   {
     event->ignore();
-    for(int i = 0; i < editor_stack.count(); ++i)
+    for(int i = 0; i < editor_stack->count(); ++i)
     {
-      static_cast<EditorType*>(editor_stack.widget(i))->confirm_qa();
+      static_cast<EditorType*>(editor_stack->widget(i))->confirm_qa();
     }
   }
 }

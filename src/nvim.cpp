@@ -25,6 +25,16 @@ namespace bp = boost::process;
 
 using Lock = std::lock_guard<std::mutex>;
 
+static boost::filesystem::path
+get_nvim_path(const std::string& path)
+{
+  if (path.empty())
+  {
+    return bp::search_path("nvim");
+  }
+  return boost::filesystem::path(path);
+}
+
 Nvim::Nvim(std::string path, std::vector<std::string> args)
 : notification_handlers(),
   request_handlers(),
@@ -36,14 +46,10 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   stdin_pipe(),
   error()
 {
-  auto nvim_path = boost::filesystem::path(path);
-  if (path.empty())
+  auto nvim_path = get_nvim_path(path);
+  if (nvim_path.empty())
   {
-    nvim_path = bp::search_path("nvim");
-    if (nvim_path.empty())
-    {
-      throw std::runtime_error("Neovim not found in PATH");
-    }
+    throw std::runtime_error("Neovim not found in PATH");
   }
   nvim = bp::child(
     nvim_path,
@@ -58,6 +64,27 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   );
   err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
   out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
+}
+
+Object Nvim::get_api_info()
+{
+  return send_blocking_request("nvim_get_api_info", std::array<int, 0> {});
+}
+
+template<typename T>
+Object Nvim::send_blocking_request(const std::string& method, T&& params)
+{
+  std::mutex m;
+  std::unique_lock<std::mutex> lock {m};
+  std::condition_variable cv;
+  Object result;
+  send_request_cb(method, std::forward<T>(params), [&](Object res, Object err) {
+    if (!err.is_null()) result = Object::null;
+    else result = std::move(res);
+    cv.notify_one();
+  });
+  cv.wait(lock);
+  return result;
 }
 
 void Nvim::resize(const int new_width, const int new_height)

@@ -86,6 +86,8 @@ public:
   // since QWidget inherits from QObject
   UISignaller* ui_signaller();
   std::string current_dir() const;
+  // Returns the inheriting widget
+  QWidget* widget();
 protected:
   bool idling() const;
   // Handling UI events.

@@ -190,10 +190,6 @@ void QtEditorUIBase::send_mouse_input(
   auto grid_pos_opt = grid_pos_for(pos);
   if (!grid_pos_opt)
   {
-    fmt::print(
-      "No grid found for action '{}' on ({},{})\n", action,
-      pos.x(), pos.y()
-    );
     return;
   }
   auto&& [grid_num, row, col] = *grid_pos_opt;
@@ -803,3 +799,5 @@ void QtEditorUIBase::spawn_editor_with_params(const Object& params)
 }
 
 std::string QtEditorUIBase::current_dir() const { return cwd; }
+
+QWidget* QtEditorUIBase::widget() { return &inheritor; }

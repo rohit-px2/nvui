@@ -69,6 +69,7 @@ protected:
   // Before which character the cursor will show up on the current line.
   int cursor_pos = 0;
   bool is_hidden = true;
+  int indent = 0;
 private:
   QString complete_content_string;
 protected:

@@ -696,8 +696,10 @@ void QPaintGrid2::process_events()
         );
         // This would probably be faster using QPixmap::scroll
         // but it doesn't want to work
+        p.end();
         QPixmap px = pixmap.copy(r);
         QPoint tl((rect.x() + dx) * font_width, (rect.y() + dy) * font_height);
+        p.begin(&pixmap);
         p.drawPixmap(tl, px, px.rect());
         break;
       }

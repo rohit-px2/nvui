@@ -31,6 +31,7 @@ void Cmdline::cmdline_show(std::span<const Object> objs)
   auto* firstc = arr->at(2).string();
   if (firstc && firstc->empty()) first_char.reset();
   else first_char = QString::fromStdString(*firstc);
+  indent = arr->at(4).try_convert<int>().value_or(0);
   update_content_string();
   redraw();
   do_show();
@@ -153,6 +154,7 @@ void Cmdline::update_content_string()
     for(const auto& [_, text] : line) s.append(text);
     s.append('\n');
   }
+  s.append(QString(indent, QChar(' ')));
   for(const auto& [_, text] : content) s.append(text);
 }
 
@@ -169,16 +171,42 @@ void Cmdline::set_padding(u32 pad)
 void Cmdline::cmdline_block_show(std::span<const Object> objs)
 {
   Q_UNUSED(objs);
+  block.clear();
+  if (objs.empty()) return;
+  if (!objs.back().is_array()) return;
+  const auto& linesarr = objs.back().get<ObjectArray>();
+  for(const auto& lines : linesarr)
+  {
+    if (!lines.is_array()) continue;
+    const auto& linearr = lines.get<ObjectArray>();
+    for(const auto& line : linearr)
+    {
+      if (!line.is_array()) continue;
+      const auto& to_convert = line.get<ObjectArray>();
+      convert_content(block.emplace_back(), to_convert);
+    }
+  }
+  redraw();
+  do_show();
 }
 
 void Cmdline::cmdline_block_append(std::span<const Object> objs)
 {
   Q_UNUSED(objs);
+  if (objs.empty()) return;
+  const auto& line = objs.back().try_at(0);
+  if (line.is_array())
+  {
+    convert_content(block.emplace_back(), line.get<ObjectArray>());
+  }
+  redraw();
 }
 
 void Cmdline::cmdline_block_hide(std::span<const Object> objs)
 {
   Q_UNUSED(objs);
+  block.clear();
+  redraw();
 }
 
 CmdlineQ::CmdlineQ(const HLState& hl_state, const Cursor* crs, QWidget* parent)
@@ -315,6 +343,10 @@ void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
 {
   if (cursor.hidden()) return;
   if (!cursor.pos()) return;
+  int cur_content_length = 0;
+  for(const auto& chunk : content) cur_content_length += chunk.text.size();
+  QString contentstring = get_content_string();
+  int upto = contentstring.size() - cur_content_length + cursor_pos;
   float pad = border_width + padding;
   QFontMetricsF fm {cmd_font};
   float left = pad;
@@ -322,21 +354,13 @@ void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
   const auto adv_x = [&](float adv) {
     incx(left, top, adv, width(), pad, fm.height());
   };
-  for(const auto& line : block) {
-    for(const auto& chunk : line) {
-      for(const auto& c : chunk.text) {
-        adv_x(fm.horizontalAdvance(c));
-      }
+  for(int i = 0; i < upto && i < contentstring.size(); ++i)
+  {
+    if (contentstring[i] == '\n') { left = pad; top += fm.height(); }
+    else
+    {
+      adv_x(fm.horizontalAdvance(contentstring[i]));
     }
-    left = pad;
-    top += fm.height();
-  }
-  int cursorpos = cursor_pos;
-  QString ctn;
-  if (first_char) { ctn += first_char.value(); ++cursorpos; }
-  for(const auto& chunk : content) ctn += chunk.text;
-  for(int i = 0; i < cursorpos && i < ctn.size(); ++i) {
-    adv_x(fm.horizontalAdvance(ctn.at(i)));
   }
   auto [rect, id, drawtext, opacity] = cursor.rect(
     fm.averageCharWidth(), fm.height(), 1.0f, false

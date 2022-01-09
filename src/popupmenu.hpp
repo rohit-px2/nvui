@@ -404,7 +404,7 @@ private:
   float icon_space = 1.1f;
   int icon_size_offset = 0;
   QFont pmenu_font;
-  FontDimensions dimensions {0, 0};
+  FontDimensions dimensions {1, 1};
   QHash<QString, QStaticText> text_cache;
 };
 

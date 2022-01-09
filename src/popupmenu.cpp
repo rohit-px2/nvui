@@ -464,7 +464,7 @@ int PopupMenuQ::item_height() const
 {
   if (icon_size_offset > 0)
   {
-    return std::ceil(dimensions.height) + icon_size_offset;
+    return std::max(std::ceil(dimensions.height) + icon_size_offset, 1.f);
   }
-  return std::ceil(dimensions.height);
+  return std::max(std::ceil(dimensions.height), 1.f);
 }

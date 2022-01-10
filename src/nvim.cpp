@@ -263,12 +263,11 @@ void Nvim::send_input(
   std::string input_string;
   if (c || s || a || d || is_special)
   {
-    using fmt::format;
     const std::string_view first = c ? "C-" : "";
     const std::string_view second = s ? "S-" : "";
     const std::string_view third = a ? "M-" : "";
     const std::string_view fourth = d ? "D-" : "";
-    input_string = format("<{}{}{}{}{}>", first, second, third, fourth, key);
+    input_string = fmt::format("<{}{}{}{}{}>", first, second, third, fourth, key);
   }
   else
   {

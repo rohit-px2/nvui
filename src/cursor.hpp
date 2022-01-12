@@ -70,8 +70,6 @@ struct ModeInfo
   // (mouse_shape)
 };
 
-class EditorArea;
-
 class Nvim;
 
 /// The Cursor class stores the data for the Neovim cursor
@@ -81,7 +79,6 @@ class Cursor : public QObject
 public:
   static scalers::time_scaler animation_scaler;
   Cursor();
-  Cursor(EditorArea*): Cursor() {}
   virtual void register_nvim(Nvim&);
   void set_animations_enabled(bool);
   bool animations_enabled() const;

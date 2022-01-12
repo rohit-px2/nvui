@@ -398,6 +398,7 @@ private:
   void redraw() override;
   void update_dimensions() override;
   void paint();
+  int max_chars = -1;
   QPixmap pixmap;
   PopupMenuIconManager icon_manager;
   bool icons_enabled = true;

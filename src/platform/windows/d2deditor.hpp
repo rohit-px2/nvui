@@ -12,7 +12,6 @@
 #include <d2d1_1.h>
 #include <dwrite.h>
 #include <dwrite_1.h>
-#include "direct2dpaintgrid.hpp"
 
 class D2DEditor : public QWidget, public QtEditorUIBase
 {

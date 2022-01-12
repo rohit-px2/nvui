@@ -1,11 +1,6 @@
 #include "d2deditor.hpp"
-#include <windows.h>
-#include <d2d1.h>
-#include <d2d1_1.h>
-#include <dwrite.h>
-#include <dwrite_1.h>
-#include <wrl/client.h>
 #include "nvim_utils.hpp"
+#include "direct2dpaintgrid.hpp"
 
 using DWriteFactory = IDWriteFactory;
 
@@ -198,7 +193,7 @@ void D2DEditor::paintEvent(QPaintEvent*)
   device_context->PushAxisAlignedClip(grid_clip_rect, D2D1_ANTIALIAS_MODE_ALIASED);
   for(auto& grid_base : grids)
   {
-    auto* grid = static_cast<D2DPaintGrid2*>(grid_base.get());
+    auto* grid = static_cast<D2DPaintGrid*>(grid_base.get());
     if (!grid->hidden)
     {
       grid->process_events();
@@ -211,7 +206,7 @@ void D2DEditor::paintEvent(QPaintEvent*)
     auto* grid = find_grid(n_cursor.grid_num());
     if (grid && !grid->hidden)
     {
-      auto* d2dgrid = static_cast<D2DPaintGrid2*>(grid);
+      auto* d2dgrid = static_cast<D2DPaintGrid*>(grid);
       d2dgrid->draw_cursor(device_context.Get(), n_cursor);
     }
   }
@@ -388,7 +383,7 @@ void D2DEditor::update_font_metrics()
 
 void D2DEditor::create_grid(u32 x, u32 y, u32 w, u32 h, u64 id)
 {
-  grids.emplace_back(std::make_unique<D2DPaintGrid2>(this, x, y, w, h, id));
+  grids.emplace_back(std::make_unique<D2DPaintGrid>(this, x, y, w, h, id));
 }
 
 u32 D2DEditor::font_for_ucs(u32 ucs)

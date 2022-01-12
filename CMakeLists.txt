@@ -46,9 +46,6 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 file(GLOB SOURCES
-  src/msgpack_overrides.hpp
-  src/editor.hpp
-  src/editor.cpp
   src/titlebar.hpp
   src/titlebar.cpp
   src/utils.cpp
@@ -93,8 +90,6 @@ file(GLOB SOURCES
 if (WIN32)
   message("Windows detected.")
   file(GLOB WINONLYSOURCES
-    src/wineditor.hpp
-    src/wineditor.cpp
     src/platform/windows/*.cpp
     src/platform/windows/*.hpp
   )
@@ -135,9 +130,6 @@ endif()
 if(BUILD_TESTS)
   find_package(Catch2 CONFIG REQUIRED)
   file(GLOB TEST_SOURCES
-    src/msgpack_overrides.hpp
-    src/editor.hpp
-    src/editor.cpp
     src/titlebar.hpp
     src/titlebar.cpp
     src/utils.hpp
@@ -181,8 +173,6 @@ if(BUILD_TESTS)
   )
   if (WIN32)
     file(GLOB WINONLYTESTSOURCES
-      src/wineditor.hpp
-      src/wineditor.cpp
       src/platform/windows/*.cpp
       src/platform/windows/*.hpp
     )

@@ -1,9 +1,10 @@
 #ifndef NVUI_QEDITOR_HPP
 #define NVUI_QEDITOR_HPP
 
-#include "font.hpp"
 #include "qt_editorui_base.hpp"
 #include <QWidget>
+
+class Font;
 
 class QEditor : public QWidget, public QtEditorUIBase
 {

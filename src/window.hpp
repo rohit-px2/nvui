@@ -11,7 +11,6 @@
 #include "decide_renderer.hpp"
 #include "nvim.hpp"
 #include "qeditor.hpp"
-#include "editor.hpp"
 #include "titlebar.hpp"
 #include "hlstate.hpp"
 #include <iostream>
@@ -25,7 +24,6 @@
 class Window;
 
 #if defined(Q_OS_WIN)
-#include "wineditor.hpp"
 #include "platform/windows/d2deditor.hpp"
 #endif
 

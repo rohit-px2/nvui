@@ -1,4 +1,3 @@
-#include "editor.hpp"
 #include "grid.hpp"
 #include "utils.hpp"
 

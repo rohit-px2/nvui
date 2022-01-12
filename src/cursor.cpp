@@ -1,5 +1,4 @@
 #include "cursor.hpp"
-#include "editor.hpp"
 #include "grid.hpp"
 #include "nvim_utils.hpp"
 #include <fmt/core.h>

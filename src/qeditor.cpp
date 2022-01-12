@@ -1,5 +1,6 @@
 #include "qeditor.hpp"
 #include "qpaintgrid.hpp"
+#include "font.hpp"
 #include <QApplication>
 #include <QEvent>
 
@@ -162,11 +163,23 @@ void QEditor::set_fonts(std::span<FontDesc> fontdescs)
   if (fontdescs.empty()) return;
   fallback_indices.clear();
   fonts.clear();
+  QFontDatabase font_db;
   set_fontdesc(first_font, fontdescs.front());
+  const auto validate_family = [&](QFont& f) {
+    if (!font_db.hasFamily(f.family()))
+    {
+      nvim->err_write(fmt::format("No font named '{}' found.\n",
+        f.family().toStdString()
+      ));
+      f.setFamily(default_font_family());
+    }
+  };
+  validate_family(first_font);
   for(const auto& fontdesc : fontdescs)
   {
     QFont f;
     set_fontdesc(f, fontdesc);
+    validate_family(f);
     set_relative_font_size(first_font, f, 0.0001, 1000);
     Font fo = f;
     fonts.push_back(std::move(f));
@@ -199,7 +212,7 @@ void QEditor::update_font_metrics()
 
 void QEditor::create_grid(u32 x, u32 y, u32 w, u32 h, u64 id)
 {
-  grids.push_back(std::make_unique<QPaintGrid2>(this, x, y, w, h, id));
+  grids.push_back(std::make_unique<QPaintGrid>(this, x, y, w, h, id));
 }
 
 void QEditor::paintEvent(QPaintEvent*)
@@ -213,7 +226,7 @@ void QEditor::paintEvent(QPaintEvent*)
   p.setRenderHint(QPainter::SmoothPixmapTransform);
   for(auto& grid_base : grids)
   {
-    auto* grid = static_cast<QPaintGrid2*>(grid_base.get());
+    auto* grid = static_cast<QPaintGrid*>(grid_base.get());
     if (!grid->hidden)
     {
       QSize size = grid->buffer().size();
@@ -227,7 +240,7 @@ void QEditor::paintEvent(QPaintEvent*)
   if (!n_cursor.hidden() && cmdline->hidden())
   {
     auto* grid = find_grid(n_cursor.grid_num());
-    if (grid) static_cast<QPaintGrid2*>(grid)->draw_cursor(p, n_cursor);
+    if (grid) static_cast<QPaintGrid*>(grid)->draw_cursor(p, n_cursor);
   }
 }
 

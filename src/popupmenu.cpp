@@ -1,3 +1,4 @@
+#include "nvim.hpp"
 #include "popupmenu.hpp"
 #include <iostream>
 #include <QPainter>
@@ -7,7 +8,6 @@
 #include "cmdline.hpp"
 #include "hlstate.hpp"
 #include "msgpack_overrides.hpp"
-#include "nvim.hpp"
 #include "nvim_utils.hpp"
 #include "utils.hpp"
 
@@ -356,7 +356,9 @@ void PopupMenuQ::update_dimensions()
 {
   text_cache.clear();
   QFontMetricsF metrics {pmenu_font};
-  double text_width = longest_word_size * metrics.horizontalAdvance('W');
+  auto w_adv = metrics.horizontalAdvance('W');
+  double text_width = longest_word_size * w_adv;
+  int user_max_width = max_chars ? max_chars * w_adv : INT_MAX;
   int parent_height = parentWidget() ? parentWidget()->height() : INT_MAX;
   int parent_width = parentWidget() ? parentWidget()->width() : INT_MAX;
   // Box width = max number of characters.
@@ -366,7 +368,7 @@ void PopupMenuQ::update_dimensions()
     text_width + icon_manager.icon_size()
     + (border_width * 2);
   if (attached_width) width = float(attached_width.value());
-  width = std::min(width, parent_width);
+  width = std::min(width, std::min(user_max_width, parent_width));
   int unconstrained_pmenu_height = (int) completion_items.size() * item_height();
   int height = std::min(unconstrained_pmenu_height, parent_height);
   height += border_width * 2;
@@ -446,6 +448,10 @@ void PopupMenuQ::register_nvim(Nvim& nvim)
   on("NVUI_PUM_DEFAULT_ICON_BG", paramify<QString>([this](QString bg_str) {
     if (!QColor::isValidColor(bg_str)) return;
     set_default_icon_bg({bg_str});
+  }));
+  on("NVUI_PUM_MAX_CHARS", paramify<int>([this](int chars) {
+    if (chars <= 0) max_chars = 0;
+    else max_chars = chars;
   }));
   using namespace std;
   handle_request<vector<string>, string>(nvim, "NVUI_POPUPMENU_ICON_NAMES",

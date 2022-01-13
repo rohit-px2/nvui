@@ -7,7 +7,6 @@
 #include <QStringLiteral>
 #include "cmdline.hpp"
 #include "hlstate.hpp"
-#include "msgpack_overrides.hpp"
 #include "nvim_utils.hpp"
 #include "utils.hpp"
 
@@ -211,6 +210,10 @@ QRect PopupMenu::calc_rect(int width, int height, int max_x, int max_y) const
       y = 0;
       height = (grid_y + row) * fheight;
     }
+    else if (y + height > max_y)
+    {
+      height = (max_y - y);
+    }
     if (x + width > max_x)
     {
       width = max_x - x - border_width;
@@ -381,7 +384,11 @@ void PopupMenuQ::update_dimensions()
   height += border_width * 2;
   move(rect.topLeft());
   if (QSize(width, height) == size()) return;
-  pixmap = QPixmap(width, height);
+  auto new_pixmap_size = pixmap.size().expandedTo({width, height});
+  if (new_pixmap_size != pixmap.size())
+  {
+    pixmap = QPixmap(width, height);
+  }
   resize(width, height);
   if (pmenu) pixmap.fill(hl_state->colors_for(*pmenu).bg.qcolor());
 }

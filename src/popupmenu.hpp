@@ -355,6 +355,7 @@ public:
 
   inline void set_icon_space(float space)
   {
+    if (space < 1.0f) return;
     icon_space = space;
   }
 
@@ -407,6 +408,7 @@ private:
   QFont pmenu_font;
   FontDimensions dimensions {1, 1};
   QHash<QString, QStaticText> text_cache;
+  QFontMetricsF metrics;
 };
 
 #endif // NVUI_POPUPMENU_HPP

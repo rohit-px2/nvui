@@ -93,7 +93,7 @@ void D2DPaintGrid::update_render_target()
 
 void D2DPaintGrid::init_connections()
 {
-  QObject::connect(editor_area, &D2DEditor::font_changed, this, [this] {
+  QObject::connect(editor_area, &D2DEditor::layouts_invalidated, this, [this] {
     layout_cache.clear();
   });
   QObject::connect(editor_area, &D2DEditor::render_targets_updated, this, [this] {
@@ -417,7 +417,7 @@ void D2DPaintGrid::draw(
 D2DPaintGrid::d2pt D2DPaintGrid::pos() const
 {
   auto&& [font_width, font_height] = editor_area->font_dimensions();
-  return {x * font_width, y * font_height};
+  return D2D1::Point2F(x * font_width, y * font_height);
 }
 
 D2DPaintGrid::d2rect D2DPaintGrid::rect() const
@@ -436,7 +436,7 @@ D2DPaintGrid::d2rect D2DPaintGrid::source_rect() const
   return D2D1::RectF(0, 0, size.width, size.height);
 }
 
-void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
+void D2DPaintGrid::set_pos(double new_x, double new_y)
 {
   if (!editor_area->animations_enabled() || is_float())
   {

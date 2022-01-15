@@ -92,14 +92,14 @@ static QPoint clamped(QPoint p, const QRect& r)
   return p;
 }
 
-static QRect scaled(const QRect& r, float hor, float vert)
+static QRectF scaled(const QRectF& r, float hor, float vert)
 {
   return QRectF(
     r.x() * hor,
     r.y() * vert,
     r.width() * hor,
     r.height() * vert
-  ).toRect();
+  );
 }
 
 void QtEditorUIBase::handle_key_press(QKeyEvent* event)
@@ -166,8 +166,8 @@ QtEditorUIBase::grid_pos_for(QPoint pos) const
   for(auto it = grids.rbegin(); it != grids.rend(); ++it)
   {
     const auto& grid = *it;
-    QRect grid_rect = {grid->x, grid->y, grid->cols, grid->rows};
-    QRect grid_px_rect = scaled(grid_rect, f_width, f_height);
+    QRectF grid_rect(grid->x, grid->y, grid->cols, grid->rows);
+    QRectF grid_px_rect = scaled(grid_rect, f_width, f_height);
     if (grid_px_rect.contains(pos))
     {
       int row = (pos.y() / f_height) - grid->y;
@@ -788,7 +788,7 @@ void QtEditorUIBase::spawn_editor_with_params(const Object& params)
         all_strings = false;
         break;
       }
-      args.push_back(arg.get<std::string>());
+      args.push_back(arg.string_ref());
     }
     if (!all_strings)
     {

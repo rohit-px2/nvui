@@ -18,7 +18,7 @@ void Cmdline::cmdline_show(std::span<const Object> objs)
   auto* arr = back.array();
   if (!(arr && arr->size() >= 6)) return;
   if (!arr->at(0).is_array()) return;
-  const auto& line = arr->at(0).get<ObjectArray>();
+  const auto& line = arr->at(0).array_ref();
   convert_content(content, line);
   cursor_pos = arr->at(1).try_convert<int>().value_or(0);
   auto* firstc = arr->at(2).string();
@@ -167,11 +167,11 @@ void Cmdline::cmdline_block_show(std::span<const Object> objs)
   block.clear();
   if (objs.empty()) return;
   if (!objs.back().is_array()) return;
-  const auto& linesarr = objs.back().get<ObjectArray>();
+  const auto& linesarr = objs.back().array_ref();
   for(const auto& lines : linesarr)
   {
     if (!lines.is_array()) continue;
-    const auto& linearr = lines.get<ObjectArray>();
+    const auto& linearr = lines.array_ref();
     for(const auto& line : linearr)
     {
       if (!line.is_array()) continue;

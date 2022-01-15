@@ -75,7 +75,7 @@ public:
   /// to the bitmap.
   void process_events();
   void set_size(u16 w, u16 h) override;
-  void set_pos(u16 new_x, u16 new_y) override;
+  void set_pos(double new_x, double new_y) override;
   void viewport_changed(Viewport vp) override;
   /// Update the top_left position of the grid. This is in terms
   /// of text so to get the pixel position you would need to multiply

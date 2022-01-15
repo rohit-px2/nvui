@@ -165,12 +165,11 @@ void PopupMenu::add_items(const ObjectArray& items)
 {
   for(const auto& item : items)
   {
-    auto* arr = item.array();
-    assert(arr && arr->size() >= 4);
-    auto word = QString::fromStdString(*arr->at(0).string());
-    auto kind = QString::fromStdString(*arr->at(1).string());
-    auto menu = QString::fromStdString(*arr->at(2).string());
-    auto info = QString::fromStdString(*arr->at(3).string());
+    const auto& arr = item.array_ref();
+    auto word = QString::fromStdString(arr[0].string_ref());
+    auto kind = QString::fromStdString(arr[1].string_ref());
+    auto menu = QString::fromStdString(arr[2].string_ref());
+    auto info = QString::fromStdString(arr[3].string_ref());
     longest_word_size = std::max(longest_word_size, word.size());
     completion_items.push_back({
       false, std::move(word), std::move(kind), std::move(menu), std::move(info)
@@ -204,15 +203,23 @@ QRect PopupMenu::calc_rect(int width, int height, int max_x, int max_y) const
     {
       y -= (fheight + height);
     }
+    // If the popup menu shows above but it would go over the bounds
+    // of the screen, force it to show at the top and bound the height
+    // so it doesn't overlap the row that's getting completed on
     else if (y + height > max_y && y - fheight - height < 0
         && (y + height - max_y) > -(y - fheight - height))
     {
       y = 0;
       height = (grid_y + row) * fheight;
     }
+    // Here either under or over would go out of bounds so show under
     else if (y + height > max_y)
     {
-      height = (max_y - y);
+      height = (max_y - y - border_width * 2);
+    }
+    if (y + height + border_width * 2 > max_y)
+    {
+      height -= border_width * 2;
     }
     if (x + width > max_x)
     {
@@ -223,7 +230,7 @@ QRect PopupMenu::calc_rect(int width, int height, int max_x, int max_y) const
 }
 
 PopupMenuQ::PopupMenuQ(const HLState* state, QWidget* parent)
-  : PopupMenu(state), QWidget(parent), icon_manager(10)
+  : PopupMenu(state), QWidget(parent), icon_manager(10), metrics(font())
 {
   hide();
 }
@@ -282,9 +289,9 @@ void PopupMenuQ::font_changed(const QFont& font, FontDimensions dims)
   update_highlight_attributes();
   pmenu_font = font;
   dimensions = dims;
-  QFontMetricsF fm {font};
-  linespace = dimensions.height - fm.height();
-  font_ascent = fm.ascent();
+  metrics = QFontMetricsF {pmenu_font};
+  linespace = dimensions.height - metrics.height();
+  font_ascent = metrics.ascent();
   icon_manager.size_changed(std::ceil(dimensions.height) + icon_size_offset);
   update_dimensions();
 }
@@ -358,7 +365,6 @@ void PopupMenuQ::paintEvent(QPaintEvent*)
 void PopupMenuQ::update_dimensions()
 {
   text_cache.clear();
-  QFontMetricsF metrics {pmenu_font};
   auto w_adv = metrics.horizontalAdvance('W');
   double text_width = longest_word_size * w_adv;
   int user_max_width = max_chars ? max_chars * w_adv : INT_MAX;
@@ -368,7 +374,7 @@ void PopupMenuQ::update_dimensions()
   // Multiply by font dimensions to get the number of pixels wide.
   // Also add in the width of an icon.
   int width =
-    text_width + icon_manager.icon_size()
+    text_width + (icon_manager.icon_size() * icon_space)
     + (border_width * 2);
   if (attached_width) width = float(attached_width.value());
   width = std::min(width, std::min(user_max_width, parent_width));
@@ -381,6 +387,14 @@ void PopupMenuQ::update_dimensions()
   height = rect.height();
   height /= item_height();
   height *= item_height();
+  // If the cmdline is active width should not be adjusted
+  if (!cmdline)
+  {
+    width -= icon_manager.icon_size() * icon_space;
+    width /= w_adv;
+    width *= w_adv;
+    width += icon_manager.icon_size() * icon_space;
+  }
   height += border_width * 2;
   move(rect.topLeft());
   if (QSize(width, height) == size()) return;

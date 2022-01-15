@@ -327,6 +327,7 @@ void D2DEditor::set_fonts(std::span<FontDesc> fontlist)
     ));
   }
   update_font_metrics();
+  emit layouts_invalidated();
 }
 
 void D2DEditor::linespace_changed(float)
@@ -337,6 +338,7 @@ void D2DEditor::linespace_changed(float)
 void D2DEditor::charspace_changed(float)
 {
   update_font_metrics();
+  emit layouts_invalidated();
 }
 
 static DWRITE_HIT_TEST_METRICS metrics_for(
@@ -378,7 +380,6 @@ void D2DEditor::update_font_metrics()
   f.setPointSizeF(current_point_size);
   f.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
   popup->font_changed(f, font_dimensions());
-  emit font_changed();
 }
 
 void D2DEditor::create_grid(u32 x, u32 y, u32 w, u32 h, u64 id)

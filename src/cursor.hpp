@@ -30,8 +30,8 @@ enum class CursorStatus : std::uint8_t
 struct CursorPos
 {
   std::uint16_t grid_num;
-  int grid_x;
-  int grid_y;
+  double grid_x;
+  double grid_y;
   int row;
   int col;
 };

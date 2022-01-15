@@ -184,10 +184,10 @@ void Cursor::mode_change(std::span<const Object> objs)
   {
     auto* arr = o.array();
     if (!(arr && arr->size() >= 2)) continue;
-    const auto mode_name = arr->at(0).get<std::string>();
+    const auto mode_name = arr->at(0).string_ref();
     if (cur_pos) old_mode_idx = cur_mode_idx;
-    if (!arr->at(1).u64()) continue;
-    cur_mode_idx = *arr->at(1).u64();
+    if (!arr->at(1).is_unsigned()) continue;
+    cur_mode_idx = arr->at(1).u64_ref();
     cur_mode = mode_info.at(cur_mode_idx);
   }
   reset_timers();

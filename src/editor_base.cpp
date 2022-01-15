@@ -431,13 +431,13 @@ void EditorBase::option_set(std::span<const Object> objs)
   {
     auto* arr = obj.array();
     if (!(arr && arr->size() >= 2)) continue;
-    const auto& key = arr->at(0).get<std::string>();
+    const auto& key = arr->at(0).string_ref();
     const auto value = arr->at(1);
     auto* opt = extension_for(key);
     if (opt && value.boolean()) *opt = *value.boolean();
     if (key == "guifont" && value.is_string())
     {
-      guifonts = parse_guifont(value.get<std::string>());
+      guifonts = parse_guifont(value.string_ref());
       set_fonts(guifonts);
       send_redraw();
     }
@@ -701,9 +701,9 @@ void EditorBase::grid_destroy(std::span<const Object> objs)
 {
   for(const auto& obj : objs)
   {
-    auto& arr = obj.get<ObjectArray>();
+    auto& arr = obj.array_ref();
     assert(arr.size() >= 1);
-    auto grid_num = arr.at(0).get<u64>();
+    auto grid_num = arr.at(0).u64_ref();
     destroy_grid(grid_num);
   }
   send_redraw();

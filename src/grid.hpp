@@ -100,8 +100,8 @@ public:
   using u32 = std::uint32_t;
   using u64 = std::uint64_t;
   GridBase(
-    u16 x,
-    u16 y,
+    double x,
+    double y,
     u16 w,
     u16 h,
     u16 id
@@ -124,7 +124,7 @@ public:
    * Set the position of the grid in terms of
    * which row and column it starts on.
    */
-  virtual void set_pos(u16 new_x, u16 new_y);
+  virtual void set_pos(double x, double y);
   void set_pos(QPoint p);
   /// Send a redraw message to the grid
   void send_redraw();
@@ -142,16 +142,16 @@ public:
   virtual void viewport_changed(Viewport vp);
   bool is_float() const;
   void set_floating(bool f) noexcept;
-  void win_pos(u16 x, u16 y);
-  void float_pos(u16 x, u16 y);
-  void msg_set_pos(u16 x, u16 y);
+  void win_pos(double x, double y);
+  void float_pos(double x, double y);
+  void msg_set_pos(double x, double y);
   void set_float_ordering_info(int zindex, const QPointF& p) noexcept;
   bool operator<(const GridBase& other) const noexcept;
   void scroll(int top, int bot, int left, int right, int rows);
   void clear();
 public:
-  u16 x;
-  u16 y;
+  double x;
+  double y;
   u16 cols;
   u16 rows;
   u16 id;

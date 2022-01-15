@@ -67,9 +67,8 @@ struct Object
   /// keys as strings, so it works.
   static Object from_msgpack(std::string_view sv, std::size_t& offset) noexcept;
   /// Parse from a msgpack::object from the msgpack-cpp library.
-  /// This is recursive and can get slow.
-  /// For a faster solution parse the object directly
-  /// from the serialized string using Object::from_msgpack.
+  /// If parsing directly from a messagepack-encoded string
+  /// it's better to use Object::from_msgpack
   static Object parse(const msgpack::object&);
   std::string to_string() const noexcept;
   auto* array() noexcept { return std::get_if<Array>(&v); }
@@ -180,6 +179,7 @@ struct Object
     return {};
   }
 
+  // Get key in map, or null if key doesn't exist / this is not a map.
   const Object& try_at(std::string_view s) const noexcept
   {
     if (!has<Map>()) return null;
@@ -189,6 +189,8 @@ struct Object
     return it->second;
   }
 
+  // Get value in index of array, or null if out of bounds /
+  // this is not an array.
   const Object& try_at(std::size_t idx) const noexcept
   {
     if (!has<Array>()) return null;
@@ -197,6 +199,16 @@ struct Object
     return arr.at(idx);
   }
 
+  // These will throw on bad access.
+  const string_type& string_ref() const { return get<string_type>(); }
+  const bool_type& bool_ref() const { return get<bool_type>(); }
+  const float_type& f64_ref() const { return get<float_type>(); }
+  const unsigned_type& u64_ref() const { return get<unsigned_type>(); }
+  const signed_type& i64_ref() const { return get<signed_type>(); }
+  const array_type& array_ref() const { return get<array_type>(); }
+  const map_type& map_ref() const { return get<map_type>(); }
+  const Error& err_ref() const { return get<err_type>(); }
+  const null_type& null_ref() const { return get<null_type>(); }
 private:
   std::size_t children() const noexcept;
   void to_stream(std::stringstream& ss) const;

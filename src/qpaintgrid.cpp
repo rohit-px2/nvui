@@ -84,7 +84,7 @@ void QPaintGrid::set_size(u16 w, u16 h)
   snapshots.clear(); // Outdated
 }
 
-void QPaintGrid::set_pos(u16 new_x, u16 new_y)
+void QPaintGrid::set_pos(double new_x, double new_y)
 {
   if (!editor_area->animations_enabled() || is_float())
   {

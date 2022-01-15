@@ -43,7 +43,7 @@ public:
   const auto& fallback_list() const { return dw_formats; }
   ~D2DEditor() override;
 signals:
-  void font_changed();
+  void layouts_invalidated();
   void render_targets_updated();
 protected:
   void linespace_changed(float new_ls) override;

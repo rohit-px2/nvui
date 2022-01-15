@@ -48,8 +48,8 @@ ScrollEventInfo GridBase::convert_grid_scroll_args(
 }
 
 GridBase::GridBase(
-  u16 x,
-  u16 y,
+  double x,
+  double y,
   u16 w,
   u16 h,
   u16 id
@@ -169,12 +169,12 @@ void GridBase::set_size(u16 w, u16 h)
  * Set the position of the grid in terms of
  * which row and column it starts on.
  */
-void GridBase::set_pos(u16 new_x, u16 new_y)
+void GridBase::set_pos(double new_x, double new_y)
 {
   x = new_x;
   y = new_y;
 }
-void GridBase::msg_set_pos(u16 x, u16 y)
+void GridBase::msg_set_pos(double x, double y)
 {
   is_msg_grid = true;
   set_pos(x, y);
@@ -196,11 +196,11 @@ void GridBase::send_draw(QRect r)
   evt_q.push({PaintKind::Draw, DrawEventInfo {r}});
 }
 /// Grid's top left position
-QPoint GridBase::top_left() { return {x, y}; };
-QPoint GridBase::bot_right() { return {x + cols, y + rows}; }
+QPoint GridBase::top_left() { return QPoint(x, y); };
+QPoint GridBase::bot_right() { return QPoint(x + cols, y + rows); }
 /// Grid's bottom right position
-QPoint GridBase::bot_left() { return {x, y + rows}; }
-QPoint GridBase::top_right() { return { x + cols, y}; }
+QPoint GridBase::bot_left() { return QPoint(x, y + rows); }
+QPoint GridBase::top_right() { return QPoint( x + cols, y); }
 /// Clear the event queue
 void GridBase::clear_event_queue()
 {
@@ -214,13 +214,13 @@ void GridBase::viewport_changed(Viewport vp)
 bool GridBase::is_float() const { return is_float_grid; }
 void GridBase::set_floating(bool f) noexcept { is_float_grid = f; }
 
-void GridBase::win_pos(u16 x, u16 y)
+void GridBase::win_pos(double x, double y)
 {
   set_floating(false);
   set_pos(x, y);
 }
 
-void GridBase::float_pos(u16 x, u16 y)
+void GridBase::float_pos(double x, double y)
 {
   set_floating(true);
   set_pos(x, y);

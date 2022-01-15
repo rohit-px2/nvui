@@ -126,6 +126,7 @@ bool is_executable(std::string_view path)
 
 int main(int argc, char** argv)
 {
+  QCoreApplication::setApplicationName("nvui");
   const auto args = get_args(argc, argv);
 #ifdef Q_OS_LINUX
   // See issue #21
@@ -182,7 +183,18 @@ int main(int argc, char** argv)
   }
   std::ios_base::sync_with_stdio(false);
   QApplication app {argc, argv};
-  Window w {nvim_path, nvim_args, capabilities, width, height, custom_titlebar};
-  w.show();
-  return app.exec();
+  try
+  {
+    Window w {nvim_path, nvim_args, capabilities, width, height, custom_titlebar};
+    if (window_size) w.resize(window_size->first, window_size->second);
+    w.show();
+    return app.exec();
+  }
+  catch(const std::exception& e)
+  {
+    QMessageBox::critical(
+      nullptr, "NVUI Error",
+      QString("nvui closed due to the following error: ") % e.what() % '.'
+    );
+  }
 }

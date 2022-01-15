@@ -13,6 +13,7 @@ jobs:
             cxx: clang++-12
             test: true
             upload: false
+            cmakeflags: '-DBUILD_TESTS=ON'
 
           - os: ubuntu-latest
             buildtype: 'Release'
@@ -21,6 +22,7 @@ jobs:
             test: false
             upload: true
             use_vcpkg: true
+            cmakeflags: ''
 
           - os: macos-10.15
             buildtype: 'Debug'
@@ -28,6 +30,7 @@ jobs:
             cxx: clang++
             test: true
             upload: false
+            cmakeflags: '-DBUILD_TESTS=ON'
 
           - os: macos-10.15
             buildtype: 'Release'
@@ -36,6 +39,7 @@ jobs:
             test: false
             upload: true
             use_vcpkg: true
+            cmakeflags: ''
     runs-on: ${{ matrix.os }}
     timeout-minutes: 500
     env:
@@ -144,13 +148,13 @@ jobs:
       - name: Build nvui and nvui_test using vcpkg
         if: matrix.use_vcpkg
         run: |
-          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
+          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} ${{ matrix.cmakeflags }}
           cmake --build build --config ${{ matrix.buildtype }}
 
       - name: Non-vcpkg - Build nvui and nvui_test
         if: ${{ !matrix.use_vcpkg }}
         run: |
-          cmake -B build . -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
+          cmake -B build . -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} ${{ matrix.cmakeflags }}
           cmake --build build --config ${{ matrix.buildtype }}
       - name: Run tests
         if: matrix.test

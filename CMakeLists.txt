@@ -182,6 +182,14 @@ if(BUILD_TESTS)
   target_link_libraries(nvui_test PRIVATE Catch2::Catch2)
   target_link_libraries(nvui_test PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
   target_link_libraries(nvui_test PRIVATE fmt::fmt)
+  if (WIN32)
+    target_link_libraries(nvui_test PUBLIC
+      d2d1
+      dwrite
+      dwmapi
+      d3d11
+    )
+  endif()
   target_include_directories(nvui_test PRIVATE
     "${PROJECT_SOURCE_DIR}/test"
     "${PROJECT_SOURCE_DIR}/src"

@@ -70,24 +70,6 @@ namespace hl
   }
 } // namespace hl
 
-namespace font
-{
-  template<>
-  void set_opts<true>(QFont& font, const FontOptions opts)
-  {
-    font.setItalic(opts & FontOpts::Italic);
-    font.setBold(opts & FontOpts::Bold);
-    font.setStrikeOut(opts & FontOpts::Strikethrough);
-    font.setUnderline(opts & FontOpts::Underline);
-  }
-  template<>
-  void set_opts<false>(QFont& font, const FontOptions opts)
-  {
-    font.setItalic(opts & FontOpts::Italic);
-    font.setBold(opts & FontOpts::Bold);
-  }
-} // namespace font
-
 const HLAttr& HLState::attr_for_id(int id) const
 {
   if (id < 0 || id >= (int) id_to_attr.size()) return default_colors;
@@ -131,9 +113,9 @@ void HLState::default_colors_set(const Object& obj)
   // and ctermbg, which we don't care about)
   auto* arr = obj.array();
   if (!arr || arr->size() < 3) return;
-  auto fg = arr->at(0).try_convert<uint32>();
-  auto bg = arr->at(1).try_convert<uint32>();
-  auto sp = arr->at(2).try_convert<uint32>();
+  auto fg = arr->at(0).try_convert<u32>();
+  auto bg = arr->at(1).try_convert<u32>();
+  auto sp = arr->at(2).try_convert<u32>();
   assert(fg && bg && sp);
   default_colors.foreground = *fg;
   default_colors.background = *bg;
@@ -179,3 +161,44 @@ HLAttr::ColorPair HLState::colors_for(const HLAttr& attr) const
 {
   return attr.fg_bg(default_colors);
 }
+
+namespace font
+{
+  template<>
+  void set_opts<true>(QFont& font, const FontOptions opts)
+  {
+    font.setItalic(opts & FontOpts::Italic);
+    font.setBold(opts & FontOpts::Bold);
+    font.setStrikeOut(opts & FontOpts::Strikethrough);
+    font.setUnderline(opts & FontOpts::Underline);
+  }
+  template<>
+  void set_opts<false>(QFont& font, const FontOptions opts)
+  {
+    font.setItalic(opts & FontOpts::Italic);
+    font.setBold(opts & FontOpts::Bold);
+  }
+  
+#define RETURN_FLAG(opt, flag) \
+  if ((opt) & (flag)) return (flag);
+
+  FontOpts weight_for(const FontOptions& fo)
+  {
+    RETURN_FLAG(fo, FontOpts::Normal);
+    RETURN_FLAG(fo, FontOpts::Thin);
+    RETURN_FLAG(fo, FontOpts::Light);
+    RETURN_FLAG(fo, FontOpts::Bold);
+    RETURN_FLAG(fo, FontOpts::SemiBold);
+    RETURN_FLAG(fo, FontOpts::Medium);
+    RETURN_FLAG(fo, FontOpts::ExtraBold);
+    return FontOpts::Normal;
+  }
+
+  FontOpts style_for(const FontOptions& fo)
+  {
+    RETURN_FLAG(fo, FontOpts::Italic);
+    RETURN_FLAG(fo, FontOpts::Oblique);
+    return FontOpts::Normal;
+  }
+} // namespace font
+

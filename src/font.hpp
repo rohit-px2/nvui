@@ -37,7 +37,12 @@ public:
   const QFont& italic_font() const { return italic; }
   const QFont& font_for(FontOptions opts) const
   {
-    if (opts & FontOpts::Italic && opts & FontOpts::Bold)
+    if (opts & FontOpts::Oblique && opts & FontOpts::Bold)
+    {
+      return boldoblique;
+    }
+    else if (opts & FontOpts::Oblique) return oblique;
+    else if (opts & FontOpts::Italic && opts & FontOpts::Bold)
     {
       return bolditalic;
     }
@@ -51,15 +56,22 @@ private:
     bolditalic = font_;
     bold = font_;
     italic = font_;
+    oblique = font_;
+    boldoblique = font_;
     bolditalic.setBold(true);
     bolditalic.setItalic(true);
     bold.setBold(true);
     italic.setItalic(true);
+    oblique.setStyle(QFont::StyleOblique);
+    boldoblique.setStyle(QFont::StyleOblique);
+    boldoblique.setBold(true);
   }
   QFont font_;
   QFont bolditalic;
   QFont bold;
   QFont italic;
+  QFont oblique;
+  QFont boldoblique;
   QRawFont raw_;
 };
 

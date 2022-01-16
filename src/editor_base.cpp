@@ -348,7 +348,15 @@ void EditorBase::grid_line(std::span<const Object> objs)
   }
 }
 
-
+static const QHash<QString, FontOpts> option_map {
+  {"o", FontOpts::Oblique},
+  {"i", FontOpts::Italic},
+  {"t", FontOpts::Thin},
+  {"b", FontOpts::Bold},
+  {"m", FontOpts::Medium},
+  {"l", FontOpts::Light},
+  {"eb", FontOpts::ExtraBold}
+};
 
 static FontDesc parse_font(const QString& str)
 {
@@ -358,37 +366,29 @@ static FontDesc parse_font(const QString& str)
   {
     case 1:
       return {list.at(0).toStdString(), -1, FontOpts::Normal};
-    case 2:
-    {
-      // Substr excluding the first char ('h')
-      // to get the number
-      const QStringView size_str {list.at(1).utf16() + 1, list[1].size() - 1};
-      return {list.at(0).toStdString(), size_str.toDouble(), FontOpts::Normal};
-    }
     default:
     {
-      const QStringView size_str {list.at(1).utf16() + 1, list[1].size() - 1};
-      FontOptions font_opts = FontOpts::Normal;
-      for(std::uint8_t i = 0; i < list.size(); ++i)
+      double size = -1;
+      for(int i = 1; i < list.size(); ++i)
       {
-        if (list.at(i) == QLatin1String("b"))
+        if (list[i].startsWith('h'))
         {
-          font_opts |= FontOpts::Bold;
-        }
-        else if (list.at(i) == QLatin1String("i"))
-        {
-          font_opts |= FontOpts::Italic;
-        }
-        else if (list.at(i) == QLatin1String("u"))
-        {
-          font_opts |= FontOpts::Underline;
-        }
-        else if (list.at(i) == QLatin1String("s"))
-        {
-          font_opts |= FontOpts::Strikethrough;
+          auto size_str = QStringView(list[i].data() + 1, list[i].size() - 1);
+          bool ok = false;
+          size = size_str.toDouble(&ok);
+          if (!ok) size = -1;
+          else break;
         }
       }
-      return {list.at(0).toStdString(), size_str.toDouble(), font_opts};
+      FontOptions font_opts = 0;
+      for(std::uint8_t i = 1; i < list.size(); ++i)
+      {
+        if (auto it = option_map.find(list.at(i)); it != option_map.end())
+        {
+          font_opts |= it.value();
+        }
+      }
+      return {list.at(0).toStdString(), size, font_opts};
     }
   }
 }
@@ -438,6 +438,12 @@ void EditorBase::option_set(std::span<const Object> objs)
     if (key == "guifont" && value.is_string())
     {
       guifonts = parse_guifont(value.string_ref());
+      if (!guifonts.empty())
+      {
+        auto opts = guifonts.back().base_options;
+        default_weight = font::weight_for(opts);
+        default_style = font::style_for(opts);
+      }
       set_fonts(guifonts);
       send_redraw();
     }
@@ -770,3 +776,6 @@ void EditorBase::set_font_dimensions(float width, float height)
     screen_resized(pixel_dimensions.width(), pixel_dimensions.height());
   }
 }
+
+FontOpts EditorBase::default_font_weight() const { return default_weight; }
+FontOpts EditorBase::default_font_style() const { return default_style; }

@@ -180,4 +180,7 @@ private:
   ComPtr<ID2D1Bitmap1> copy_bitmap(ID2D1Bitmap1* src, D2D1_RECT_U rect);
 };
 
+DWRITE_FONT_STYLE dwrite_style(const FontOpts& fo);
+DWRITE_FONT_WEIGHT dwrite_weight(const FontOpts& fo);
+
 #endif // NVUI_PLATFORM_WINDOWS_DIRECT2DPAINTGRID_HPP

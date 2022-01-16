@@ -55,6 +55,8 @@ public:
   const HLState& hlstate() const;
   FontDimensions font_dimensions() const;
   NvimDimensions nvim_dimensions() const;
+  FontOpts default_font_weight() const;
+  FontOpts default_font_style() const;
   // Send "confirm qa" signal to Neovim to close.
   void confirm_qa();
   bool nvim_exited() const;
@@ -205,6 +207,8 @@ private:
   QSize dimensions;
   std::optional<QSize> queued_resize;
   bool resizing;
+  FontOpts default_weight = FontOpts::Normal;
+  FontOpts default_style = FontOpts::Normal;
 };
 
 #endif // NVUI_EDITOR_BASE_HPP

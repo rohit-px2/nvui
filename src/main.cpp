@@ -150,7 +150,7 @@ int main(int argc, char** argv)
     {"ext_cmdline", false},
     {"ext_popupmenu", false},
     {"ext_linegrid", true},
-    {"ext_hlstate", false}
+    {"ext_hlstate", false},
   };
   auto should_detach = get_arg(args, "--detached");
   if (should_detach)

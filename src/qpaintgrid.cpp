@@ -106,6 +106,25 @@ void QPaintGrid::set_pos(double new_x, double new_y)
   if (!move_update_timer.isActive()) move_update_timer.start();
 }
 
+QFont::Weight qfont_weight(const FontOpts& fo)
+{
+  if (fo & FontOpts::Normal) return QFont::Normal;
+  if (fo & FontOpts::Thin) return QFont::Thin;
+  if (fo & FontOpts::Light) return QFont::Light;
+  if (fo & FontOpts::Medium) return QFont::Medium;
+  if (fo & FontOpts::SemiBold) return QFont::DemiBold;
+  if (fo & FontOpts::Bold) return QFont::Bold;
+  if (fo & FontOpts::ExtraBold) return QFont::ExtraBold;
+  return QFont::Normal;
+}
+
+QFont::Style qfont_style(const FontOpts& fo)
+{
+  if (fo & FontOpts::Oblique) return QFont::StyleOblique;
+  if (fo & FontOpts::Italic) return QFont::StyleItalic;
+  return QFont::StyleNormal;
+}
+
 void QPaintGrid::draw_text(
   QPainter& painter,
   const QString& text,
@@ -120,6 +139,10 @@ void QPaintGrid::draw_text(
 {
   using key_type = decltype(text_cache)::key_type;
   key_type key = {text, font_opts};
+  auto w = font::weight_for(font_opts);
+  auto s = font::style_for(font_opts);
+  if (w == FontOpts::Normal) w = editor_area->default_font_weight();
+  if (s == FontOpts::Normal) s = editor_area->default_font_style();
   painter.setFont(font);
   QStaticText* static_text = text_cache.get(key);
   if (!static_text)

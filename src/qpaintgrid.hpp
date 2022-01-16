@@ -116,4 +116,8 @@ private:
   using FontOptions = decltype(HLAttr::font_opts);
   LRUCache<QPair<QString, FontOptions>, QStaticText> text_cache;
 };
+
+QFont::Weight qfont_weight(const FontOpts& fo);
+QFont::Style qfont_style(const FontOpts& fo);
+
 #endif // NVUI_QPAINTGRID_HPP

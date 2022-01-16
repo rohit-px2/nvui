@@ -192,6 +192,25 @@ void D2DPaintGrid::process_events()
   context->EndDraw();
 }
 
+DWRITE_FONT_STYLE dwrite_style(const FontOpts& fo)
+{
+  if (fo & FontOpts::Oblique) return DWRITE_FONT_STYLE_OBLIQUE;
+  if (fo & FontOpts::Italic) return DWRITE_FONT_STYLE_ITALIC;
+  return DWRITE_FONT_STYLE_NORMAL;
+}
+
+DWRITE_FONT_WEIGHT dwrite_weight(const FontOpts& fo)
+{
+  if (fo & FontOpts::Normal) return DWRITE_FONT_WEIGHT_NORMAL;
+  if (fo & FontOpts::Thin) return DWRITE_FONT_WEIGHT_THIN;
+  if (fo & FontOpts::Light) return DWRITE_FONT_WEIGHT_LIGHT;
+  if (fo & FontOpts::Medium) return DWRITE_FONT_WEIGHT_MEDIUM;
+  if (fo & FontOpts::SemiBold) return DWRITE_FONT_WEIGHT_SEMI_BOLD;
+  if (fo & FontOpts::Bold) return DWRITE_FONT_WEIGHT_BOLD;
+  if (fo & FontOpts::ExtraBold) return DWRITE_FONT_WEIGHT_EXTRA_BOLD;
+  return DWRITE_FONT_WEIGHT_NORMAL;
+}
+
 void D2DPaintGrid::draw_text(
   ID2D1RenderTarget& target,
   const QString& text,
@@ -232,7 +251,7 @@ void D2DPaintGrid::draw_text(
       // to the width solves it. It's probably because
       // the text is just a little wider than the max width we set
       // so we increase the max width by a little here.
-      bot_right.x - top_left.x + 1000.f,
+      bot_right.x - top_left.x + 10.f,
       bot_right.y - top_left.y,
       &old_text_layout
     );
@@ -246,13 +265,17 @@ void D2DPaintGrid::draw_text(
     {
       text_layout->SetCharacterSpacing(0, float(charspace), 0, text_range);
     }
-    if (font_opts & FontOpts::Italic)
+    auto style = font::style_for(font_opts);
+    auto weight = font::weight_for(font_opts);
+    if (style == FontOpts::Normal) style = editor_area->default_font_style();
+    if (weight == FontOpts::Normal) weight = editor_area->default_font_weight();
+    if (style != FontOpts::Normal)
     {
-      text_layout->SetFontStyle(DWRITE_FONT_STYLE_ITALIC, text_range);
+      text_layout->SetFontStyle(dwrite_style(style), text_range);
     }
-    if (font_opts & FontOpts::Bold)
+    if (weight != FontOpts::Normal)
     {
-      text_layout->SetFontWeight(DWRITE_FONT_WEIGHT_BOLD, text_range);
+      text_layout->SetFontWeight(dwrite_weight(weight), text_range);
     }
     layout_cache.put(key, text_layout);
   }

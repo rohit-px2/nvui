@@ -181,6 +181,8 @@ void QEditor::set_fonts(std::span<FontDesc> fontdescs)
     set_fontdesc(f, fontdesc);
     validate_family(f);
     set_relative_font_size(first_font, f, 0.0001, 1000);
+    f.setWeight(qfont_weight(default_font_weight()));
+    f.setStyle(qfont_style(default_font_style()));
     Font fo = f;
     fonts.push_back(std::move(f));
   }

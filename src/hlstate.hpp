@@ -68,18 +68,23 @@ struct AttrState
   int id = 0;
 };
 
-enum FontOpts : std::uint8_t
+enum FontOpts : u16
 {
   Normal = 1,
   Bold = 2,
   Italic = 4,
   Underline = 16,
   Strikethrough = 32,
-  Undercurl = 64
+  Undercurl = 64,
+  Thin = 128,
+  Light = 256,
+  Medium = 512,
+  SemiBold = 1024,
+  ExtraBold = 2048,
+  Oblique = 4096
 };
 
 using FontOptions = std::underlying_type_t<FontOpts>;
-
 static const Color NVUI_WHITE = 0x00ffffff;
 static const Color NVUI_BLACK = 0;
 
@@ -208,6 +213,8 @@ namespace font
 {
   template<bool set_stul = true>
   void set_opts(QFont& font, const FontOptions options);
+  FontOpts weight_for(const FontOptions&);
+  FontOpts style_for(const FontOptions&);
 }
 
 #endif

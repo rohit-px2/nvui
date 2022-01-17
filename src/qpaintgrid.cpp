@@ -120,7 +120,6 @@ QFont::Weight qfont_weight(const FontOpts& fo)
 
 QFont::Style qfont_style(const FontOpts& fo)
 {
-  if (fo & FontOpts::Oblique) return QFont::StyleOblique;
   if (fo & FontOpts::Italic) return QFont::StyleItalic;
   return QFont::StyleNormal;
 }

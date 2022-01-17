@@ -349,7 +349,6 @@ void EditorBase::grid_line(std::span<const Object> objs)
 }
 
 static const QHash<QString, FontOpts> option_map {
-  {"o", FontOpts::Oblique},
   {"i", FontOpts::Italic},
   {"t", FontOpts::Thin},
   {"b", FontOpts::Bold},

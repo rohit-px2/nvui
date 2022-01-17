@@ -28,26 +28,45 @@ font_from_name(const std::wstring& name, IDWriteFontCollection* collection)
   return font;
 }
 
-static ComPtr<IDWriteTextFormat>
-format_from_name(
+D2DEditor::TextFormat::TextFormat(
+  IDWriteFactory* factory,
   const std::wstring& name,
   float pointsize,
   float dpi,
-  IDWriteFactory* factory
+  FontOpts default_weight,
+  FontOpts default_style
 )
 {
-  ComPtr<IDWriteTextFormat> format = nullptr;
-  factory->CreateTextFormat(
-    name.c_str(),
-    nullptr,
-    DWRITE_FONT_WEIGHT_NORMAL,
-    DWRITE_FONT_STYLE_NORMAL,
-    DWRITE_FONT_STRETCH_NORMAL,
-    pointsize * (dpi / 72.0f),
-    L"en-us",
-    &format
-  );
-  return format;
+  auto w = dwrite_weight(default_weight);
+  auto s = dwrite_style(default_style);
+  // Create reg with default weight
+  const auto create = [&](auto pptf, auto weight, auto style) {
+    factory->CreateTextFormat(
+      name.c_str(),
+      nullptr,
+      weight,
+      style,
+      DWRITE_FONT_STRETCH_NORMAL,
+      pointsize * (dpi / 72.0f),
+      L"en-us",
+      pptf
+    );
+  };
+  create(reg.GetAddressOf(), w, s);
+  create(bold.GetAddressOf(), DWRITE_FONT_WEIGHT_BOLD, s);
+  create(italic.GetAddressOf(), w, DWRITE_FONT_STYLE_ITALIC);
+  create(bolditalic.GetAddressOf(), DWRITE_FONT_WEIGHT_BOLD, DWRITE_FONT_STYLE_ITALIC);
+}
+
+IDWriteTextFormat* D2DEditor::TextFormat::font_for(const FontOptions& fo) const
+{
+  if (fo & FontOpts::Italic && fo & FontOpts::Bold)
+  {
+    return bolditalic.Get();
+  }
+  else if (fo & FontOpts::Bold) return bold.Get();
+  else if (fo & FontOpts::Italic) return italic.Get();
+  else return reg.Get();
 }
 
 D2DEditor::D2DEditor(
@@ -306,15 +325,15 @@ void D2DEditor::set_fonts(std::span<FontDesc> fontlist)
     const auto& name = fdesc.name;
     auto wcname = QString::fromStdString(name).toStdWString();
     auto font = font_from_name(wcname, font_collection.Get());
-    auto format = format_from_name(
-      wcname, current_point_size, default_dpi, dw_factory.Get()
-    );
-    if (!font || !format)
+    if (!font)
     {
       nvim->err_write(fmt::format("Could not load font '{}'.\n", name));
       continue;
     }
-    dw_formats.emplace_back(std::move(format));
+    dw_formats.emplace_back(
+      dwrite_factory(), wcname, current_point_size, default_dpi,
+      default_font_weight(), default_font_style()
+    );
     dw_fonts.emplace_back(std::move(font));
   }
   // Make sure there's always at least one format and font
@@ -322,9 +341,10 @@ void D2DEditor::set_fonts(std::span<FontDesc> fontlist)
   {
     static const auto default_font_name = default_font_family().toStdWString();
     dw_fonts.push_back(font_from_name(default_font_name, font_collection.Get()));
-    dw_formats.push_back(format_from_name(
-      default_font_name, current_point_size, default_dpi, dw_factory.Get()
-    ));
+    dw_formats.emplace_back(
+      dwrite_factory(), default_font_name, current_point_size, default_dpi,
+      default_font_weight(), default_font_style()
+    );
   }
   update_font_metrics();
   emit layouts_invalidated();
@@ -365,7 +385,7 @@ static DWRITE_HIT_TEST_METRICS metrics_for(
 void D2DEditor::update_font_metrics()
 {
   if (dw_formats.empty()) return;
-  auto format = dw_formats.front().Get();
+  auto format = dw_formats.front().reg.Get();
   auto metrics = metrics_for(L"W", dw_factory.Get(), format);
   float font_width = metrics.width + charspacing();
   float font_height = std::ceil(metrics.height + linespacing());

@@ -197,7 +197,6 @@ namespace font
   FontOpts style_for(const FontOptions& fo)
   {
     RETURN_FLAG(fo, FontOpts::Italic);
-    RETURN_FLAG(fo, FontOpts::Oblique);
     return FontOpts::Normal;
   }
 } // namespace font

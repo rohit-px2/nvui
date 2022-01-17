@@ -19,7 +19,25 @@ class D2DEditor : public QWidget, public QtEditorUIBase
   using Base = QtEditorUIBase;
   template<typename T>
   using ComPtr = Microsoft::WRL::ComPtr<T>;
+  // Same structure as 'Font' in font.hpp in terms of storing fonts
+  // but for IDWriteTextFormat
 public:
+  struct TextFormat
+  {
+    TextFormat(
+      IDWriteFactory* factory,
+      const std::wstring& name,
+      float pointsize,
+      float dpi,
+      FontOpts default_weight,
+      FontOpts default_style
+    );
+    IDWriteTextFormat* font_for(const FontOptions& fo) const;
+    ComPtr<IDWriteTextFormat> reg = nullptr;
+    ComPtr<IDWriteTextFormat> bold = nullptr;
+    ComPtr<IDWriteTextFormat> bolditalic = nullptr;
+    ComPtr<IDWriteTextFormat> italic = nullptr;
+  };
   D2DEditor(
     int cols,
     int rows,
@@ -74,7 +92,7 @@ private:
 private:
   std::unordered_map<u32, u32> fallback_indices {};
   std::vector<ComPtr<IDWriteFont>> dw_fonts;
-  std::vector<ComPtr<IDWriteTextFormat>> dw_formats;
+  std::vector<TextFormat> dw_formats;
   ComPtr<IDWriteFactory> dw_factory = nullptr;
   ComPtr<ID2D1Factory> d2d_factory = nullptr;
   ComPtr<ID2D1DeviceContext> device_context = nullptr;

@@ -194,7 +194,6 @@ void D2DPaintGrid::process_events()
 
 DWRITE_FONT_STYLE dwrite_style(const FontOpts& fo)
 {
-  if (fo & FontOpts::Oblique) return DWRITE_FONT_STYLE_OBLIQUE;
   if (fo & FontOpts::Italic) return DWRITE_FONT_STYLE_ITALIC;
   return DWRITE_FONT_STYLE_NORMAL;
 }
@@ -264,18 +263,6 @@ void D2DPaintGrid::draw_text(
     if (charspace)
     {
       text_layout->SetCharacterSpacing(0, float(charspace), 0, text_range);
-    }
-    auto style = font::style_for(font_opts);
-    auto weight = font::weight_for(font_opts);
-    if (style == FontOpts::Normal) style = editor_area->default_font_style();
-    if (weight == FontOpts::Normal) weight = editor_area->default_font_weight();
-    if (style != FontOpts::Normal)
-    {
-      text_layout->SetFontStyle(dwrite_style(style), text_range);
-    }
-    if (weight != FontOpts::Normal)
-    {
-      text_layout->SetFontWeight(dwrite_weight(weight), text_range);
     }
     layout_cache.put(key, text_layout);
   }
@@ -375,7 +362,7 @@ void D2DPaintGrid::draw(
     reverse_qstring(buffer);
     draw_text_and_bg(
       context, buffer, main, def_clrs, start, end, font_width, font_height,
-      tf.Get(), fg_brush, bg_brush
+      tf.font_for(main.font_opts), fg_brush, bg_brush
     );
     buffer.resize(0);
   };
@@ -641,7 +628,8 @@ void D2DPaintGrid::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
     const auto end = D2D1::Point2F(start.x + (scale_factor * font_width), start.y + font_height);
     draw_text(
       *target, gc.text, fg, sp, fo, start, end,
-      font_width, font_height, *brush.Get(), text_formats[font_idx].Get(), true
+      font_width, font_height, *brush.Get(),
+      text_formats[font_idx].font_for(fo), true
     );
   }
 }

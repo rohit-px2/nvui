@@ -81,7 +81,6 @@ enum FontOpts : u16
   Medium = 512,
   SemiBold = 1024,
   ExtraBold = 2048,
-  Oblique = 4096
 };
 
 using FontOptions = std::underlying_type_t<FontOpts>;

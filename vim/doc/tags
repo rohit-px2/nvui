@@ -31,6 +31,7 @@
 :NvuiMoveAnimationFrametime	nvui.txt	/*:NvuiMoveAnimationFrametime*
 :NvuiMoveScaler	nvui.txt	/*:NvuiMoveScaler*
 :NvuiOpacity	nvui.txt	/*:NvuiOpacity*
+:NvuiPopupMenu	nvui.txt	/*:NvuiPopupMenu*
 :NvuiPopupMenuBorderColor	nvui.txt	/*:NvuiPopupMenuBorderColor*
 :NvuiPopupMenuBorderWidth	nvui.txt	/*:NvuiPopupMenuBorderWidth*
 :NvuiPopupMenuDefaultIconBg	nvui.txt	/*:NvuiPopupMenuDefaultIconBg*
@@ -44,7 +45,6 @@
 :NvuiPopupMenuInfoColumns	nvui.txt	/*:NvuiPopupMenuInfoColumns*
 :NvuiPopupMenuMaxChars	nvui.txt	/*:NvuiPopupMenuMaxChars*
 :NvuiPopupMenuMaxItems	nvui.txt	/*:NvuiPopupMenuMaxItems*
-:NvuiPopupmenu	nvui.txt	/*:NvuiPopupmenu*
 :NvuiScrollAnimationDuration	nvui.txt	/*:NvuiScrollAnimationDuration*
 :NvuiScrollFrametime	nvui.txt	/*:NvuiScrollFrametime*
 :NvuiScrollScaler	nvui.txt	/*:NvuiScrollScaler*

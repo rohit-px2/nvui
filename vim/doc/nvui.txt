@@ -53,7 +53,7 @@ GENERAL				*nvui-general*
 
 	In Insert mode, extend the cursor by num_px pixels downward.
 
-:NvuiPopupmenu {enabled}				*:NvuiPopupmenu*
+:NvuiPopupMenu {enabled}				*:NvuiPopupMenu*
 	
 	{enabled} is a boolean.
 	Enable the external popup menu. Requires your Neovim to support

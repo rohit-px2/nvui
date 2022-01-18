@@ -400,6 +400,7 @@ private:
   void update_dimensions() override;
   void paint();
   int max_chars = 0;
+  int item_limit = 0;
   QPixmap pixmap;
   PopupMenuIconManager icon_manager;
   bool icons_enabled = true;

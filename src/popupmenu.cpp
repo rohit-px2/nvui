@@ -368,6 +368,7 @@ void PopupMenuQ::update_dimensions()
   auto w_adv = metrics.horizontalAdvance('W');
   double text_width = longest_word_size * w_adv;
   int user_max_width = max_chars ? max_chars * w_adv : INT_MAX;
+  int user_max_height = item_limit ? item_limit * item_height() : INT_MAX;
   int parent_height = parentWidget() ? parentWidget()->height() : INT_MAX;
   int parent_width = parentWidget() ? parentWidget()->width() : INT_MAX;
   // Box width = max number of characters.
@@ -380,6 +381,7 @@ void PopupMenuQ::update_dimensions()
   width = std::min(width, std::min(user_max_width, parent_width));
   int unconstrained_pmenu_height = (int) completion_items.size() * item_height();
   int height = std::min(unconstrained_pmenu_height, parent_height);
+  height = std::min(height, user_max_height);
   height += border_width * 2;
   width = std::max(double(width), metrics.averageCharWidth() * 15);
   auto rect = calc_rect(width, height, parent_width, parent_height);
@@ -473,6 +475,10 @@ void PopupMenuQ::register_nvim(Nvim& nvim)
   on("NVUI_PUM_MAX_CHARS", paramify<int>([this](int chars) {
     if (chars <= 0) max_chars = 0;
     else max_chars = chars;
+  }));
+  on("NVUI_PUM_MAX_ITEMS", paramify<int>([this](int items) {
+    if (items <= 0) item_limit = 0;
+    else item_limit = items;
   }));
   using namespace std;
   handle_request<vector<string>, string>(nvim, "NVUI_POPUPMENU_ICON_NAMES",

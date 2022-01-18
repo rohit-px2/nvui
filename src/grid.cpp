@@ -1,4 +1,3 @@
-#include "editor.hpp"
 #include "grid.hpp"
 #include "utils.hpp"
 
@@ -16,9 +15,41 @@ bool GridBase::FloatOrderInfo::operator<(const FloatOrderInfo& other) const
     : zindex < other.zindex;
 }
 
+ScrollEventInfo GridBase::convert_grid_scroll_args(
+  int top,
+  int bot,
+  int left,
+  int right,
+  int rows,
+  int cols
+)
+{
+  // Positive means upward,
+  // Negative is downward.
+  // dy is negative when rows is positive,
+  // and positive when rows is negative
+  // Don't know about cols right now but it's not being used
+  if (rows > 0)
+  {
+    return {
+      QRect(QPoint(left, top + rows), QPoint(right, bot)),
+      -cols,
+      -rows,
+    };
+  }
+  else
+  {
+    return {
+      QRect(QPoint(left, top), QPoint(right, bot + rows)),
+      -cols,
+      -rows,
+    };
+  }
+}
+
 GridBase::GridBase(
-  u16 x,
-  u16 y,
+  double x,
+  double y,
   u16 w,
   u16 h,
   u16 id
@@ -63,6 +94,10 @@ void GridBase::scroll(int top, int bot, int left, int right, int rows)
 {
   if (rows > 0)
   {
+    // Original region is
+    // (top + rows) .. bot (exclusive)
+    // Scrolled region is
+    // top .. bot - rows
     for(int y = top; y < (bot - rows); ++y)
     {
       for(int x = left; x < right && x < cols; ++x)
@@ -73,6 +108,10 @@ void GridBase::scroll(int top, int bot, int left, int right, int rows)
   }
   else if (rows < 0)
   {
+    // Original region is
+    // top .. bot + rows (exclusive)
+    // Scrolled region is
+    // top - rows .. bot
     for(int y = (bot-1); y >= (top - rows); --y)
     {
       for(int x = left; x <= right && x < cols; ++x)
@@ -81,8 +120,7 @@ void GridBase::scroll(int top, int bot, int left, int right, int rows)
       }
     }
   }
-  auto rect = QRect(left, top, (right - left), (bot - top));
-  send_draw(rect);
+  evt_q.push({PaintKind::Scroll, convert_grid_scroll_args(top, bot, left, right, rows)});
   modified = true;
 }
 
@@ -131,12 +169,12 @@ void GridBase::set_size(u16 w, u16 h)
  * Set the position of the grid in terms of
  * which row and column it starts on.
  */
-void GridBase::set_pos(u16 new_x, u16 new_y)
+void GridBase::set_pos(double new_x, double new_y)
 {
   x = new_x;
   y = new_y;
 }
-void GridBase::msg_set_pos(u16 x, u16 y)
+void GridBase::msg_set_pos(double x, double y)
 {
   is_msg_grid = true;
   set_pos(x, y);
@@ -146,23 +184,23 @@ void GridBase::set_pos(QPoint p) { set_pos(p.x(), p.y()); }
 void GridBase::send_redraw()
 {
   clear_event_queue();
-  evt_q.push({PaintKind::Redraw, 0, QRect()});
+  evt_q.push({PaintKind::Redraw, RedrawEventInfo {}});
 }
 void GridBase::send_clear()
 {
   clear_event_queue();
-  evt_q.push({PaintKind::Clear, 0, QRect()});
+  evt_q.push({PaintKind::Clear, ClearEventInfo {}});
 }
 void GridBase::send_draw(QRect r)
 {
-  evt_q.push({PaintKind::Draw, 0, r});
+  evt_q.push({PaintKind::Draw, DrawEventInfo {r}});
 }
 /// Grid's top left position
-QPoint GridBase::top_left() { return {x, y}; }
-QPoint GridBase::bot_right() { return {x + cols, y + rows}; }
+QPoint GridBase::top_left() { return QPoint(x, y); };
+QPoint GridBase::bot_right() { return QPoint(x + cols, y + rows); }
 /// Grid's bottom right position
-QPoint GridBase::bot_left() { return {x, y + rows}; }
-QPoint GridBase::top_right() { return { x + cols, y}; }
+QPoint GridBase::bot_left() { return QPoint(x, y + rows); }
+QPoint GridBase::top_right() { return QPoint( x + cols, y); }
 /// Clear the event queue
 void GridBase::clear_event_queue()
 {
@@ -175,16 +213,19 @@ void GridBase::viewport_changed(Viewport vp)
 }
 bool GridBase::is_float() const { return is_float_grid; }
 void GridBase::set_floating(bool f) noexcept { is_float_grid = f; }
-void GridBase::win_pos(u16 x, u16 y)
+
+void GridBase::win_pos(double x, double y)
 {
-  set_pos(x, y);
   set_floating(false);
-}
-void GridBase::float_pos(u16 x, u16 y)
-{
   set_pos(x, y);
-  set_floating(true);
 }
+
+void GridBase::float_pos(double x, double y)
+{
+  set_floating(true);
+  set_pos(x, y);
+}
+
 void GridBase::set_float_ordering_info(int zindex, const QPointF& p) noexcept
 {
   float_ordering_info = {zindex, p.x(), p.y()};

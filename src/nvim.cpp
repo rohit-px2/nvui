@@ -23,20 +23,18 @@
 
 namespace bp = boost::process;
 
-// ######################## SETTING UP ####################################
-
 using Lock = std::lock_guard<std::mutex>;
 
-//constexpr auto one_ms = std::chrono::milliseconds(1);
+static boost::filesystem::path
+get_nvim_path(const std::string& path)
+{
+  if (path.empty())
+  {
+    return bp::search_path("nvim");
+  }
+  return boost::filesystem::path(path);
+}
 
-// ###################### DONE SETTING UP ##################################
-
-//// Useful for logging char data
-//static inline std::uint32_t to_uint(char ch)
-//{
-  //return static_cast<std::uint32_t>(static_cast<unsigned char>(ch));
-//}
-/// Constructor
 Nvim::Nvim(std::string path, std::vector<std::string> args)
 : notification_handlers(),
   request_handlers(),
@@ -48,14 +46,10 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   stdin_pipe(),
   error()
 {
-  auto nvim_path = boost::filesystem::path(path);
-  if (path.empty())
+  auto nvim_path = get_nvim_path(path);
+  if (nvim_path.empty())
   {
-    nvim_path = bp::search_path("nvim");
-    if (nvim_path.empty())
-    {
-      throw std::runtime_error("Neovim not found in PATH");
-    }
+    throw std::runtime_error("Neovim not found in PATH");
   }
   nvim = bp::child(
     nvim_path,
@@ -70,6 +64,27 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   );
   err_reader = std::thread(std::bind(&Nvim::read_error_sync, this));
   out_reader = std::thread(std::bind(&Nvim::read_output_sync, this));
+}
+
+Object Nvim::get_api_info()
+{
+  return send_blocking_request("nvim_get_api_info", std::array<int, 0> {});
+}
+
+template<typename T>
+Object Nvim::send_blocking_request(const std::string& method, T&& params)
+{
+  std::mutex m;
+  std::unique_lock<std::mutex> lock {m};
+  std::condition_variable cv;
+  Object result;
+  send_request_cb(method, std::forward<T>(params), [&](Object res, Object err) {
+    if (!err.is_null()) result = Object::null;
+    else result = std::move(res);
+    cv.notify_one();
+  });
+  cv.wait(lock);
+  return result;
 }
 
 void Nvim::resize(const int new_width, const int new_height)
@@ -192,6 +207,11 @@ void Nvim::read_error_sync()
   }
 }
 
+std::vector<std::string> Nvim::default_args()
+{
+  return {"--embed"};
+}
+
 int Nvim::exit_code()
 {
   if (nvim.running())
@@ -243,12 +263,11 @@ void Nvim::send_input(
   std::string input_string;
   if (c || s || a || d || is_special)
   {
-    using fmt::format;
     const std::string_view first = c ? "C-" : "";
     const std::string_view second = s ? "S-" : "";
     const std::string_view third = a ? "M-" : "";
     const std::string_view fourth = d ? "D-" : "";
-    input_string = format("<{}{}{}{}{}>", first, second, third, fourth, key);
+    input_string = fmt::format("<{}{}{}{}{}>", first, second, third, fourth, key);
   }
   else
   {

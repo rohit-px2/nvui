@@ -13,9 +13,8 @@ Cmdline				|nvui-cmdline|
 Multigrid			|nvui-multigrid|
 Cursor				|nvui-cursor|
 IME information				|nvui-ime|
+Managing Instances				|nvui-instances|
 ==============================================================================
-COMMANDS			*nvui-commands*
-
 GENERAL				*nvui-general*
 
 :NvuiCursorHideWhileTyping {hide}				*:NvuiCursorHideWhileTyping*
@@ -213,15 +212,15 @@ commands for setting the maximum width and items displayed.
 
 :NvuiPopupMenuIconOffset {offset}		*:NvuiPopupMenuIconOffset*
 
-	{offset} must be a non-positive integer for this command to do anything.
-	Popup menu icons are created in a square shape, and their default size is
-	the height of the font. This command adds {offset} to the size of the icons
-	during size calculation, reducing the width and height of the icons by
-	the negative offset.
-	Ex. NvuiPopupMenuIconOffset -5
-	Decreases the popup menu icon size by 5 pixels.
-	To reset the size back to full, you can do
-	:NvuiPopupMenuIconOffset 0
+	{offset} must be an integer.
+	Increases the size of the icons by {offset} pixels. The size is always increased
+	relative to the height of the font used by the popup menu,
+	which is the first font you set through "set guifont".
+	E.g.
+		:NvuiPopupMenuIconOffset 5
+	Increases the size of the popup menu icons by 5 pixels.
+	Note: If offset is positive, this causes the height of each item in the
+	popup menu to increase.
 
 :NvuiPopupMenuBorderColor {color}		*:NvuiPopupMenuBorderColor*
 
@@ -497,4 +496,71 @@ autocmds to automatically enable/disable the IME (example): >
 	Toggles the IME support.
 
 ==============================================================================
+Managing Multiple Instances					*:nvui-instances*
+
+You can create multiple editor instances in the same window, and move between
+the active instances, using the commands below.
+Only one editor instance is active at a given time, and that is the one that
+is currently displayed. If you have more than one editor instance running then
+closing that instance through quitting through e.g. `qa` will close that
+instance and move to another one. The window will close upon closing the last
+editor instance.
+
+:NvuiEditorSpawn {options}				*:NvuiEditorSpawn*
+
+	{options} is an OPTIONAL dictionary containing keys describing startup
+	options. If {options} is not specified, the startup options of the currently
+	running editor instance will be used. {options} contains these (optional)
+	keys, if they are not specified they will be set with a default value.
+		'multigrid': a boolean specifying whether to enable `ext_multigrid`.
+			Defaults to the currently running instance's setting.
+		'popupmenu': a boolean specifying whether to enable `ext_popupmenu`.
+			Defaults to the currently running instance's setting.
+		'cmdline': a boolean specifying whether to enable `ext_cmdline`.
+			Defaults to the currently running instance's setting.
+		'nvim_args': a list of string arguments to forward to Neovim.
+		'nvim': a path to the Neovim executable.
+			Defaults to the currently running instance's setting.
+	Ex. No Arguments:
+	`:NvuiEditorSpawn`
+	Creates a new editor instance and moves to it.
+	Ex. With Arguments:
+	`:NvuiEditorSpawn { 'multigrid': v:true, 'popupmenu': v:false }`
+	Creates a new editor instance with multigrid enabled and popup menu
+	disabled. The command line setting depends on whether the current editor has
+	the command line enabled or not.
+	
+:NvuiEditorPrev					*:NvuiEditorPrev*
+
+	Switches to the previous editor.
+	If the current editor is the first editor in the list (i.e. its index is 0),
+	then it loops back around to the end of the list.
+	Ex. Example creating, and then switching: >
+		:NvuiEditorSpawn " Current editor is now at index 1 in the list
+		:NvuiEditorPrev " Move to 0th (original) editor
+		:NvuiEditorNext " Move to 1-th editor in the list
+		:NvuiEditorNext " Loops around, now back at the 0th editor.
+	<
+
+:NvuiEditorNext					*:NvuiEditorNext*
+
+	Switches to the next editor in the list.
+	Like |NvuiEditorPrev|, it loops back if the current editor is the last one
+	in the list.
+	See above at |NvuiEditorPrev| for an example.
+	
+:NvuiEditorSwitch {index}				*:NvuiEditorSwitch*
+	
+	Switch to the editor that is at {index}.
+	Does nothing if {index} is out-of-bounds of the list of instances.
+	Note that the list of indexes starts from 0 so that first editor is at index
+	0.
+	
+:NvuiEditorSelect				*:NvuiEditorSelect*
+
+	Creates a dialog with a selection menu that shows you the list of editor
+	instances and their current working directories, allowing you to select
+	which one to move to.
+==============================================================================
+
 vim:ft=help:textwidth=78:ts=2:noet

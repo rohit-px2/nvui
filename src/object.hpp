@@ -11,8 +11,8 @@
 #include <QByteArray>
 #include <QString>
 #include <string_view>
-#include <boost/container/vector.hpp>
 #include <boost/container/flat_map.hpp>
+#include <boost/container/small_vector.hpp>
 #include "utils.hpp"
 
 struct NeovimExt
@@ -28,6 +28,7 @@ struct Error
 
 struct Object
 {
+  static const Object null;
   using Map = boost::container::flat_map<std::string, Object, std::less<>>;
   using Array = std::vector<Object>;
   using null_type = std::monostate;
@@ -66,9 +67,8 @@ struct Object
   /// keys as strings, so it works.
   static Object from_msgpack(std::string_view sv, std::size_t& offset) noexcept;
   /// Parse from a msgpack::object from the msgpack-cpp library.
-  /// This is recursive and can get slow.
-  /// For a faster solution parse the object directly
-  /// from the serialized string using Object::from_msgpack.
+  /// If parsing directly from a messagepack-encoded string
+  /// it's better to use Object::from_msgpack
   static Object parse(const msgpack::object&);
   std::string to_string() const noexcept;
   auto* array() noexcept { return std::get_if<Array>(&v); }
@@ -99,6 +99,7 @@ struct Object
   bool is_unsigned() const { return has<unsigned_type>(); }
   bool is_float() const { return has<float_type>(); }
   bool is_ext() const { return has<ext_type>(); }
+  bool is_bool() const { return has<bool>(); }
   template<typename T>
   bool has() const noexcept
   {
@@ -178,23 +179,36 @@ struct Object
     return {};
   }
 
-  const Object* try_at(std::string_view s) const noexcept
+  // Get key in map, or null if key doesn't exist / this is not a map.
+  const Object& try_at(std::string_view s) const noexcept
   {
-    if (!has<Map>()) return nullptr;
+    if (!has<Map>()) return null;
     const auto& mp = get<Map>();
     const auto it = mp.find(s);
-    if (it == mp.cend()) return nullptr;
-    return &it->second;
+    if (it == mp.cend()) return null;
+    return it->second;
   }
 
-  const Object* try_at(std::size_t idx) const noexcept
+  // Get value in index of array, or null if out of bounds /
+  // this is not an array.
+  const Object& try_at(std::size_t idx) const noexcept
   {
-    if (!has<Array>()) return nullptr;
+    if (!has<Array>()) return null;
     const auto& arr = get<Array>();
-    if (idx >= arr.size()) return nullptr;
-    return &arr.at(idx);
+    if (idx >= arr.size()) return null;
+    return arr.at(idx);
   }
 
+  // These will throw on bad access.
+  const string_type& string_ref() const { return get<string_type>(); }
+  const bool_type& bool_ref() const { return get<bool_type>(); }
+  const float_type& f64_ref() const { return get<float_type>(); }
+  const unsigned_type& u64_ref() const { return get<unsigned_type>(); }
+  const signed_type& i64_ref() const { return get<signed_type>(); }
+  const array_type& array_ref() const { return get<array_type>(); }
+  const map_type& map_ref() const { return get<map_type>(); }
+  const Error& err_ref() const { return get<err_type>(); }
+  const null_type& null_ref() const { return get<null_type>(); }
 private:
   std::size_t children() const noexcept;
   void to_stream(std::stringstream& ss) const;

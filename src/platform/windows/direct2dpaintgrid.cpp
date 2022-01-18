@@ -1,130 +1,15 @@
-#include "wineditor.hpp"
+#include "d2deditor.hpp"
 #include "direct2dpaintgrid.hpp"
+#include "cursor.hpp"
 #include "utils.hpp"
 #include <d2d1.h>
-#include <atlbase.h>
 
-void D2DPaintGrid::set_size(u16 w, u16 h)
-{
-  GridBase::set_size(w, h);
-  update_bitmap_size();
-  for(auto& snapshot : snapshots)
-  {
-    SafeRelease(&snapshot.image);
-  }
-  snapshots.clear();
-}
+using Microsoft::WRL::ComPtr;
 
-void D2DPaintGrid::update_bitmap_size()
+template<typename T>
+static void SafeRelease(T** ptr)
 {
-  auto&& [font_width, font_height] = editor_area->font_dimensions();
-  u32 width = std::ceil(cols * font_width);
-  u32 height = std::ceil(rows * font_height);
-  editor_area->resize_bitmap(context, &bitmap, width, height);
-  context->SetTarget(bitmap);
-  context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
-}
-
-void D2DPaintGrid::initialize_context()
-{
-  editor_area->create_context(&context, &bitmap, 0, 0);
-  context->SetTarget(bitmap);
-  context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
-}
-
-void D2DPaintGrid::initialize_cache()
-{
-  QObject::connect(editor_area, &EditorArea::font_changed, this, [&] {
-    layout_cache.clear();
-  });
-}
-
-void D2DPaintGrid::initialize_move_animation()
-{
-  move_update_timer.callOnTimeout([this] {
-    auto ms_interval = move_update_timer.interval();
-    move_animation_time -= float(ms_interval) / 1000.f;
-    if (move_animation_time <= 0)
-    {
-      move_update_timer.stop();
-      update_position(dest_move_x, dest_move_y);
-    }
-    else
-    {
-      auto x_diff = dest_move_x - old_move_x;
-      auto y_diff = dest_move_y - old_move_y;
-      auto duration = editor_area->move_animation_duration();
-      // What % of the animation is left (between 0 and 1)
-      auto animation_left = move_animation_time / duration;
-      float animation_finished = 1.0f - animation_left;
-      float scale = move_scaler(animation_finished);
-      cur_left = old_move_x + (float(x_diff) * scale);
-      cur_top = old_move_y + (float(y_diff) * scale);
-      update_position(cur_left, cur_top);
-    }
-    editor_area->update();
-  });
-}
-
-void D2DPaintGrid::initialize_scroll_animation()
-{
-  scroll_animation_timer.callOnTimeout([this] {
-    auto timer_interval = scroll_animation_timer.interval();
-    scroll_animation_time -= float(timer_interval) / 1000.f;
-    if (scroll_animation_time <= 0.f)
-    {
-      scroll_animation_timer.stop();
-      is_scrolling = false;
-      for(auto& snapshot : snapshots) SafeRelease(&snapshot.image);
-      snapshots.clear();
-    }
-    else
-    {
-      auto diff = dest_scroll_y - start_scroll_y;
-      auto duration = editor_area->scroll_animation_duration();
-      auto animation_left = scroll_animation_time / duration;
-      float animation_finished = 1.0f - animation_left;
-      float scaled = scroll_scaler(animation_finished);
-      current_scroll_y = start_scroll_y + (diff * scaled);
-    }
-    editor_area->update();
-  });
-}
-
-void D2DPaintGrid::process_events()
-{
-  context->BeginDraw();
-  ID2D1SolidColorBrush* fg_brush = nullptr;
-  ID2D1SolidColorBrush* bg_brush = nullptr;
-  u32 fg = editor_area->default_fg().rgb();
-  u32 bg = editor_area->default_bg().rgb();
-  context->CreateSolidColorBrush(d2color(fg), &fg_brush);
-  context->CreateSolidColorBrush(d2color(bg), &bg_brush);
-  while(!evt_q.empty())
-  {
-    const auto& evt = evt_q.front();
-    switch(evt.type)
-    {
-      case PaintKind::Clear:
-      {
-        d2rect r = source_rect();
-        bg_brush->SetColor(d2color(bg));
-        context->FillRectangle(r, bg_brush);
-        break;
-      }
-      case PaintKind::Redraw:
-        draw(context, {0, 0, cols, rows}, fg_brush, bg_brush);
-        clear_event_queue();
-        break;
-      case PaintKind::Draw:
-        draw(context, evt.rect, fg_brush, bg_brush);
-        break;
-    }
-    if (!evt_q.empty()) evt_q.pop();
-  }
-  SafeRelease(&fg_brush);
-  SafeRelease(&bg_brush);
-  context->EndDraw();
+  if (*ptr) { (*ptr)->Release(); *ptr = nullptr; }
 }
 
 static void draw_text_decorations(
@@ -181,6 +66,150 @@ static void draw_text_decorations(
   }
 }
 
+//#include <comdef.h>
+//static void print_error(HRESULT hr)
+//{
+  //fmt::print("HRESULT error: {}\n", _com_error(hr).ErrorMessage());
+//}
+
+void D2DPaintGrid::set_size(u16 w, u16 h)
+{
+  GridBase::set_size(w, h);
+  update_render_target();
+  snapshots.clear();
+}
+
+void D2DPaintGrid::update_render_target()
+{
+  auto&& [font_width, font_height] = editor_area->font_dimensions();
+  u32 width = std::ceil(cols * font_width);
+  u32 height = std::ceil(rows * font_height);
+  auto [target, surface] = editor_area->create_render_target(width, height);
+  render_target = std::move(target);
+  bitmap = std::move(surface);
+  render_target->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+  render_target->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+}
+
+void D2DPaintGrid::init_connections()
+{
+  QObject::connect(editor_area, &D2DEditor::layouts_invalidated, this, [this] {
+    layout_cache.clear();
+  });
+  QObject::connect(editor_area, &D2DEditor::render_targets_updated, this, [this] {
+    update_render_target();
+    send_redraw();
+  });
+}
+
+void D2DPaintGrid::initialize_move_animation()
+{
+  move_update_timer.callOnTimeout([this] {
+    auto ms_interval = move_update_timer.interval();
+    move_animation_time -= float(ms_interval) / 1000.f;
+    if (move_animation_time <= 0)
+    {
+      move_update_timer.stop();
+      update_position(dest_move_x, dest_move_y);
+    }
+    else
+    {
+      auto x_diff = dest_move_x - old_move_x;
+      auto y_diff = dest_move_y - old_move_y;
+      auto duration = editor_area->move_animation_duration();
+      // What % of the animation is left (between 0 and 1)
+      auto animation_left = move_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float scale = move_scaler(animation_finished);
+      cur_left = old_move_x + (float(x_diff) * scale);
+      cur_top = old_move_y + (float(y_diff) * scale);
+      update_position(cur_left, cur_top);
+    }
+    editor_area->update();
+  });
+}
+
+void D2DPaintGrid::initialize_scroll_animation()
+{
+  scroll_animation_timer.callOnTimeout([this] {
+    auto timer_interval = scroll_animation_timer.interval();
+    scroll_animation_time -= float(timer_interval) / 1000.f;
+    if (scroll_animation_time <= 0.f)
+    {
+      scroll_animation_timer.stop();
+      is_scrolling = false;
+      snapshots.clear();
+    }
+    else
+    {
+      auto diff = dest_scroll_y - start_scroll_y;
+      auto duration = editor_area->scroll_animation_duration();
+      auto animation_left = scroll_animation_time / duration;
+      float animation_finished = 1.0f - animation_left;
+      float scaled = scroll_scaler(animation_finished);
+      current_scroll_y = start_scroll_y + (diff * scaled);
+    }
+    editor_area->update();
+  });
+}
+
+void D2DPaintGrid::process_events()
+{
+  if (evt_q.empty()) return;
+  auto* context = render_target.Get();
+  context->BeginDraw();
+  ComPtr<ID2D1SolidColorBrush> fg_brush = nullptr;
+  ComPtr<ID2D1SolidColorBrush> bg_brush = nullptr;
+  u32 fg = editor_area->default_fg().to_uint32();
+  u32 bg = editor_area->default_bg().to_uint32();
+  context->CreateSolidColorBrush(d2color(fg), &fg_brush);
+  context->CreateSolidColorBrush(d2color(bg), &bg_brush);
+  while(!evt_q.empty())
+  {
+    const auto& evt = evt_q.front();
+    switch(evt.type)
+    {
+      case PaintKind::Clear:
+      {
+        d2rect r = source_rect();
+        bg_brush->SetColor(d2color(bg));
+        context->FillRectangle(r, bg_brush.Get());
+        break;
+      }
+      case PaintKind::Redraw:
+        draw(context, {0, 0, cols, rows}, fg_brush.Get(), bg_brush.Get());
+        clear_event_queue();
+        break;
+      case PaintKind::Draw:
+        draw(context, evt.draw_info().rect, fg_brush.Get(), bg_brush.Get());
+        break;
+      case PaintKind::Scroll:
+        scroll_bitmap(evt.scroll_info());
+        break;
+    }
+    if (!evt_q.empty()) evt_q.pop();
+  }
+  context->EndDraw();
+}
+
+DWRITE_FONT_STYLE dwrite_style(const FontOpts& fo)
+{
+  if (fo & FontOpts::Italic) return DWRITE_FONT_STYLE_ITALIC;
+  return DWRITE_FONT_STYLE_NORMAL;
+}
+
+DWRITE_FONT_WEIGHT dwrite_weight(const FontOpts& fo)
+{
+  if (fo & FontOpts::Normal) return DWRITE_FONT_WEIGHT_NORMAL;
+  if (fo & FontOpts::Thin) return DWRITE_FONT_WEIGHT_THIN;
+  if (fo & FontOpts::Light) return DWRITE_FONT_WEIGHT_LIGHT;
+  if (fo & FontOpts::Medium) return DWRITE_FONT_WEIGHT_MEDIUM;
+  if (fo & FontOpts::SemiBold) return DWRITE_FONT_WEIGHT_SEMI_BOLD;
+  if (fo & FontOpts::Bold) return DWRITE_FONT_WEIGHT_BOLD;
+  if (fo & FontOpts::ExtraBold) return DWRITE_FONT_WEIGHT_EXTRA_BOLD;
+  return DWRITE_FONT_WEIGHT_NORMAL;
+}
+
 void D2DPaintGrid::draw_text(
   ID2D1RenderTarget& target,
   const QString& text,
@@ -221,7 +250,7 @@ void D2DPaintGrid::draw_text(
       // to the width solves it. It's probably because
       // the text is just a little wider than the max width we set
       // so we increase the max width by a little here.
-      bot_right.x - top_left.x + 1000.f,
+      bot_right.x - top_left.x + 10.f,
       bot_right.y - top_left.y,
       &old_text_layout
     );
@@ -234,14 +263,6 @@ void D2DPaintGrid::draw_text(
     if (charspace)
     {
       text_layout->SetCharacterSpacing(0, float(charspace), 0, text_range);
-    }
-    if (font_opts & FontOpts::Italic)
-    {
-      text_layout->SetFontStyle(DWRITE_FONT_STYLE_ITALIC, text_range);
-    }
-    if (font_opts & FontOpts::Bold)
-    {
-      text_layout->SetFontWeight(DWRITE_FONT_WEIGHT_BOLD, text_range);
     }
     layout_cache.put(key, text_layout);
   }
@@ -325,7 +346,7 @@ void D2DPaintGrid::draw(
   const auto font_dims = editor_area->font_dimensions();
   const float font_width = font_dims.width;
   const float font_height = font_dims.height;
-  const HLState* s = editor_area->hl_state();
+  const HLState* s = &editor_area->hlstate();
   QString buffer;
   buffer.reserve(100);
   const auto& def_clrs = s->default_colors_get();
@@ -341,7 +362,7 @@ void D2DPaintGrid::draw(
     reverse_qstring(buffer);
     draw_text_and_bg(
       context, buffer, main, def_clrs, start, end, font_width, font_height,
-      tf, fg_brush, bg_brush
+      tf.font_for(main.font_opts), fg_brush, bg_brush
     );
     buffer.resize(0);
   };
@@ -406,28 +427,28 @@ void D2DPaintGrid::draw(
 D2DPaintGrid::d2pt D2DPaintGrid::pos() const
 {
   auto&& [font_width, font_height] = editor_area->font_dimensions();
-  return {x * font_width, y * font_height};
+  return D2D1::Point2F(x * font_width, y * font_height);
 }
 
 D2DPaintGrid::d2rect D2DPaintGrid::rect() const
 {
-  auto size = context->GetSize();
-  float left = top_left.x();
-  float top = top_left.y();
+  auto size = bitmap->GetSize();
+  int left = top_left.x();
+  int top = top_left.y();
   float right = left + size.width;
   float bottom = top + size.height;
-  return {left, top, right, bottom};
+  return D2D1::RectF(left, top, right, bottom);
 }
 
 D2DPaintGrid::d2rect D2DPaintGrid::source_rect() const
 {
-  auto size = context->GetSize();
+  auto size = bitmap->GetSize();
   return D2D1::RectF(0, 0, size.width, size.height);
 }
 
-void D2DPaintGrid::set_pos(u16 new_x, u16 new_y)
+void D2DPaintGrid::set_pos(double new_x, double new_y)
 {
-  if (!editor_area->animations_enabled())
+  if (!editor_area->animations_enabled() || is_float())
   {
     move_update_timer.stop();
     GridBase::set_pos(new_x, new_y);
@@ -469,10 +490,9 @@ void D2DPaintGrid::viewport_changed(Viewport vp)
   auto dest_topline = vp.topline;
   start_scroll_y = current_scroll_y;
   dest_scroll_y = dest_topline;
-  snapshots.push_back({viewport, copy_bitmap(bitmap)});
+  snapshots.push_back({viewport, copy_bitmap(bitmap.Get())});
   if (snapshots.size() > editor_area->snapshot_limit())
   {
-    SafeRelease(&snapshots[0].image);
     snapshots.erase(snapshots.begin());
   }
   GridBase::viewport_changed(vp);
@@ -487,45 +507,60 @@ void D2DPaintGrid::viewport_changed(Viewport vp)
   modified = false;
 }
 
-ID2D1Bitmap1* D2DPaintGrid::copy_bitmap(ID2D1Bitmap1* src)
+ComPtr<ID2D1Bitmap1> D2DPaintGrid::copy_bitmap(ID2D1Bitmap1* src)
 {
-  assert(src);
-  ID2D1Bitmap1* dst = nullptr;
-  auto sz = src->GetPixelSize();
-  editor_area->resize_bitmap(context, &dst, sz.width, sz.height);
+  auto size = src->GetPixelSize();
+  return copy_bitmap(src, D2D1::RectU(0, 0, size.width, size.height));
+}
+
+ComPtr<ID2D1Bitmap1>
+D2DPaintGrid::copy_bitmap(ID2D1Bitmap1* src, D2D1_RECT_U rect)
+{
+  auto size = D2D1::SizeU(rect.right - rect.left, rect.bottom - rect.top);
+  ComPtr<ID2D1Bitmap1> dst = nullptr;
+  render_target->CreateBitmap(
+    size, nullptr, 0,
+    D2D1::BitmapProperties1(
+      D2D1_BITMAP_OPTIONS_TARGET,
+      src->GetPixelFormat()
+    ),
+    &dst
+  );
   auto tl = D2D1::Point2U(0, 0);
-  auto src_rect = D2D1::RectU(0, 0, sz.width, sz.height);
-  dst->CopyFromBitmap(&tl, src, &src_rect);
+  dst->CopyFromBitmap(&tl, src, &rect);
   return dst;
 }
 
-void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
+static constexpr auto interp = D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR;
+
+void D2DPaintGrid::render(ID2D1DeviceContext* target)
 {
   auto&& [font_width, font_height] = editor_area->font_dimensions();
-  auto sz = bitmap->GetPixelSize();
+  auto sz = bitmap->GetSize();
   d2rect r = rect();
-  auto bg = editor_area->default_bg().rgb();
-  QRectF rect {top_left.x(), top_left.y(), (qreal) sz.width, (qreal) sz.height};
-  CComPtr<ID2D1SolidColorBrush> bg_brush;
-  render_target->CreateSolidColorBrush(D2D1::ColorF(bg), &bg_brush);
-	bg_brush->SetOpacity(1.0f);
+  auto bg = editor_area->default_bg().to_uint32();
+  auto tly = (int) top_left.y();
+  auto tlx = (int) top_left.x();
+  QRectF rect(tlx, tly, (qreal) sz.width, (qreal) sz.height);
+  ComPtr<ID2D1SolidColorBrush> bg_brush = nullptr;
+  target->CreateSolidColorBrush(D2D1::ColorF(bg), &bg_brush);
   // Sometimes in multigrid mode the root grid can 'peek through'
   // by 1 pixel, because of rounding error
   // Increase the width of the fill rectangle by 1 on each side
   // to correct this
   auto fill_rect = D2D1::RectF(r.left - 1, r.top, r.right + 1, r.bottom);
-  render_target->FillRectangle(fill_rect, bg_brush);
+  target->FillRectangle(fill_rect, bg_brush.Get());
   if (!editor_area->animations_enabled() || !is_scrolling)
   {
-    render_target->DrawBitmap(
-      bitmap,
+    target->DrawBitmap(
+      bitmap.Get(),
       &r,
       1.0f,
-      D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+      interp
     );
     return;
   }
-  render_target->PushAxisAlignedClip(r, D2D1_ANTIALIAS_MODE_ALIASED);
+  target->PushAxisAlignedClip(r, D2D1_ANTIALIAS_MODE_ALIASED);
   float cur_scroll_y = current_scroll_y * font_height;
   float cur_snapshot_top = viewport.topline * font_height;
   for(auto it = snapshots.rbegin(); it != snapshots.rend(); ++it)
@@ -533,32 +568,32 @@ void D2DPaintGrid::render(ID2D1RenderTarget* render_target)
     const auto& snapshot = *it;
     float snapshot_top = snapshot.vp.topline * font_height;
     float offset = snapshot_top - cur_scroll_y;
-    auto pixmap_top = top_left.y() + offset;
-    d2pt pt = D2D1::Point2F(top_left.x(), pixmap_top);
+    auto pixmap_top = tly + offset;
+    d2pt pt = D2D1::Point2F(tlx, pixmap_top);
     r = D2D1::RectF(pt.x, pt.y, pt.x + sz.width, pt.y + sz.height);
-    render_target->DrawBitmap(
-      snapshot.image,
+    target->DrawBitmap(
+      snapshot.image.Get(),
       &r,
       1.0f,
-      D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+      interp
     );
   }
   float offset = cur_snapshot_top - cur_scroll_y;
-  d2pt pt = D2D1::Point2F(top_left.x(), top_left.y() + offset);
+  d2pt pt = D2D1::Point2F(tlx, tly + offset);
   r = D2D1::RectF(pt.x, pt.y, pt.x + sz.width, pt.y + sz.height);
-  render_target->DrawBitmap(
-    bitmap,
+  target->DrawBitmap(
+    bitmap.Get(),
     &r,
     1.0f,
-    D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
+    interp
   );
-  render_target->PopAxisAlignedClip();
+  target->PopAxisAlignedClip();
 }
 
 void D2DPaintGrid::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
 {
   const auto& text_formats = editor_area->fallback_list();
-  const HLState* hl = editor_area->hl_state();
+  const HLState* hl = &editor_area->hlstate();
   const auto [font_width, font_height] = editor_area->font_dimensions();
   const auto pos_opt = cursor.pos();
   if (!pos_opt) return;
@@ -569,7 +604,7 @@ void D2DPaintGrid::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
   float scale_factor = 1.0f;
   if (gc.double_width) scale_factor = 2.0f;
   const CursorRect rect = *cursor.rect(font_width, font_height, scale_factor);
-  ID2D1SolidColorBrush* brush = nullptr;
+  ComPtr<ID2D1SolidColorBrush> brush = nullptr;
   const HLAttr& attr = hl->attr_for_id(rect.hl_id);
   auto [fg, bg, sp] = attr.fg_bg_sp(hl->default_colors_get());
   if (attr.hl_id == 0) std::swap(fg, bg);
@@ -578,7 +613,7 @@ void D2DPaintGrid::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
   auto fill_rect = D2D1::RectF(r.left(), r.top(), r.right(), r.bottom());
   // Draw cursor background
   brush->SetOpacity(rect.opacity);
-  draw_bg(*target, bg, fill_rect, *brush);
+  draw_bg(*target, bg, fill_rect, *brush.Get());
   brush->SetOpacity(1.0f);
   if (rect.should_draw_text)
   {
@@ -593,15 +628,27 @@ void D2DPaintGrid::draw_cursor(ID2D1RenderTarget *target, const Cursor &cursor)
     const auto end = D2D1::Point2F(start.x + (scale_factor * font_width), start.y + font_height);
     draw_text(
       *target, gc.text, fg, sp, fo, start, end,
-      font_width, font_height, *brush, text_formats[font_idx], true
+      font_width, font_height, *brush.Get(),
+      text_formats[font_idx].font_for(fo), true
     );
   }
-  SafeRelease(&brush);
 }
 
-D2DPaintGrid::~D2DPaintGrid()
+void D2DPaintGrid::scroll_bitmap(const ScrollEventInfo& info)
 {
-  for(auto& snapshot : snapshots) SafeRelease(&snapshot.image);
-  SafeRelease(&bitmap);
-  SafeRelease(&context);
+  auto [font_width, font_height] = editor_area->font_dimensions();
+  const auto& [rect, dx, dy] = info;
+  auto dest_tl = D2D1::Point2U((rect.x() + dx) * font_width, (rect.y() + dy) * font_height); 
+  auto src_rect = D2D1::RectU(
+    rect.x() * font_width,
+    rect.y() * font_height,
+    rect.right() * font_width,
+    rect.bottom() * font_height
+  );
+  ComPtr<ID2D1Bitmap1> copy = copy_bitmap(bitmap.Get(), src_rect);
+  auto size = copy->GetPixelSize();
+  auto copied_rect = D2D1::RectU(0, 0, size.width, size.height);
+  bitmap->CopyFromBitmap(&dest_tl, copy.Get(), &copied_rect);
 }
+
+D2DPaintGrid::~D2DPaintGrid() = default;

@@ -56,6 +56,15 @@ namespace scalers
     };
     return scaler_map;
   }
+
+  inline std::vector<std::string>
+  scaler_names()
+  {
+    std::vector<std::string> names;
+    names.reserve(scalers::scalers().size());
+    for(const auto& p : scalers::scalers()) names.push_back(p.first);
+    return names;
+  }
 }
 
 #endif // NVUI_SCALERS_HPP

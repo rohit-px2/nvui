@@ -1,43 +1,7 @@
 #include "qpaintgrid.hpp"
-#include "editor.hpp"
 #include "utils.hpp"
 #include <QPainterPath>
-
-void QPaintGrid::update_pixmap_size()
-{
-  auto&& [font_width, font_height] = editor_area->font_dimensions();
-  pixmap = QPixmap(cols * font_width, rows * font_height);
-  send_redraw();
-}
-
-void QPaintGrid::set_size(u16 w, u16 h)
-{
-  GridBase::set_size(w, h);
-  update_pixmap_size();
-  snapshots.clear(); // Outdated
-}
-
-void QPaintGrid::set_pos(u16 new_x, u16 new_y)
-{
-  if (!editor_area->animations_enabled())
-  {
-    GridBase::set_pos(new_x, new_y);
-    update_position(new_x, new_y);
-    return;
-  }
-  old_move_x = cur_left;
-  old_move_y = cur_top;
-  dest_move_x = new_x;
-  dest_move_y = new_y;
-  auto interval = editor_area->move_animation_frametime();
-  move_animation_time = editor_area->move_animation_duration();
-  if (move_update_timer.interval() != interval)
-  {
-    move_update_timer.setInterval(interval);
-  }
-  GridBase::set_pos(new_x, new_y);
-  if (!move_update_timer.isActive()) move_update_timer.start();
-}
+#include "qeditor.hpp"
 
 struct FontDecorationPaintPath
 {
@@ -99,11 +63,65 @@ static FontDecorationPaintPath calculate_path(
   return paint_path;
 }
 
-void set_pen_width(QPainter& painter, double w)
+static void set_pen_width(QPainter& painter, double w)
 {
   auto pen = painter.pen();
   pen.setWidthF(w);
   painter.setPen(pen);
+}
+
+void QPaintGrid::update_pixmap_size()
+{
+  auto&& [font_width, font_height] = editor_area->font_dimensions();
+  pixmap = QPixmap(cols * font_width, rows * font_height);
+  send_redraw();
+}
+
+void QPaintGrid::set_size(u16 w, u16 h)
+{
+  GridBase::set_size(w, h);
+  update_pixmap_size();
+  snapshots.clear(); // Outdated
+}
+
+void QPaintGrid::set_pos(double new_x, double new_y)
+{
+  if (!editor_area->animations_enabled() || is_float())
+  {
+    GridBase::set_pos(new_x, new_y);
+    update_position(new_x, new_y);
+    return;
+  }
+  old_move_x = cur_left;
+  old_move_y = cur_top;
+  dest_move_x = new_x;
+  dest_move_y = new_y;
+  auto interval = editor_area->move_animation_frametime();
+  move_animation_time = editor_area->move_animation_duration();
+  if (move_update_timer.interval() != interval)
+  {
+    move_update_timer.setInterval(interval);
+  }
+  GridBase::set_pos(new_x, new_y);
+  if (!move_update_timer.isActive()) move_update_timer.start();
+}
+
+QFont::Weight qfont_weight(const FontOpts& fo)
+{
+  if (fo & FontOpts::Normal) return QFont::Normal;
+  if (fo & FontOpts::Thin) return QFont::Thin;
+  if (fo & FontOpts::Light) return QFont::Light;
+  if (fo & FontOpts::Medium) return QFont::Medium;
+  if (fo & FontOpts::SemiBold) return QFont::DemiBold;
+  if (fo & FontOpts::Bold) return QFont::Bold;
+  if (fo & FontOpts::ExtraBold) return QFont::ExtraBold;
+  return QFont::Normal;
+}
+
+QFont::Style qfont_style(const FontOpts& fo)
+{
+  if (fo & FontOpts::Italic) return QFont::StyleItalic;
+  return QFont::StyleNormal;
 }
 
 void QPaintGrid::draw_text(
@@ -120,6 +138,10 @@ void QPaintGrid::draw_text(
 {
   using key_type = decltype(text_cache)::key_type;
   key_type key = {text, font_opts};
+  auto w = font::weight_for(font_opts);
+  auto s = font::style_for(font_opts);
+  if (w == FontOpts::Normal) w = editor_area->default_font_weight();
+  if (s == FontOpts::Normal) s = editor_area->default_font_style();
   painter.setFont(font);
   QStaticText* static_text = text_cache.get(key);
   if (!static_text)
@@ -129,8 +151,10 @@ void QPaintGrid::draw_text(
     static_text->setPerformanceHint(QStaticText::AggressiveCaching);
     static_text->prepare(QTransform(), font);
   }
+  auto text_size = static_text->size();
   double y = rect.y();
-  y -= (static_text->size().height() - font_height);
+  y -= (text_size.height() + editor_area->linespacing() - font_height);
+  y += (editor_area->linespacing() / 2.);
   painter.setClipRect(rect);
   painter.setPen(fg.qcolor());
   painter.drawStaticText(QPointF {rect.x(), y}, *static_text);
@@ -187,7 +211,7 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
   int end_y = r.bottom();
   QString buffer;
   buffer.reserve(100);
-  const HLState* s = editor_area->hl_state();
+  const HLState* s = &editor_area->hlstate();
   const HLAttr& def_clrs = s->default_colors_get();
   u32 cur_font_idx = 0;
   const auto draw_buf = [&](const HLAttr& main, QPointF start, QPointF end) {
@@ -262,8 +286,9 @@ void QPaintGrid::process_events()
 {
   QPainter p(&pixmap);
   p.setRenderHint(QPainter::TextAntialiasing);
-  const QColor bg = editor_area->default_bg();
-  const auto offset = editor_area->font_offset();
+  const QColor bg = editor_area->hlstate().default_bg().qcolor();
+  QFontMetrics fm {editor_area->main_font()};
+  const auto offset = fm.ascent() + (editor_area->linespacing() / 2.f);
   while(!evt_q.empty())
   {
     const auto& evt = evt_q.front();
@@ -277,8 +302,27 @@ void QPaintGrid::process_events()
         clear_event_queue();
         return;
       case PaintKind::Draw:
-        draw(p, evt.rect, offset);
+        draw(p, evt.draw_info().rect, offset);
         break;
+      case PaintKind::Scroll:
+      {
+        auto [font_width, font_height] = editor_area->font_dimensions();
+        const auto& [rect, dx, dy] = evt.scroll_info();
+        QRect r(
+          rect.x() * font_width,
+          rect.y() * font_height,
+          rect.width() * font_width,
+          rect.height() * font_height
+        );
+        // This would probably be faster using QPixmap::scroll
+        // but it doesn't want to work
+        p.end();
+        QPixmap px = pixmap.copy(r);
+        QPoint tl((rect.x() + dx) * font_width, (rect.y() + dy) * font_height);
+        p.begin(&pixmap);
+        p.drawPixmap(tl, px, px.rect());
+        break;
+      }
     }
     evt_q.pop();
   }
@@ -294,7 +338,7 @@ void QPaintGrid::render(QPainter& p)
     p.drawPixmap(pos(), pixmap);
     return;
   }
-  p.fillRect(rect, editor_area->default_bg());
+  p.fillRect(rect, editor_area->hlstate().default_bg().qcolor());
   float cur_scroll_y = current_scroll_y * font_height;
   float cur_snapshot_top = viewport.topline * font_height;
   u32 min_topline = viewport.topline;
@@ -374,7 +418,7 @@ void QPaintGrid::update_position(double new_x, double new_y)
 
 void QPaintGrid::initialize_cache()
 {
-  QObject::connect(editor_area, &EditorArea::font_changed, this, [&] {
+  QObject::connect(editor_area, &QEditor::font_changed, this, [&] {
     text_cache.clear();
   });
 }
@@ -432,7 +476,7 @@ void QPaintGrid::initialize_move_animation()
 void QPaintGrid::draw_cursor(QPainter& painter, const Cursor& cursor)
 {
   const auto [font_width, font_height] = editor_area->font_dimensions();
-  const HLState* hl = editor_area->hl_state();
+  const HLState* hl = &editor_area->hlstate();
   auto pos_opt = cursor.pos();
   if (!pos_opt) return;
   auto pos = pos_opt.value();
@@ -468,3 +512,4 @@ void QPaintGrid::draw_cursor(QPainter& painter, const Cursor& cursor)
     );
   }
 }
+

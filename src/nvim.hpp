@@ -220,6 +220,9 @@ public:
   template<typename T>
   void ui_set_option(const std::string& name, T&& val);
   void set_client_info(const ClientInfo& info);
+  // Get api info of running Nvim instance
+  Object get_api_info();
+  static std::vector<std::string> default_args();
 private:
   std::function<void ()> on_exit_handler = [](){};
   std::unordered_map<std::string, msgpack_callback> notification_handlers;
@@ -248,6 +251,8 @@ private:
   void send_notification(const std::string& method, T&& params);
   void read_output_sync();
   void read_error_sync();
+  template<typename T>
+  Object send_blocking_request(const std::string& method, T&& params);
 };
 
 template<typename T>

@@ -1,4 +1,3 @@
-#include "msgpack_overrides.hpp"
 #include "object.hpp"
 #include <iostream>
 #include <span>
@@ -6,6 +5,8 @@
 #include <stack>
 #include <fmt/core.h>
 #include <fmt/format.h>
+
+const Object Object::null = std::monostate {};
 
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;

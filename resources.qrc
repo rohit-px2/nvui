@@ -1,0 +1,40 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+	<file>assets/icons/popup/array.svg</file>
+	<file>assets/icons/popup/boolean.svg</file>
+	<file>assets/icons/popup/class.svg</file>
+	<file>assets/icons/popup/color.svg</file>
+	<file>assets/icons/popup/constant.svg</file>
+	<file>assets/icons/popup/constructor.svg</file>
+	<file>assets/icons/popup/enum-member.svg</file>
+	<file>assets/icons/popup/enum.svg</file>
+	<file>assets/icons/popup/event.svg</file>
+	<file>assets/icons/popup/field.svg</file>
+	<file>assets/icons/popup/file.svg</file>
+	<file>assets/icons/popup/function.svg</file>
+	<file>assets/icons/popup/interface.svg</file>
+	<file>assets/icons/popup/key.svg</file>
+	<file>assets/icons/popup/keyword.svg</file>
+	<file>assets/icons/popup/method.svg</file>
+	<file>assets/icons/popup/misc.svg</file>
+	<file>assets/icons/popup/module.svg</file>
+	<file>assets/icons/popup/namespace.svg</file>
+	<file>assets/icons/popup/numeric.svg</file>
+	<file>assets/icons/popup/operator.svg</file>
+	<file>assets/icons/popup/parameter.svg</file>
+	<file>assets/icons/popup/property.svg</file>
+	<file>assets/icons/popup/reference.svg</file>
+	<file>assets/icons/popup/ruler.svg</file>
+	<file>assets/icons/popup/snippet.svg</file>
+	<file>assets/icons/popup/string.svg</file>
+	<file>assets/icons/popup/struct.svg</file>
+	<file>assets/icons/popup/structure.svg</file>
+	<file>assets/icons/popup/value.svg</file>
+	<file>assets/icons/popup/variable.svg</file>
+	<file>assets/appicon.png</file>
+	<file>assets/max-windows.svg</file>
+	<file>assets/min-windows.svg</file>
+	<file>assets/close-windows.svg</file>
+	<file>assets/max-windows-second.svg</file>
+</qresource>
+</RCC>

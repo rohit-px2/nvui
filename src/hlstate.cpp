@@ -46,47 +46,29 @@ namespace hl
     for(const auto& o : *info_arr)
     {
       AttrState state;
-      if (auto* hi_name = o.try_at("hi_name"); hi_name && hi_name->is_string())
+      if (auto* hi_name = o.try_at("hi_name").string())
       {
-        state.hi_name = hi_name->get<std::string>();
+        state.hi_name = *hi_name;
       }
-      if (auto* ui_name = o.try_at("ui_name"); ui_name && ui_name->is_string())
+      if (auto* ui_name = o.try_at("ui_name").string())
       {
-        state.ui_name = ui_name->get<std::string>();
+        state.ui_name = *ui_name;
       }
-      if (auto* kind = o.try_at("kind"); kind && kind->is_string())
+      if (auto* kind = o.try_at("kind").string())
       {
-        state.hi_name = kind->get<std::string>() == "syntax"
+        state.hi_name = *kind == "syntax"
           ? Kind::Syntax
           : Kind::UI;
       }
-      if (auto* id = o.try_at("id"); id && id->convertible<int>())
+      if (auto hid = o.try_at("id").try_convert<int>())
       {
-        state.id = (int) *id;
+        state.id = hid.value();
       }
       attr.state.push_back(std::move(state));
     }
     return attr;
   }
 } // namespace hl
-
-namespace font
-{
-  template<>
-  void set_opts<true>(QFont& font, const FontOptions opts)
-  {
-    font.setItalic(opts & FontOpts::Italic);
-    font.setBold(opts & FontOpts::Bold);
-    font.setStrikeOut(opts & FontOpts::Strikethrough);
-    font.setUnderline(opts & FontOpts::Underline);
-  }
-  template<>
-  void set_opts<false>(QFont& font, const FontOptions opts)
-  {
-    font.setItalic(opts & FontOpts::Italic);
-    font.setBold(opts & FontOpts::Bold);
-  }
-} // namespace font
 
 const HLAttr& HLState::attr_for_id(int id) const
 {
@@ -115,7 +97,7 @@ void HLState::set_id_attr(int id, HLAttr attr)
   {
     // Shouldn't happen with the way Neovim gives us highlight
     // attributes but just to make sure
-    id_to_attr.resize(id + 1);
+    id_to_attr.resize((std::size_t) id + 1);
   }
   if (id == (int) id_to_attr.size())
   {
@@ -131,9 +113,9 @@ void HLState::default_colors_set(const Object& obj)
   // and ctermbg, which we don't care about)
   auto* arr = obj.array();
   if (!arr || arr->size() < 3) return;
-  auto fg = arr->at(0).try_convert<uint32>();
-  auto bg = arr->at(1).try_convert<uint32>();
-  auto sp = arr->at(2).try_convert<uint32>();
+  auto fg = arr->at(0).try_convert<u32>();
+  auto bg = arr->at(1).try_convert<u32>();
+  auto sp = arr->at(2).try_convert<u32>();
   assert(fg && bg && sp);
   default_colors.foreground = *fg;
   default_colors.background = *bg;
@@ -179,3 +161,43 @@ HLAttr::ColorPair HLState::colors_for(const HLAttr& attr) const
 {
   return attr.fg_bg(default_colors);
 }
+
+namespace font
+{
+  template<>
+  void set_opts<true>(QFont& font, const FontOptions opts)
+  {
+    font.setItalic(opts & FontOpts::Italic);
+    font.setBold(opts & FontOpts::Bold);
+    font.setStrikeOut(opts & FontOpts::Strikethrough);
+    font.setUnderline(opts & FontOpts::Underline);
+  }
+  template<>
+  void set_opts<false>(QFont& font, const FontOptions opts)
+  {
+    font.setItalic(opts & FontOpts::Italic);
+    font.setBold(opts & FontOpts::Bold);
+  }
+  
+#define RETURN_FLAG(opt, flag) \
+  if ((opt) & (flag)) return (flag);
+
+  FontOpts weight_for(const FontOptions& fo)
+  {
+    RETURN_FLAG(fo, FontOpts::Normal);
+    RETURN_FLAG(fo, FontOpts::Thin);
+    RETURN_FLAG(fo, FontOpts::Light);
+    RETURN_FLAG(fo, FontOpts::Bold);
+    RETURN_FLAG(fo, FontOpts::SemiBold);
+    RETURN_FLAG(fo, FontOpts::Medium);
+    RETURN_FLAG(fo, FontOpts::ExtraBold);
+    return FontOpts::Normal;
+  }
+
+  FontOpts style_for(const FontOptions& fo)
+  {
+    RETURN_FLAG(fo, FontOpts::Italic);
+    return FontOpts::Normal;
+  }
+} // namespace font
+

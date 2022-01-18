@@ -8,41 +8,41 @@ namespace constants
 {
   inline const QString& picon_fp()
   {
-    static const QString picon_fp = normalize_path("../assets/icons/popup/");
+    static const QString picon_fp = ":/assets/icons/popup/";
   	return picon_fp;
 	}
 
   inline const QString& appicon()
 	{
-		static const QString appicon = normalize_path("../assets/appicon.png");
-		return appicon;
+		static const QString icon = ":/assets/appicon.png";
+		return icon;
 	}
 
   inline const QString& maxicon()
 	{
-		static const QString maxicon = normalize_path("../assets/max-windows.svg");
+		static const QString maxicon = ":/assets/max-windows.svg";
 		return maxicon;
 	}
 
   inline const QString& maxicon_second()
 	{
-		static const QString maxicon_second = normalize_path("../assets/max-windows-second.svg");
+		static const QString maxicon_second = ":/assets/max-windows-second.svg";
 		return maxicon_second;
 	}
 
   inline const QString& minicon()
   {
-		static const QString minicon = normalize_path("../assets/min-windows.svg");
+		static const QString minicon = ":/assets/min-windows.svg";
 		return minicon;
 	}
 
   inline const QString& closeicon()
 	{
-		static const QString closeicon = normalize_path("../assets/close-windows.svg");
+		static const QString closeicon = ":/assets/close-windows.svg";
 		return closeicon;
 	}
 	
-	/// Directory for all the Vim files (plugin, doc)
+	/// Directory for runtime files (doc)
 	inline const QString& script_dir()
 	{
 		static const QString dir = normalize_path("../vim");

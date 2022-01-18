@@ -5,6 +5,7 @@
 #include <QCompleter>
 #include <QDebug>
 #include <QPaintEvent>
+#include <QStaticText>
 #include <QStringBuilder>
 #include <span>
 #include <msgpack.hpp>
@@ -14,6 +15,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include "constants.hpp"
+#include "font.hpp"
 
 /// Manages the popup menu icons and gives the appropriate
 /// icon for each popup menu item kind (useful for LSP).
@@ -96,6 +98,8 @@ public:
     if (!clr) return &default_bg;
     return &*clr;
   }
+
+  int icon_size() const { return sq_width; }
 private:
   QPixmap load_icon(const QString& iname, int width);
   void load_icons(int width);
@@ -180,33 +184,32 @@ struct PMenuItem
   QString info;
 };
 
-class PopupMenu;
-class PopupMenuInfo : public QWidget
-{
-  Q_OBJECT
-public:
-  PopupMenuInfo(PopupMenu* parent);
-  void draw(QPainter& p, const HLAttr& attr, const QString& info);
-  void set_cols(int c) { if (c > 0) cols = c; }
-private:
-  int cols = 50;
-  PopupMenu* parent_menu = nullptr;
-  HLAttr current_attr;
-  QString current_text;
-protected:
-  void paintEvent(QPaintEvent* event) override;
-};
+class Nvim;
+struct Cmdline;
 
-class PopupMenu : public QWidget
+class PopupMenu
 {
-  friend class PopupMenuInfo;
 public:
-  PopupMenu(const HLState* state, QWidget* parent = nullptr);
+  PopupMenu(const HLState* state);
+  virtual ~PopupMenu() = default;
+  virtual void register_nvim(Nvim& nvim) = 0;
+  virtual QRect get_rect() const = 0;
   /**
    * Handles a Neovim "popupmenu_show" event, showing the popupmenu with the
    * given items.
    */
   void pum_show(std::span<const Object> objs);
+
+  void pum_show(
+    const ObjectArray& items,
+    int selected,
+    int grid_num,
+    int row,
+    int col,
+    FontDimensions dims,
+    int grid_x = -1,
+    int grid_y = -1
+  );
   /**
    * Hides the popupmenu.
    */
@@ -221,25 +224,7 @@ public:
    * Update the highlight attributes used for drawing the popup menu.
    */
   void update_highlight_attributes();
-  void font_changed(const QFont& font, float cell_width, float cell_height, int linespace);
   inline bool hidden() { return is_hidden; }
-  /**
-   * Returns the internal pixmap.
-   * NOTE: You should only draw the rectangle given by
-   * available_rect() since the rest might be uninitialized.
-   */
-  inline const QPixmap& as_pixmap() const noexcept
-  {
-    return pixmap;
-  }
-  inline QRect available_rect() const noexcept
-  {
-    return QRect(
-      0, 0, 
-      attached_width.value_or(max_chars * cell_width + border_width * 2),
-      std::min(completion_items.size(), max_items) * cell_height + border_width * 2
-    );
-  }
   auto position() const noexcept
   {
     return std::make_tuple(grid_num, row, col);
@@ -255,27 +240,108 @@ public:
     border_width = outline_width;
   }
 
-  void set_max_items(std::size_t new_max);
-  void set_max_chars(std::size_t new_max);
   inline void set_border_width(std::size_t new_width)
   {
     border_width = new_width;
     update_dimensions();
   }
-  inline void set_border_color(QColor new_color)
+
+  inline void set_border_color(Color new_color)
   {
-    border_color = std::move(new_color);
+    border_color = new_color;
   }
 
+  void attach_cmdline(Cmdline*);
+
+  inline void attach_cmdline(int width)
+  {
+    attached_width = width;
+    update_dimensions();
+    redraw();
+  }
+
+  inline void cmdline_width_changed(int width)
+  {
+    if (!attached_width) return;
+    else attach_cmdline(width);
+  }
+
+  void detach_cmdline();
+
+  auto selected_idx() { return cur_selected; }
+
+  struct Rectangle
+  {
+    int x;
+    int y;
+    int w;
+    int h;
+  };
+  virtual Rectangle dimensions_for(
+    int x, int y, int screenwidth, int screenheight
+  ) = 0;
+protected:
+  virtual void do_show() = 0;
+  virtual void do_hide() = 0;
+  virtual void update_dimensions() = 0;
+  QRect calc_rect(int width, int height, int max_x, int max_y) const;
+  /**
+   * Add the given popupmenu items to the popup menu.
+   */
+  void add_items(const ObjectArray& items);
+  /**
+   * Redraw the popupmenu.
+   */
+  virtual void redraw() = 0;
+  // Optional attached command line.
+  // When this is not nullptr,
+  // indicates the popup menu should be attached to
+  // the command line.
+  Cmdline* cmdline = nullptr;
+  FontDimensions parent_dims;
+  std::optional<int> attached_width;
+  int pixel_x = -1;
+  int pixel_y = -1;
+  const HLState* hl_state;
+  const HLAttr* pmenu = nullptr;
+  const HLAttr* pmenu_sel = nullptr;
+  const HLAttr* pmenu_sbar = nullptr;
+  const HLAttr* pmenu_thumb = nullptr;
+  Color border_color {0, 0, 0};
+  int cur_selected = -1;
+  float font_ascent = 0.f;
+  std::vector<PMenuItem> completion_items;
+  int grid_num = 0;
+  int row = 0;
+  int col = 0;
+  int grid_x = 0;
+  int grid_y = 0;
+  int linespace = 0;
+  bool is_hidden = true;
+  float border_width = 1.f;
+  int longest_word_size = 0;
+};
+
+class PopupMenuQ : public PopupMenu, public QWidget
+{
+public:
+  PopupMenuQ(const HLState* state, QWidget* parent = nullptr);
+  ~PopupMenuQ() override;
+  QRect get_rect() const override;
+  void font_changed(const QFont& font, FontDimensions dims);
   /**
    * Toggle the icons between being on and off.
    */
+  void register_nvim(Nvim&) override;
   inline void toggle_icons_enabled()
   {
     icons_enabled = !icons_enabled;
-    paint();
+    redraw();
   }
-
+  inline auto icon_list() const
+  {
+    return icon_manager.icon_list();
+  }
   /**
    * Set the size of the icons relative to the cell height.
    * The icons are normally in a square and by default they take
@@ -285,18 +351,11 @@ public:
    * If offset is positive, nothing will happen. This is so that
    * the icons don't clip other things.
    */
-  inline void set_icon_size_offset(int offset)
-  {
-    if (offset > 0) return;
-    else
-    {
-      icon_size_offset = offset;
-      icon_manager.size_changed(cell_height + icon_size_offset);
-    }
-  }
+  void set_icon_size_offset(int offset);
 
   inline void set_icon_space(float space)
   {
+    if (space < 1.0f) return;
     icon_space = space;
   }
 
@@ -324,92 +383,32 @@ public:
   {
     icon_manager.set_default_bg(std::move(bg));
   }
-
-  inline void attach_cmdline(int width)
-  {
-    attached_width = width;
-    update_dimensions();
-    paint();
-  }
-
-  inline void cmdline_width_changed(int width)
-  {
-    if (!attached_width) return;
-    else attach_cmdline(width);
-  }
-
-  inline void detach_cmdline()
-  {
-    attached_width.reset();
-    update_dimensions();
-  }
-
-  inline void set_icons_on_right(bool right_icons)
-  {
-    icons_on_right = right_icons;
-    paint();
-  }
-
-  inline auto icon_list() const
-  {
-    return icon_manager.icon_list();
-  }
-
-  auto& info_display() { return info_widget; }
-
-  auto selected_idx() { return cur_selected; }
+  void draw_with_attr(
+    QPainter& p, const HLAttr& attr,
+    const PMenuItem& item, int y
+  );
+  Rectangle dimensions_for(int x, int y, int w, int h) override;
+protected:
+  void paintEvent(QPaintEvent*) override;
 private:
-  void update_dimensions();
-  /**
-   * Add the given popupmenu items to the popup menu.
-   */
-  void add_items(const ObjectArray& items);
-  /**
-   * Redraw the popupmenu.
-   */
+  std::size_t max_possible_items() const;
+  int item_height() const;
+  int max_items() const;
+  void do_hide() override;
+  void do_show() override;
+  void redraw() override;
+  void update_dimensions() override;
   void paint();
-  /**
-   * Draw the given popup menu item starting at the given y-coordinate
-   * and with the given attribute.
-   */
-  void draw_with_attr(QPainter& p, const HLAttr& attr, const PMenuItem& item, int y);
-  /**
-   * Draw the info as its own box.
-   */
-  void draw_info(QPainter& p, const HLAttr& attr, const QString& info);
-  std::optional<int> attached_width;
-  const HLState* hl_state;
-  const HLAttr* pmenu = nullptr;
-  const HLAttr* pmenu_sel = nullptr;
-  const HLAttr* pmenu_sbar = nullptr;
-  const HLAttr* pmenu_thumb = nullptr;
-  QColor border_color {0, 0, 0};
-  std::size_t max_chars = 50;
-  // Max items to display on screen at once.
-  std::size_t max_items = 15;
-  int cur_selected = -1;
+  int max_chars = 0;
   QPixmap pixmap;
-  float font_ascent = 0.f;
-  std::vector<PMenuItem> completion_items;
-  float cell_width = 0.f;
-  float cell_height = 0.f;
-  int grid_num = 0;
-  int row = 0;
-  int col = 0;
-  int linespace = 0;
-  PopupMenuInfo info_widget;
   PopupMenuIconManager icon_manager;
-  bool has_scrollbar = false;
-  bool is_hidden = true;
   bool icons_enabled = true;
-  bool icons_on_right = false;
-  float icon_space = 1.5f;
+  float icon_space = 1.1f;
   int icon_size_offset = 0;
   QFont pmenu_font;
-  float border_width = 1.f;
-  Q_OBJECT
-protected:
-  void paintEvent(QPaintEvent* event) override;
+  FontDimensions dimensions {1, 1};
+  QHash<QString, QStaticText> text_cache;
+  QFontMetricsF metrics;
 };
 
 #endif // NVUI_POPUPMENU_HPP

@@ -8,6 +8,7 @@
 #include <QString>
 #include <cmath>
 #include <queue>
+#include <variant>
 #include "scalers.hpp"
 
 using grid_char = QString;
@@ -23,18 +24,50 @@ struct GridChar
 
 // Differentiate between redrawing and clearing (since clearing is
 // a lot easier)
-enum PaintKind : std::uint8_t
+enum class PaintKind : std::uint8_t
 {
   Clear,
   Draw,
-  Redraw
+  Redraw,
+  Scroll
+};
+
+struct ScrollEventInfo
+{
+  QRect rect;
+  // dx and dy are how many columns/rows to move right/down.
+  // Positive values indicate right/down,
+  // and negative values indicate left/up.
+  int dx;
+  int dy;
+};
+
+struct DrawEventInfo
+{
+  QRect rect;
+};
+
+struct RedrawEventInfo {};
+
+struct ClearEventInfo
+{
+  QRect rect;
 };
 
 struct PaintEventItem
 {
+  bool is_scroll_event() const { return type == PaintKind::Scroll; }
+  bool is_redraw_event() const { return type == PaintKind::Redraw; }
+  bool is_clear_event() const { return type == PaintKind::Clear; }
+  bool is_draw_event() const { return type == PaintKind::Draw; }
+  const auto& scroll_info() const { return std::get<ScrollEventInfo>(event); }
+  const auto& draw_info() const { return std::get<DrawEventInfo>(event); }
+  const auto& redraw_info() const { return std::get<RedrawEventInfo>(event); }
+  const auto& clear_info() const { return std::get<ClearEventInfo>(event); }
   PaintKind type;
-  std::uint16_t grid_num;
-  QRect rect;
+  std::variant<
+    ScrollEventInfo, DrawEventInfo, RedrawEventInfo, ClearEventInfo
+  > event;
 };
 
 struct Viewport
@@ -67,8 +100,8 @@ public:
   using u32 = std::uint32_t;
   using u64 = std::uint64_t;
   GridBase(
-    u16 x,
-    u16 y,
+    double x,
+    double y,
     u16 w,
     u16 h,
     u16 id
@@ -91,7 +124,7 @@ public:
    * Set the position of the grid in terms of
    * which row and column it starts on.
    */
-  virtual void set_pos(u16 new_x, u16 new_y);
+  virtual void set_pos(double x, double y);
   void set_pos(QPoint p);
   /// Send a redraw message to the grid
   void send_redraw();
@@ -109,16 +142,16 @@ public:
   virtual void viewport_changed(Viewport vp);
   bool is_float() const;
   void set_floating(bool f) noexcept;
-  void win_pos(u16 x, u16 y);
-  void float_pos(u16 x, u16 y);
-  void msg_set_pos(u16 x, u16 y);
+  void win_pos(double x, double y);
+  void float_pos(double x, double y);
+  void msg_set_pos(double x, double y);
   void set_float_ordering_info(int zindex, const QPointF& p) noexcept;
   bool operator<(const GridBase& other) const noexcept;
   void scroll(int top, int bot, int left, int right, int rows);
   void clear();
 public:
-  u16 x;
-  u16 y;
+  double x;
+  double y;
   u16 cols;
   u16 rows;
   u16 id;
@@ -148,6 +181,21 @@ protected:
   // gets drawn over, and it looks bad.
   bool modified = false;
   bool is_msg_grid = false;
+  // scroll_rect describes the original rectangle
+  // rows is how many rows to scroll by in the up-direction
+  // like how Neovim uses it in 'grid_scroll'
+  // cols is how many columns to scroll by, although it's 0 for now
+  struct ScrollArgs
+  {
+    QRect scroll_rect;
+    // Where the scrolled region begins
+    QPoint top_left;
+    int rows;
+    int cols;
+  };
+  static ScrollEventInfo convert_grid_scroll_args(
+    int top, int bot, int left, int right, int rows, int cols = 0
+  );
 };
 
 #endif // NVUI_GRID_HPP

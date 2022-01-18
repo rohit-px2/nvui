@@ -10,7 +10,7 @@
 #include "hlstate.hpp"
 #include "lru.hpp"
 
-class EditorArea;
+class QEditor;
 
 /// A class that implements rendering for a grid using Qt's
 /// QPainter. The QPaintGrid class draws to a QPixmap and
@@ -27,7 +27,7 @@ class QPaintGrid : public GridBase
   };
 public:
   template<typename... GridBaseArgs>
-  QPaintGrid(EditorArea* ea, GridBaseArgs... args)
+  QPaintGrid(QEditor* ea, GridBaseArgs... args)
     : GridBase(args...),
       editor_area(ea),
       pixmap(),
@@ -42,7 +42,7 @@ public:
   }
   ~QPaintGrid() override = default;
   void set_size(u16 w, u16 h) override;
-  void set_pos(u16 new_x, u16 new_y) override;
+  void set_pos(double new_x, double new_y) override;
   void viewport_changed(Viewport vp) override;
   /// Process the draw commands in the event queue
   void process_events();
@@ -96,7 +96,7 @@ private:
 private:
   std::vector<Snapshot> snapshots;
   /// Links up with the default Qt rendering
-  EditorArea* editor_area;
+  QEditor* editor_area;
   QPixmap pixmap;
   QTimer move_update_timer {};
   float move_animation_time = -1.f;
@@ -116,5 +116,8 @@ private:
   using FontOptions = decltype(HLAttr::font_opts);
   LRUCache<QPair<QString, FontOptions>, QStaticText> text_cache;
 };
+
+QFont::Weight qfont_weight(const FontOpts& fo);
+QFont::Style qfont_style(const FontOpts& fo);
 
 #endif // NVUI_QPAINTGRID_HPP

@@ -126,6 +126,7 @@ bool is_executable(std::string_view path)
 
 int main(int argc, char** argv)
 {
+  QCoreApplication::setApplicationName("nvui");
   const auto args = get_args(argc, argv);
 #ifdef Q_OS_LINUX
   // See issue #21
@@ -149,7 +150,7 @@ int main(int argc, char** argv)
     {"ext_cmdline", false},
     {"ext_popupmenu", false},
     {"ext_linegrid", true},
-    {"ext_hlstate", false}
+    {"ext_hlstate", false},
   };
   auto should_detach = get_arg(args, "--detached");
   if (should_detach)
@@ -184,24 +185,16 @@ int main(int argc, char** argv)
   QApplication app {argc, argv};
   try
   {
-    Nvim nvim {nvim_path, nvim_args};
-    Window w(nullptr, &nvim, width, height, custom_titlebar);
+    Window w {nvim_path, nvim_args, capabilities, width, height, custom_titlebar};
     if (window_size) w.resize(window_size->first, window_size->second);
-    w.register_handlers();
     w.show();
-    nvim.set_var("nvui", 1);
-    nvim.attach_ui(width, height, capabilities);
-    nvim.on_exit([&] {
-      QMetaObject::invokeMethod(&w, &QMainWindow::close, Qt::QueuedConnection);
-    });
     return app.exec();
   }
-  catch (const std::exception& e)
+  catch(const std::exception& e)
   {
-    // The main purpose is to catch the exception where Neovim is not
-    // found in PATH
-    QMessageBox msg;
-    msg.setText("Error occurred: " % QLatin1String(e.what()) % ".");
-    msg.exec();
+    QMessageBox::critical(
+      nullptr, "NVUI Error",
+      QString("nvui closed due to the following error: ") % e.what() % '.'
+    );
   }
 }

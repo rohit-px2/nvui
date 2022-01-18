@@ -30,8 +30,8 @@ enum class CursorStatus : std::uint8_t
 struct CursorPos
 {
   std::uint16_t grid_num;
-  int grid_x;
-  int grid_y;
+  double grid_x;
+  double grid_y;
   int row;
   int col;
 };
@@ -70,7 +70,8 @@ struct ModeInfo
   // (mouse_shape)
 };
 
-class EditorArea;
+class Nvim;
+
 /// The Cursor class stores the data for the Neovim cursor
 class Cursor : public QObject
 {
@@ -78,7 +79,9 @@ class Cursor : public QObject
 public:
   static scalers::time_scaler animation_scaler;
   Cursor();
-  Cursor(EditorArea* editor_area);
+  virtual void register_nvim(Nvim&);
+  void set_animations_enabled(bool);
+  bool animations_enabled() const;
   /**
    * Handles a 'mode_info_set' Neovim redraw event.
    */
@@ -166,7 +169,6 @@ public:
   void set_effect_ease_func(std::string_view funcname);
   double opacity() const;
 private:
-  EditorArea* editor_area = nullptr;
   float caret_extend_top = 0.f;
   float caret_extend_bottom = 0.f;
   int cell_width;
@@ -193,19 +195,21 @@ private:
   float old_y = 0.f;
   float destination_x = 0.f;
   float destination_y = 0.f;
-  QTimer cursor_animation_timer {};
-  QElapsedTimer elapsed_timer {};
   // Check the actual amount of time that passed between
   // each animation update
+  Animation move_animation {};
   Animation effect_animation {};
   double opacity_level = 1.0;
   double height_level = 1.0;
   CursorEffect cursor_effect = CursorEffect::NoEffect;
   static scalers::time_scaler effect_ease_func;
+  bool use_anims = true;
 signals:
+  void anim_state_changed();
   void cursor_visible();
   void cursor_hidden();
 private:
+  void init_animations();
   /**
    * Stop/restart the timers.
    * This should be activated after the mode

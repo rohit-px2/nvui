@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
   "name": "nvui",
   "version-string": "0.1.4",
   "dependencies": [
@@ -7,7 +8,12 @@
     "qt5-base",
     "qt5-svg",
     "boost-process",
-    "boost-container",
-    "catch2"
-  ]
+    "boost-container"
+  ],
+  "features": {
+    "tests": {
+      "description": "Build tests",
+      "dependencies": [ "catch2" ]
+    }
+  }
 }

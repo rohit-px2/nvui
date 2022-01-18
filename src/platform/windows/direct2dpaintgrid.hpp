@@ -9,10 +9,11 @@
 #include <dwrite_1.h>
 #include "grid.hpp"
 #include "hlstate.hpp"
-#include "cursor.hpp"
 #include "lru.hpp"
+#include <wrl/client.h>
 
-class WinEditorArea;
+class D2DEditor;
+class Cursor;
 
 /// Windows only class, uses Direct2D and DirectWrite.
 /// This grid paints onto an ID2D1Bitmap object and works
@@ -21,10 +22,12 @@ class WinEditorArea;
 class D2DPaintGrid : public GridBase
 {
   Q_OBJECT
+  template<typename T>
+  using ComPtr = Microsoft::WRL::ComPtr<T>;
   struct Snapshot
   {
     Viewport vp;
-    ID2D1Bitmap1* image;
+    ComPtr<ID2D1Bitmap1> image;
   };
   template<typename Resource>
   struct WinDeleter
@@ -49,19 +52,17 @@ public:
     LRUCache<QPair<QString, FontOptions>, IDWriteTextLayout1*, TextLayoutDeleter>;
 public:
   template<typename... GridBaseArgs>
-  D2DPaintGrid(WinEditorArea* wea, GridBaseArgs... args)
+  D2DPaintGrid(D2DEditor* wea, GridBaseArgs... args)
     : GridBase(args...),
       editor_area(wea),
       layout_cache(2000)
   {
-    initialize_context();
-    initialize_cache();
-    update_bitmap_size();
+    update_render_target();
+    init_connections();
     initialize_scroll_animation();
     initialize_move_animation();
   }
   ~D2DPaintGrid();
-  ID2D1Bitmap1* buffer() { return bitmap; }
   /// Returns the position of the top-left corner of the grid.
   /// (Pixel position).
   d2pt pos() const;
@@ -74,7 +75,7 @@ public:
   /// to the bitmap.
   void process_events();
   void set_size(u16 w, u16 h) override;
-  void set_pos(u16 new_x, u16 new_y) override;
+  void set_pos(double new_x, double new_y) override;
   void viewport_changed(Viewport vp) override;
   /// Update the top_left position of the grid. This is in terms
   /// of text so to get the pixel position you would need to multiply
@@ -82,14 +83,14 @@ public:
   /// allow for better pixel precision.
   void update_position(double x, double y);
   /// Render this grid to a render target
-  void render(ID2D1RenderTarget* render_target);
+  void render(ID2D1DeviceContext* render_target);
   /// Draw the given cursor to the render target at the appropriate position
   void draw_cursor(ID2D1RenderTarget* target, const Cursor& cursor);
 private:
   std::vector<Snapshot> snapshots;
-  WinEditorArea* editor_area = nullptr;
-  ID2D1Bitmap1* bitmap = nullptr;
-  ID2D1DeviceContext* context = nullptr;
+  D2DEditor* editor_area = nullptr;
+  ComPtr<ID2D1DeviceContext> render_target = nullptr;
+  ComPtr<ID2D1Bitmap1> bitmap = nullptr;
   QTimer move_update_timer {};
   float move_animation_time = -1.f; // Number of seconds till animation ends
   QPointF top_left = {0, 0};
@@ -111,11 +112,11 @@ private:
   cache_type layout_cache;
   /// Update the size of the bitmap to match the
   /// grid size
-  void update_bitmap_size();
+  void update_render_target();
   /// Initialize the device contexts and bitmap.
   void initialize_context();
-  /// Initialize the cache
-  void initialize_cache();
+  /// Create connections
+  void init_connections();
   /// Initialize the move animation
   void initialize_move_animation();
   /// Initialize the scroll animation
@@ -172,9 +173,14 @@ private:
     D2D1_RECT_F rect,
     ID2D1SolidColorBrush& brush
   );
+  void scroll_bitmap(const ScrollEventInfo& info);
   /// Returns a copy of src.
   /// NOTE: Must be released.
-  ID2D1Bitmap1* copy_bitmap(ID2D1Bitmap1* src);
+  ComPtr<ID2D1Bitmap1> copy_bitmap(ID2D1Bitmap1* src);
+  ComPtr<ID2D1Bitmap1> copy_bitmap(ID2D1Bitmap1* src, D2D1_RECT_U rect);
 };
+
+DWRITE_FONT_STYLE dwrite_style(const FontOpts& fo);
+DWRITE_FONT_WEIGHT dwrite_weight(const FontOpts& fo);
 
 #endif // NVUI_PLATFORM_WINDOWS_DIRECT2DPAINTGRID_HPP

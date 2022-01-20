@@ -18,7 +18,7 @@ QtEditorUIBase::QtEditorUIBase(
 : EditorBase(std::move(nvim_path), std::move(nvim_args), &inheritor_instance),
   inheritor(inheritor_instance),
   ui_attach_info {cols, rows, std::move(capabilities)},
-  cwd()
+  mouse(QApplication::doubleClickInterval()), cwd()
 {
   idle_timer.setSingleShot(true);
   idle_timer.setInterval(100000);
@@ -194,12 +194,13 @@ void QtEditorUIBase::send_mouse_input(
   }
   auto&& [grid_num, row, col] = *grid_pos_opt;
   if (!ext.multigrid) grid_num = 0;
-  if (action == "press")
+  if (action == "drag" && mouse.gridid == grid_num && mouse.row == row && mouse.col == col)
   {
-    mouse.gridid = grid_num;
-    mouse.row = row;
-    mouse.col = col;
+    return;
   }
+  mouse.gridid = grid_num;
+  mouse.row = row;
+  mouse.col = col;
   nvim->input_mouse(
     std::move(btn), std::move(action), std::move(mods),
     grid_num, row, col
@@ -249,24 +250,8 @@ void QtEditorUIBase::handle_mouse_move(QMouseEvent* event)
   std::string action = "drag";
   const auto [f_width, f_height] = font_dimensions();
   QPoint text_pos(event->x() / f_width, event->y() / f_height);
-  int grid_num = 0;
-  if (mouse.gridid)
-  {
-    auto* grid = find_grid(mouse.gridid);
-    if (grid)
-    {
-      text_pos.rx() -= grid->x;
-      text_pos.ry() -= grid->y;
-      text_pos = clamped(text_pos, {0, 0, grid->cols, grid->rows});
-    }
-    grid_num = mouse.gridid;
-  }
-  // Check if mouse actually moved
-  if (mouse.col == text_pos.x() && mouse.row == text_pos.y()) return;
-  mouse.col = text_pos.x();
-  mouse.row = text_pos.y();
-  nvim->input_mouse(
-    button, action, mods, grid_num, mouse.row, mouse.col
+  send_mouse_input(
+    event->pos(), std::move(button), std::move(action), std::move(mods)
   );
 }
 
@@ -328,6 +313,7 @@ void QtEditorUIBase::handle_focusgained(QFocusEvent*)
 void QtEditorUIBase::set_animations_enabled(bool enabled)
 {
   animate = enabled;
+  n_cursor.set_animations_enabled(enabled);
 }
 
 float QtEditorUIBase::charspacing() const

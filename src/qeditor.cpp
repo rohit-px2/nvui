@@ -195,7 +195,7 @@ void QEditor::update_font_metrics()
   QFontMetricsF metrics {first_font};
   float combined_height = std::max(metrics.height(), metrics.lineSpacing());
   double font_height = combined_height + linespacing();
-  constexpr QChar any_char = 'a';
+  constexpr QChar any_char = 'W';
   double font_width = metrics.horizontalAdvance(any_char) + charspace;
   for(auto& f : fonts)
   {

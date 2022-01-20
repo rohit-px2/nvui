@@ -28,47 +28,6 @@ font_from_name(const std::wstring& name, IDWriteFontCollection* collection)
   return font;
 }
 
-D2DEditor::TextFormat::TextFormat(
-  IDWriteFactory* factory,
-  const std::wstring& name,
-  float pointsize,
-  float dpi,
-  FontOpts default_weight,
-  FontOpts default_style
-)
-{
-  auto w = dwrite_weight(default_weight);
-  auto s = dwrite_style(default_style);
-  // Create reg with default weight
-  const auto create = [&](auto pptf, auto weight, auto style) {
-    factory->CreateTextFormat(
-      name.c_str(),
-      nullptr,
-      weight,
-      style,
-      DWRITE_FONT_STRETCH_NORMAL,
-      pointsize * (dpi / 72.0f),
-      L"en-us",
-      pptf
-    );
-  };
-  create(reg.GetAddressOf(), w, s);
-  create(bold.GetAddressOf(), DWRITE_FONT_WEIGHT_BOLD, s);
-  create(italic.GetAddressOf(), w, DWRITE_FONT_STYLE_ITALIC);
-  create(bolditalic.GetAddressOf(), DWRITE_FONT_WEIGHT_BOLD, DWRITE_FONT_STYLE_ITALIC);
-}
-
-IDWriteTextFormat* D2DEditor::TextFormat::font_for(const FontOptions& fo) const
-{
-  if (fo & FontOpts::Italic && fo & FontOpts::Bold)
-  {
-    return bolditalic.Get();
-  }
-  else if (fo & FontOpts::Bold) return bold.Get();
-  else if (fo & FontOpts::Italic) return italic.Get();
-  else return reg.Get();
-}
-
 D2DEditor::D2DEditor(
   int cols,
   int rows,
@@ -359,27 +318,6 @@ void D2DEditor::charspace_changed(float)
 {
   update_font_metrics();
   emit layouts_invalidated();
-}
-
-static DWRITE_HIT_TEST_METRICS metrics_for(
-  std::wstring_view text,
-  DWriteFactory* factory,
-  IDWriteTextFormat* text_format
-)
-{
-  ComPtr<IDWriteTextLayout> tl = nullptr;
-  factory->CreateTextLayout(
-    text.data(),
-    (UINT32) text.size(),
-    text_format,
-    std::numeric_limits<float>::max(),
-    std::numeric_limits<float>::max(),
-    &tl
-  );
-  DWRITE_HIT_TEST_METRICS ht_metrics;
-  float ignore;
-  tl->HitTestTextPosition(0, 0, &ignore, &ignore, &ht_metrics);
-  return ht_metrics;
 }
 
 void D2DEditor::update_font_metrics()

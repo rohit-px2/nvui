@@ -284,6 +284,7 @@ void QPaintGrid::draw(QPainter& p, QRect r, const double offset)
 
 void QPaintGrid::process_events()
 {
+  if (evt_q.empty()) return;
   QPainter p(&pixmap);
   p.setRenderHint(QPainter::TextAntialiasing);
   const QColor bg = editor_area->hlstate().default_bg().qcolor();

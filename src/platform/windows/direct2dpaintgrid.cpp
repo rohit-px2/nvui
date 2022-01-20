@@ -2,6 +2,7 @@
 #include "direct2dpaintgrid.hpp"
 #include "cursor.hpp"
 #include "utils.hpp"
+#include "textformat.hpp"
 #include <d2d1.h>
 
 using Microsoft::WRL::ComPtr;
@@ -190,24 +191,6 @@ void D2DPaintGrid::process_events()
     if (!evt_q.empty()) evt_q.pop();
   }
   context->EndDraw();
-}
-
-DWRITE_FONT_STYLE dwrite_style(const FontOpts& fo)
-{
-  if (fo & FontOpts::Italic) return DWRITE_FONT_STYLE_ITALIC;
-  return DWRITE_FONT_STYLE_NORMAL;
-}
-
-DWRITE_FONT_WEIGHT dwrite_weight(const FontOpts& fo)
-{
-  if (fo & FontOpts::Normal) return DWRITE_FONT_WEIGHT_NORMAL;
-  if (fo & FontOpts::Thin) return DWRITE_FONT_WEIGHT_THIN;
-  if (fo & FontOpts::Light) return DWRITE_FONT_WEIGHT_LIGHT;
-  if (fo & FontOpts::Medium) return DWRITE_FONT_WEIGHT_MEDIUM;
-  if (fo & FontOpts::SemiBold) return DWRITE_FONT_WEIGHT_SEMI_BOLD;
-  if (fo & FontOpts::Bold) return DWRITE_FONT_WEIGHT_BOLD;
-  if (fo & FontOpts::ExtraBold) return DWRITE_FONT_WEIGHT_EXTRA_BOLD;
-  return DWRITE_FONT_WEIGHT_NORMAL;
 }
 
 void D2DPaintGrid::draw_text(

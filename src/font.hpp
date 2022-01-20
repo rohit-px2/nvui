@@ -5,6 +5,11 @@
 #include <QRawFont>
 #include "hlstate.hpp"
 
+// Font class created with the expectation that it will be modified
+// very rarely, but read very frequently
+// Caches bold, italic, and bolditalic versions of fonts
+// to reduce the amount of QFont cloning
+// and updates metrics such as whether the font is monospace
 class Font
 {
 public:
@@ -45,9 +50,11 @@ public:
     else if (opts & FontOpts::Italic) return italic;
     else return font_;
   }
+  bool is_monospace() const { return is_mono; }
 private:
   void update()
   {
+    QFontMetricsF metrics {font_};
     bolditalic = font_;
     bold = font_;
     italic = font_;
@@ -55,12 +62,14 @@ private:
     bolditalic.setItalic(true);
     bold.setBold(true);
     italic.setItalic(true);
+    is_mono = metrics.horizontalAdvance('W') == metrics.horizontalAdvance('a');
   }
   QFont font_;
   QFont bolditalic;
   QFont bold;
   QFont italic;
   QRawFont raw_;
+  bool is_mono;
 };
 
 /// Font dimensions of a monospace font,

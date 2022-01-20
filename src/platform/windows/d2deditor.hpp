@@ -2,6 +2,7 @@
 #define NVUI_D2DEDITOR_HPP
 
 #include "qt_editorui_base.hpp"
+#include "textformat.hpp"
 
 #ifndef Q_OS_WIN
 #error "D2DEditor requires Windows."
@@ -22,22 +23,6 @@ class D2DEditor : public QWidget, public QtEditorUIBase
   // Same structure as 'Font' in font.hpp in terms of storing fonts
   // but for IDWriteTextFormat
 public:
-  struct TextFormat
-  {
-    TextFormat(
-      IDWriteFactory* factory,
-      const std::wstring& name,
-      float pointsize,
-      float dpi,
-      FontOpts default_weight,
-      FontOpts default_style
-    );
-    IDWriteTextFormat* font_for(const FontOptions& fo) const;
-    ComPtr<IDWriteTextFormat> reg = nullptr;
-    ComPtr<IDWriteTextFormat> bold = nullptr;
-    ComPtr<IDWriteTextFormat> bolditalic = nullptr;
-    ComPtr<IDWriteTextFormat> italic = nullptr;
-  };
   D2DEditor(
     int cols,
     int rows,

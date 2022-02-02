@@ -121,6 +121,12 @@ endif()
 target_link_libraries(nvui PRIVATE
   ${Boost_LIBRARIES}
 )
+if(APPLE)
+  set_target_properties(nvui PROPERTIES
+    MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/assets/resources/macos/Info.plist
+  )
+endif()
 include(CheckIPOSupported)
 check_ipo_supported(RESULT LTOAvailable)
 if(LTOAvailable)

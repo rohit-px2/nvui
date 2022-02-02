@@ -127,6 +127,7 @@ bool is_executable(std::string_view path)
 int main(int argc, char** argv)
 {
   QCoreApplication::setApplicationName("nvui");
+  QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
   const auto args = get_args(argc, argv);
 #ifdef Q_OS_LINUX
   // See issue #21

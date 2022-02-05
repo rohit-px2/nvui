@@ -2,6 +2,7 @@
 #define NVUI_SETTINGS_HPP
 
 #include <QSettings>
+#include <memory>
 
 // External settings that aren't really runtime-configurable.
 // This means things like default UI settings (multigrid being the biggest

@@ -173,7 +173,7 @@ jobs:
           cd build
           mkdir packaged
           mkdir packaged/bin
-          cp nvui.app packaged/bin
+          cp -r nvui.app packaged/bin
           cp -r ../vim packaged
 
       - name: Ubuntu - Upload artifact

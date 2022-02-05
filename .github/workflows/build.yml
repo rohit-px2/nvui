@@ -160,12 +160,21 @@ jobs:
         if: matrix.test
         run: ./build/nvui_test
 
-      - name: Package (Ubuntu & Mac)
-        if: matrix.upload
+      - name: Package (Ubuntu)
+        if: matrix.upload && startsWith(matrix.os, 'ubuntu')
         run: |
           ls build
           chmod +x ./scripts/linux/package.sh
           ./scripts/linux/package.sh
+
+      - name: Package (macOS)
+        if: matrix.upload && startsWith(matrix.os, 'macos')
+        run: |
+          cd build
+          mkdir packaged
+          mkdir packaged/bin
+          cp nvui.app packaged/bin
+          cp -r ../vim packaged
 
       - name: Ubuntu - Upload artifact
         uses: actions/upload-artifact@v2

@@ -128,6 +128,7 @@ int main(int argc, char** argv)
 {
   QCoreApplication::setApplicationName("nvui");
   QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+  QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
   const auto args = get_args(argc, argv);
 #ifdef Q_OS_LINUX
   // See issue #21

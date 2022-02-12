@@ -39,7 +39,8 @@ D2DEditor::D2DEditor(
 )
 : QWidget(parent),
   QtEditorUIBase(*this, cols, rows, std::move(capabilities),
-    std::move(nvim_path), std::move(nvim_args))
+    std::move(nvim_path), std::move(nvim_args)),
+  dpr(devicePixelRatioF())
 {
   setAttribute(Qt::WA_PaintOnScreen);
   setAttribute(Qt::WA_InputMethodEnabled);
@@ -80,6 +81,11 @@ D2DEditor::~D2DEditor() = default;
 void D2DEditor::resizeEvent(QResizeEvent* event)
 {
   Base::handle_nvim_resize(event);
+  if (dpr != devicePixelRatioF())
+  {
+    dpr = devicePixelRatioF();
+    update_font_metrics();
+  }
   hwnd_target->Resize(D2D1::SizeU(width(), height()));
   QWidget::resizeEvent(event);
 }
@@ -132,13 +138,14 @@ void D2DEditor::mouseMoveEvent(QMouseEvent* event)
 D2DEditor::OffscreenRenderingPair
 D2DEditor::create_render_target(u32 width, u32 height)
 {
-  auto size = D2D1::SizeU(width, height);
+  auto size = D2D1::SizeU(width * devicePixelRatioF(), height * devicePixelRatioF());
   ComPtr<ID2D1DeviceContext> target;
   ComPtr<ID2D1Bitmap1> bitmap;
   device->CreateDeviceContext(
     D2D1_DEVICE_CONTEXT_OPTIONS_ENABLE_MULTITHREADED_OPTIMIZATIONS,
     &target
   );
+  target->SetDpi(default_dpi, default_dpi);
   target->CreateBitmap(
     size, nullptr, 0,
     D2D1::BitmapProperties1(
@@ -153,7 +160,6 @@ D2DEditor::create_render_target(u32 width, u32 height)
   target->SetTarget(bitmap.Get());
   target->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
   target->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
-  target->SetDpi(default_dpi, default_dpi);
   return {target, bitmap};
 }
 

@@ -358,8 +358,12 @@ void PopupMenuQ::paintEvent(QPaintEvent*)
   QPainter p(this);
   int pad = border_width;
   QRect r(pad, pad, width() - 2 * pad, height() - 2 * pad);
+  auto dpr = devicePixelRatioF();
+  QRect pixmap_rect = QRect(
+    r.x() * dpr, r.y() * dpr, r.width() * dpr, r.height() * dpr
+  );
   p.fillRect(rect(), border_color.qcolor());
-  p.drawPixmap(r, pixmap, r);
+  p.drawPixmap(r, pixmap, pixmap_rect);
 }
 
 void PopupMenuQ::update_dimensions()
@@ -403,7 +407,8 @@ void PopupMenuQ::update_dimensions()
   auto new_pixmap_size = pixmap.size().expandedTo({width, height});
   if (new_pixmap_size != pixmap.size())
   {
-    pixmap = QPixmap(width, height);
+    pixmap = QPixmap(width * devicePixelRatioF(), height * devicePixelRatioF());
+    pixmap.setDevicePixelRatio(devicePixelRatioF());
   }
   resize(width, height);
   if (pmenu) pixmap.fill(hl_state->colors_for(*pmenu).bg.qcolor());

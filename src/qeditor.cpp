@@ -19,7 +19,7 @@ static void set_relative_font_size(
   const double tolerance,
   const std::size_t max_iterations
 )
-{ 
+{
   constexpr auto width = [](const QFontMetricsF& m) {
     return m.horizontalAdvance('a');
   };
@@ -53,7 +53,8 @@ QEditor::QEditor(
 )
 : QWidget(parent),
   QtEditorUIBase(*this, cols, rows, std::move(capabilities),
-  std::move(nvim_path), std::move(nvim_args))
+  std::move(nvim_path), std::move(nvim_args)),
+  device_pixelratio(devicePixelRatioF())
 {
   first_font.setFamily(default_font_family());
   first_font.setPointSizeF(11.25);
@@ -87,6 +88,11 @@ std::unique_ptr<Cmdline> QEditor::cmdline_new()
 void QEditor::resizeEvent(QResizeEvent* ev)
 {
   Base::handle_nvim_resize(ev);
+  if (device_pixelratio != devicePixelRatioF())
+  {
+    device_pixelratio = devicePixelRatioF();
+    update_font_metrics();
+  }
   update();
 }
 
@@ -192,7 +198,7 @@ void QEditor::set_fonts(std::span<FontDesc> fontdescs)
 void QEditor::update_font_metrics()
 {
   first_font.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
-  QFontMetricsF metrics {first_font};
+  QFontMetricsF metrics {first_font, this};
   float combined_height = std::max(metrics.height(), metrics.lineSpacing());
   double font_height = combined_height + linespacing();
   constexpr QChar any_char = 'W';
@@ -231,8 +237,11 @@ void QEditor::paintEvent(QPaintEvent*)
     auto* grid = static_cast<QPaintGrid*>(grid_base.get());
     if (!grid->hidden)
     {
-      QSize size = grid->buffer().size();
-      auto r = QRectF(grid->pos(), size).intersected(grid_clip_rect);
+      auto bf_dpr = grid->buffer().devicePixelRatioF();
+      QSize sz = grid->buffer().size();
+      sz.rwidth() /= bf_dpr;
+      sz.rheight() /= bf_dpr;
+      auto r = QRectF(grid->pos(), sz).intersected(grid_clip_rect);
       p.setClipRect(r);
       grid->process_events();
       grid->render(p);

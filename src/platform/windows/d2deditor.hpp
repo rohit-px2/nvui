@@ -85,6 +85,7 @@ private:
   ComPtr<ID2D1Device> device = nullptr;
   float current_point_size = 12.0f;
   bool vsync = true;
+  double dpr;
 };
 
 #endif // NVUI_D2DEDITOR_HPP

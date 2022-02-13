@@ -48,6 +48,7 @@ public:
     std::unordered_map<std::string, bool> capabilities,
     int width,
     int height,
+    bool size_set,
     bool custom_titlebar,
     QWidget* parent = nullptr
   );
@@ -72,6 +73,11 @@ public slots:
    */
   void connect_editor_signals(EditorType&);
 private:
+  /// Save current window state and settings.
+  void save_state();
+  /// Load saved config state, if it exists.
+  /// Returns true if any values were set.
+  bool load_config();
   /**
    * Disable the frameless window.
    * The window should be in frameless mode,

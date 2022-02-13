@@ -86,6 +86,8 @@ file(GLOB SOURCES
   src/qeditor.hpp
   src/qeditor.cpp
   resources.qrc
+  src/config.hpp
+  src/config.cpp
 )
 if (WIN32)
   message("Windows detected.")
@@ -96,11 +98,10 @@ if (WIN32)
   list(APPEND SOURCES ${WINONLYSOURCES})
 endif()
 find_package(Boost COMPONENTS filesystem thread REQUIRED)
-list(APPEND SOURCES "src/main.cpp")
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
-  add_executable(nvui WIN32 "assets/icons/desktop/neovim_icon.rc" ${SOURCES})
+  add_executable(nvui WIN32 "assets/icons/desktop/neovim_icon.rc" "src/main.cpp" ${SOURCES})
 else()
-  add_executable(nvui ${SOURCES})
+  add_executable(nvui "src/main.cpp" ${SOURCES})
 endif()
 target_link_libraries(nvui PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_link_libraries(nvui PRIVATE fmt::fmt)
@@ -130,46 +131,7 @@ endif()
 if(BUILD_TESTS)
   find_package(Catch2 CONFIG REQUIRED)
   file(GLOB TEST_SOURCES
-    src/titlebar.hpp
-    src/titlebar.cpp
-    src/utils.hpp
-    src/nvim.hpp
-    src/nvim.cpp
-    src/window.hpp
-    src/window.cpp
-    src/hlstate.hpp
-    src/hlstate.cpp
-    src/cursor.hpp
-    src/cursor.cpp
-    test/*.cpp
-    src/popupmenu.hpp
-    src/popupmenu.cpp
-    src/cmdline.hpp
-    src/cmdline.cpp
-    src/font.hpp
-    src/grid.cpp
-    src/grid.hpp
-    src/object.hpp
-    src/object.cpp
-    src/decide_renderer.hpp
-    src/input.cpp
-    src/input.hpp
-    src/scalers.hpp
-    src/lru.hpp
-    src/qpaintgrid.hpp
-    src/qpaintgrid.cpp
-    src/animation.hpp
-    src/animation.cpp
-    src/mouse.hpp
-    src/types.hpp
-    src/fontdesc.hpp
-    src/editor_base.cpp
-    src/editor_base.hpp
-    src/qt_editorui_base.cpp
-    src/qt_editorui_base.hpp
-    src/nvim_utils.hpp
-    src/qeditor.hpp
-    src/qeditor.cpp
+    test/test_*.cpp
   )
   if (WIN32)
     file(GLOB WINONLYTESTSOURCES
@@ -178,7 +140,7 @@ if(BUILD_TESTS)
     )
     list(APPEND TEST_SOURCES ${WINONLYTESTSOURCES})
   endif()
-  add_executable(nvui_test "test/test_main.cpp" ${TEST_SOURCES})
+  add_executable(nvui_test ${SOURCES} ${TEST_SOURCES})
   target_link_libraries(nvui_test PRIVATE Catch2::Catch2)
   target_link_libraries(nvui_test PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
   target_link_libraries(nvui_test PRIVATE fmt::fmt)

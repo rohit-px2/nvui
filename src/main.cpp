@@ -19,6 +19,7 @@
 #include <fmt/format.h>
 #include <boost/process/env.hpp>
 #include <QProcess>
+#include "config.hpp"
 
 using std::string;
 using std::vector;
@@ -127,6 +128,8 @@ bool is_executable(std::string_view path)
 int main(int argc, char** argv)
 {
   QCoreApplication::setApplicationName("nvui");
+  QApplication app {argc, argv};
+  Config::init();
   const auto args = get_args(argc, argv);
 #ifdef Q_OS_LINUX
   // See issue #21
@@ -146,9 +149,9 @@ int main(int argc, char** argv)
   string nvim_path = "";
   std::unordered_map<std::string, bool> capabilities = {
     {"ext_tabline", false},
-    {"ext_multigrid", false},
-    {"ext_cmdline", false},
-    {"ext_popupmenu", false},
+    {"ext_multigrid", Config::get("multigrid", false).toBool()},
+    {"ext_cmdline", Config::get("cmdline", false).toBool()},
+    {"ext_popupmenu", Config::get("popupmenu", false).toBool()},
     {"ext_linegrid", true},
     {"ext_hlstate", false},
   };
@@ -165,12 +168,17 @@ int main(int argc, char** argv)
     nvim_path = std::string(*path_to_nvim);
   }
   auto geometry = get_arg(args, "--geometry=");
+  bool geometry_set = false;
   if (geometry)
   {
     auto parsed = parse_geometry(*geometry);
-    if (parsed) std::tie(width, height) = *parsed;
+    if (parsed)
+    {
+      geometry_set = true;
+      std::tie(width, height) = *parsed;
+    }
   }
-  for(auto& [key, val]: capabilities)
+  for(auto& [key, val] : capabilities)
   {
     bool preset = val;
     val = extract_arg_bool(args, fmt::format("--{}", key), true, preset);
@@ -182,12 +190,14 @@ int main(int argc, char** argv)
     window_size = parse_geometry(winsize.value());
   }
   std::ios_base::sync_with_stdio(false);
-  QApplication app {argc, argv};
   try
   {
-    Window w {nvim_path, nvim_args, capabilities, width, height, custom_titlebar};
+    Window w {nvim_path, nvim_args, capabilities, width, height, geometry_set, custom_titlebar};
     if (window_size) w.resize(window_size->first, window_size->second);
     w.show();
+    Config::set("multigrid", capabilities["ext_multigrid"]);
+    Config::set("popupmenu", capabilities["ext_popupmenu"]);
+    Config::set("cmdline", capabilities["ext_cmdline"]);
     return app.exec();
   }
   catch(const std::exception& e)

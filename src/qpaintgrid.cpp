@@ -77,6 +77,7 @@ void QPaintGrid::update_pixmap_size()
     cols * font_width * editor_area->devicePixelRatioF(),
     rows * font_height * editor_area->devicePixelRatioF()
   );
+  pixmap.fill(editor_area->default_bg().qcolor());
   pixmap.setDevicePixelRatio(editor_area->devicePixelRatioF());
   send_redraw();
 }
@@ -196,7 +197,7 @@ void QPaintGrid::draw_text_and_bg(
   QRectF rect = {start, end};
   painter.setClipRect(rect);
   painter.fillRect(rect, bg.qcolor());
-  rect.setWidth(rect.width() * 3.);
+  rect.setWidth(rect.width() + 1.0);
   draw_text(
     painter, text, fg, sp, rect, attr.font_opts, font, font_width, font_height
   );

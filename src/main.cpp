@@ -136,7 +136,7 @@ int main(int argc, char** argv)
   QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
 #ifdef Q_OS_MAC
-  macos_utils::set_env_vars()
+  macos_utils::set_env_vars();
 #endif
   const auto args = get_args(argc, argv);
 #ifdef Q_OS_LINUX

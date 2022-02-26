@@ -324,7 +324,7 @@ void D2DEditor::update_font_metrics()
 {
   if (dw_formats.empty()) return;
   auto format = dw_formats.front().reg.Get();
-  auto metrics = metrics_for(L"W", dw_factory.Get(), format);
+  auto metrics = metrics_for(L"M", dw_factory.Get(), format);
   float font_width = metrics.width + charspacing();
   float font_height = std::ceil(metrics.height + linespacing());
   set_font_dimensions(font_width, font_height);

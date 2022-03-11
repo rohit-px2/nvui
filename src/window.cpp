@@ -24,6 +24,7 @@
 #include <QApplication>
 #include <unordered_map>
 #include "nvim_utils.hpp"
+#include "config.hpp"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -61,6 +62,7 @@ Window::Window(
   std::unordered_map<std::string, bool> capabilities,
   int width,
   int height,
+  bool size_set,
   bool custom_titlebar,
   QWidget* parent
 )
@@ -69,6 +71,7 @@ Window::Window(
   title_bar(std::make_unique<TitleBar>("nvui", this)),
   editor_stack(new QStackedWidget())
 {
+  bool loaded = load_config();
   auto* editor_area = new EditorType(
     width, height, std::move(capabilities), std::move(nvp), std::move(nva)
   );
@@ -77,8 +80,15 @@ Window::Window(
   editor_area->setup();
   setMouseTracking(true);
   prev_state = windowState();
-  const auto [font_width, font_height] = editor_area->font_dimensions();
-  resize(width * font_width, height * font_height);
+  /// When geometry option isn't set, we use the config geometry
+  /// Also, command-line options override config settings
+  /// so we do this when the cli option is set.
+  if (!loaded || size_set)
+  {
+    showNormal();
+    const auto [font_width, font_height] = editor_area->font_dimensions();
+    resize(width * font_width, height * font_height);
+  }
   if (custom_titlebar) enable_frameless_window();
   else title_bar->hide();
   QObject::connect(title_bar.get(), &TitleBar::resize_move, this, &Window::resize_or_move);
@@ -550,7 +560,11 @@ void Window::closeEvent(QCloseEvent* event)
   // This first case should never happen since
   // the window should automatically close once all the editors
   // are closed
-  if (editor_stack->count() <= 0) close();
+  if (editor_stack->count() <= 0)
+  {
+    save_state();
+    close();
+  }
   else
   {
     event->ignore();
@@ -559,4 +573,38 @@ void Window::closeEvent(QCloseEvent* event)
       static_cast<EditorType*>(editor_stack->widget(i))->confirm_qa();
     }
   }
+}
+
+void Window::save_state()
+{
+  Config::set("window/geometry", geometry());
+  Config::set("window/frameless", is_frameless());
+  Config::set("window/fullscreen", isFullScreen());
+  Config::set("window/maximized", isMaximized());
+}
+
+bool Window::load_config()
+{
+  bool set = false;
+  if (auto geom = Config::get("window/geometry"); geom.canConvert<QRect>())
+  {
+    setGeometry(geom.value<QRect>());
+    set = true;
+  }
+  if (auto fs = Config::get("window/fullscreen"); fs.canConvert<bool>())
+  {
+    set_fullscreen(fs.toBool());
+    set = true;
+  }
+  if (auto maxim = Config::get("window/maximized"); maxim.canConvert<bool>())
+  {
+    showMaximized();
+    set = true;
+  }
+  if (auto frameless = Config::get("window/frameless"); frameless.canConvert<bool>())
+  {
+    frameless.toBool() ? enable_frameless_window() : disable_frameless_window();
+    set = true;
+  }
+  return set;
 }

@@ -276,3 +276,8 @@ void QEditor::focusOutEvent(QFocusEvent* event)
   Base::handle_focuslost(event);
   QWidget::focusOutEvent(event);
 }
+
+QVariant QEditor::inputMethodQuery(Qt::InputMethodQuery q) const
+{
+  return Base::handle_ime_query(q);
+}

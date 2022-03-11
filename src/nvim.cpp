@@ -41,7 +41,6 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
   closed(false),
   num_responses(0),
   current_msgid(0),
-  proc_group(),
   stdout_pipe(),
   stdin_pipe(),
   error()
@@ -56,8 +55,7 @@ Nvim::Nvim(std::string path, std::vector<std::string> args)
     args,
     bp::std_out > stdout_pipe,
     bp::std_in < stdin_pipe,
-    bp::std_err > error,
-    proc_group
+    bp::std_err > error
 #ifdef _WIN32
     , bp::windows::create_no_window
 #endif

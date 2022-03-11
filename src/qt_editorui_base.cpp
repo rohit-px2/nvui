@@ -22,9 +22,8 @@ QtEditorUIBase::QtEditorUIBase(
 {
   idle_timer.setSingleShot(true);
   idle_timer.setInterval(100000);
-  idle_timer.callOnTimeout([&] { idle(); });
+  idle_timer.callOnTimeout([&] {idle(); });
   idle_timer.start();
-  idle_timer.setTimerType(Qt::VeryCoarseTimer);
 }
 
 void QtEditorUIBase::setup()
@@ -112,7 +111,7 @@ void QtEditorUIBase::handle_key_press(QKeyEvent* event)
   nvim->send_input(std::move(text));
 }
 
-QVariant QtEditorUIBase::handle_ime_query(Qt::InputMethodQuery query)
+QVariant QtEditorUIBase::handle_ime_query(Qt::InputMethodQuery query) const
 {
   switch(query)
   {
@@ -147,6 +146,7 @@ void QtEditorUIBase::handle_ime_event(QInputMethodEvent* event)
 {
   event->accept();
   QString commit_string = event->commitString();
+  QString preedit_string = event->preeditString();
   if (!commit_string.isEmpty())
   {
     nvim->send_input(commit_string.toStdString());
@@ -370,7 +370,12 @@ void QtEditorUIBase::idle()
 
 void QtEditorUIBase::un_idle()
 {
-  if (!idling()) return;
+  if (!idling())
+  {
+    // Restart idling timer
+    idle_timer.start();
+    return;
+  }
   set_animations_enabled(idle_state.value().were_animations_enabled);
   idle_state.reset();
   idle_timer.start();
@@ -543,7 +548,8 @@ void QtEditorUIBase::register_command_handlers()
   }));
   on("NVUI_IDLE_WAIT_FOR",
     paramify<double>([this](double seconds) {
-      idle_timer.setInterval(seconds * 1000);
+      if (seconds <= 0) should_idle = false;
+      else idle_timer.setInterval(seconds * 1000);
   }));
   on("NVUI_EDITOR_SPAWN", [this](const ObjectArray& params) {
     if (params.empty()) spawn_editor_with_params(Object::null);

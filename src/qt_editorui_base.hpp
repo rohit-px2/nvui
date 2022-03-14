@@ -6,6 +6,7 @@
 #include "scalers.hpp"
 #include "types.hpp"
 #include <QInputMethod>
+#include <QLabel>
 
 class QKeyEvent;
 class QInputMethodEvent;
@@ -95,7 +96,7 @@ protected:
   // and delegating key presses to other widgets,
   // that must be done by the widget's event handler
   void handle_key_press(QKeyEvent*);
-  QVariant handle_ime_query(Qt::InputMethodQuery);
+  QVariant handle_ime_query(Qt::InputMethodQuery) const;
   void handle_ime_event(QInputMethodEvent*);
   void handle_nvim_resize(QResizeEvent*);
   void handle_mouse_press(QMouseEvent*);
@@ -182,7 +183,7 @@ protected:
   AnimationDetails scroll_animation {10, 0.3f};
   AnimationDetails cursor_animation {10, 0.3f};
   QTimer idle_timer {};
-  bool should_idle = false;
+  bool should_idle = true;
   std::optional<IdleState> idle_state;
   Mouse mouse;
   // This class is responsible for emitting signals

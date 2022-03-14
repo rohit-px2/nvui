@@ -240,7 +240,6 @@ private:
   std::mutex response_cb_mutex;
   std::uint32_t num_responses;
   std::uint32_t current_msgid;
-  boost::process::group proc_group;
   boost::process::child nvim;
   boost::process::pipe stdout_pipe;
   boost::process::pipe stdin_pipe;

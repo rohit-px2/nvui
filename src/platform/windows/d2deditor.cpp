@@ -370,3 +370,8 @@ DWriteFactory* D2DEditor::dwrite_factory()
 {
   return dw_factory.Get();
 }
+
+QVariant D2DEditor::inputMethodQuery(Qt::InputMethodQuery q) const
+{
+  return Base::handle_ime_query(q);
+}

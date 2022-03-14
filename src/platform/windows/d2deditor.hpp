@@ -65,6 +65,7 @@ protected:
   bool focusNextPrevChild(bool) override { return false; }
   void focusInEvent(QFocusEvent* event) override;
   void focusOutEvent(QFocusEvent* event) override;
+  QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
 private:
   void set_vsync(bool);
   void update_font_metrics();

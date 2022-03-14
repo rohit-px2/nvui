@@ -43,6 +43,7 @@ protected:
   void focusInEvent(QFocusEvent* event) override;
   void focusOutEvent(QFocusEvent* event) override;
   bool focusNextPrevChild(bool) override { return false; }
+  QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
 private:
   u32 calc_fallback_index(u32 ucs);
   std::unique_ptr<PopupMenu> popup_new() override;

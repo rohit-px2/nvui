@@ -128,6 +128,7 @@ bool is_executable(std::string_view path)
 int main(int argc, char** argv)
 {
   QCoreApplication::setApplicationName("nvui");
+  QCoreApplication::setAttribute(Qt::AA_DisableHighDpiScaling, true);
   QApplication app {argc, argv};
   Config::init();
   const auto args = get_args(argc, argv);

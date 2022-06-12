@@ -302,7 +302,7 @@ static std::string convertKey(const QKeyEvent& ev) noexcept
     const Qt::KeyboardModifiers modNoShiftMeta = mod
       & Qt::KeyboardModifier::ShiftModifier
       & ~d_mod();
-    return key_mod_str(modNoShiftMeta, "^");
+    return key_mod_str(modNoShiftMeta, "C-^");
   }
 
   if (text == "\\")

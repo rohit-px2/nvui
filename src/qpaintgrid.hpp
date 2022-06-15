@@ -36,7 +36,7 @@ public:
   {
     update_pixmap_size();
     update_position(x, y);
-    initialize_cache();
+    init_connections();
     initialize_scroll_animation();
     initialize_move_animation();
   }
@@ -85,8 +85,8 @@ private:
   );
   /// Update the pixmap size
   void update_pixmap_size();
-  /// Initialize the cache
-  void initialize_cache();
+  /// Create necessary connections between editor and grid
+  void init_connections();
   /// Initialize scroll animation timer
   void initialize_scroll_animation();
   /// Initialize move animation timer

@@ -73,7 +73,12 @@ static void set_pen_width(QPainter& painter, double w)
 void QPaintGrid::update_pixmap_size()
 {
   auto&& [font_width, font_height] = editor_area->font_dimensions();
-  pixmap = QPixmap(cols * font_width, rows * font_height);
+  pixmap = QPixmap(
+    cols * font_width * editor_area->devicePixelRatioF(),
+    rows * font_height * editor_area->devicePixelRatioF()
+  );
+  pixmap.fill(editor_area->default_bg().qcolor());
+  pixmap.setDevicePixelRatio(editor_area->devicePixelRatioF());
   send_redraw();
 }
 
@@ -192,7 +197,7 @@ void QPaintGrid::draw_text_and_bg(
   QRectF rect = {start, end};
   painter.setClipRect(rect);
   painter.fillRect(rect, bg.qcolor());
-  rect.setWidth(rect.width() * 3.);
+  rect.setWidth(rect.width() + 1.0);
   draw_text(
     painter, text, fg, sp, rect, attr.font_opts, font, font_width, font_height
   );
@@ -307,13 +312,16 @@ void QPaintGrid::process_events()
         break;
       case PaintKind::Scroll:
       {
+        auto dpr = editor_area->devicePixelRatioF();
         auto [font_width, font_height] = editor_area->font_dimensions();
         const auto& [rect, dx, dy] = evt.scroll_info();
+        // I love how the rectangle coordinates aren't automatically scaled
+        // by the pixmap's device pixel ratio
         QRect r(
-          rect.x() * font_width,
-          rect.y() * font_height,
-          rect.width() * font_width,
-          rect.height() * font_height
+          rect.x() * font_width * dpr,
+          rect.y() * font_height * dpr,
+          rect.width() * font_width * dpr,
+          rect.height() * font_height * dpr
         );
         // This would probably be faster using QPixmap::scroll
         // but it doesn't want to work
@@ -331,14 +339,20 @@ void QPaintGrid::process_events()
 
 void QPaintGrid::render(QPainter& p)
 {
-  auto&& [font_width, font_height] = editor_area->font_dimensions();
-  QRectF rect(top_left.x(), top_left.y(), pixmap.width(), pixmap.height());
-  auto snapshot_height = pixmap.height();
+  auto [font_width, font_height] = editor_area->font_dimensions();
+  // p (the editor painter) scales ITS OWN coordinates (the QPoint/QPointF)
+  // that's the first parameter in every call) by the device pixel ratio
+  // However, the coordinates of the grid pixmap are not scaled by the DPR.
+  // So we have to take this into account when interacting with the painter.
+  auto pixmap_height = pixmap.height() / editor_area->devicePixelRatioF();
+  auto pixmap_width = pixmap.width() / editor_area->devicePixelRatioF();
+  QRectF rect {top_left, QSize(pixmap_width, pixmap_height)};
   if (!editor_area->animations_enabled() || !is_scrolling)
   {
     p.drawPixmap(pos(), pixmap);
     return;
   }
+  QPointF topleft_text = QPointF(top_left.x() / font_width, top_left.y() / font_height);
   p.fillRect(rect, editor_area->hlstate().default_bg().qcolor());
   float cur_scroll_y = current_scroll_y * font_height;
   float cur_snapshot_top = viewport.topline * font_height;
@@ -347,32 +361,38 @@ void QPaintGrid::render(QPainter& p)
   for(auto it = snapshots.rbegin(); it != snapshots.rend(); ++it)
   {
     const auto& snapshot = *it;
-    QRectF r;
-    float snapshot_top = snapshot.vp.topline * font_height;
-    float offset = snapshot_top - cur_scroll_y;
-    auto pixmap_top = top_left.y() + offset;
-    QPointF pt;
+    float offset = snapshot.vp.topline - current_scroll_y;
+    QRectF px_rect;
+    QPointF px_pt;
+    float top_row = topleft_text.y() + offset;
     if (snapshot.vp.topline < min_topline)
     {
-      auto height = (min_topline - snapshot.vp.topline) * font_height;
-      height = std::min(height, float(snapshot_height));
+      float height = (min_topline - snapshot.vp.topline);
+      height = std::min(height, float(rows));
       min_topline = snapshot.vp.topline;
-      r = QRect(0, 0, pixmap.width(), height);
-      pt = {top_left.x(), pixmap_top};
+      px_rect = QRectF(0, 0, cols, height);
+      px_pt = QPointF(topleft_text.x(), top_row);
     }
     else if (snapshot.vp.botline > max_botline)
     {
-      auto height = (snapshot.vp.botline - max_botline) * font_height;
-      height = std::min(height, float(snapshot_height));
+      float height = (snapshot.vp.botline - max_botline);
+      height = std::min(height, float(rows));
       max_botline = snapshot.vp.botline;
-      r = QRect(0, snapshot_height - height, pixmap.width(), height);
-      pt = {top_left.x(), pixmap_top + pixmap.height() - height};
+      px_rect = QRectF(0, (rows - height), cols, height);
+      px_pt = QPointF(topleft_text.x(), top_row + (rows - height));
     }
-    QRectF draw_rect = {top_left, r.size()};
-    if (!r.isNull() && rect.contains(draw_rect))
-    {
-      p.drawPixmap(pt, snapshot.image, r);
-    }
+    else continue;
+    double dpr = editor_area->devicePixelRatioF();
+    p.drawPixmap(
+      QPointF {px_pt.x() * font_width, px_pt.y() * font_height},
+      snapshot.image,
+      QRectF {
+        px_rect.x() * font_width * dpr,
+        px_rect.y() * font_height * dpr,
+        px_rect.width() * font_width * dpr,
+        px_rect.height() * font_height * dpr
+      }
+    );
   }
   float offset = cur_snapshot_top - cur_scroll_y;
   QPointF pt = {top_left.x(), top_left.y() + offset};
@@ -417,7 +437,7 @@ void QPaintGrid::update_position(double new_x, double new_y)
   top_left = {new_x * font_width, new_y * font_height};
 }
 
-void QPaintGrid::initialize_cache()
+void QPaintGrid::init_connections()
 {
   QObject::connect(editor_area, &QEditor::font_changed, this, [&] {
     text_cache.clear();

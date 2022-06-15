@@ -97,7 +97,7 @@ if (WIN32)
   )
   list(APPEND SOURCES ${WINONLYSOURCES})
 endif()
-find_package(Boost COMPONENTS filesystem thread REQUIRED)
+find_package(Boost COMPONENTS filesystem REQUIRED)
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
   add_executable(nvui WIN32 "assets/icons/desktop/neovim_icon.rc" "src/main.cpp" ${SOURCES})
 else()
@@ -122,6 +122,12 @@ endif()
 target_link_libraries(nvui PRIVATE
   ${Boost_LIBRARIES}
 )
+if(APPLE)
+  set_target_properties(nvui PROPERTIES
+    MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/assets/resources/macos/Info.plist
+  )
+endif()
 include(CheckIPOSupported)
 check_ipo_supported(RESULT LTOAvailable)
 if(LTOAvailable)

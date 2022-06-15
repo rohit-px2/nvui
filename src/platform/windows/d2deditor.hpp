@@ -74,6 +74,9 @@ private:
   void create_grid(u32 x, u32 y, u32 w, u32 h, u64 id) override;
   void set_fonts(std::span<FontDesc> fonts) override;
   u32 calc_fallback_index(u32 ucs);
+  // The scale factor for the current monitor, based on dpi divided
+  // by the default dpi (96).
+  float scale_factor() const;
 private:
   std::unordered_map<u32, u32> fallback_indices {};
   std::vector<ComPtr<IDWriteFont>> dw_fonts;
@@ -85,6 +88,7 @@ private:
   ComPtr<ID2D1Device> device = nullptr;
   float current_point_size = 12.0f;
   bool vsync = true;
+  u32 win_dpi;
 };
 
 #endif // NVUI_D2DEDITOR_HPP

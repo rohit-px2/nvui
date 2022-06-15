@@ -55,6 +55,7 @@ private:
   void update_font_metrics();
   QFont first_font;
   std::vector<Font> fonts;
+  double device_pixelratio;
 };
 
 #endif // NVUI_QEDITOR_HPP

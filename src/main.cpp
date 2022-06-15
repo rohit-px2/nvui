@@ -19,6 +19,11 @@
 #include <fmt/format.h>
 #include <boost/process/env.hpp>
 #include <QProcess>
+#include <QStandardPaths>
+
+#ifdef Q_OS_MAC
+#include "platform/macos/macos_utils.hpp"
+#endif // Q_OS_MAC
 #include "config.hpp"
 
 using std::string;
@@ -128,6 +133,12 @@ bool is_executable(std::string_view path)
 int main(int argc, char** argv)
 {
   QCoreApplication::setApplicationName("nvui");
+#ifdef USE_QPAINTER
+  QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+#endif
+#ifdef Q_OS_MAC
+  macos_utils::set_env_vars();
+#endif
   QApplication app {argc, argv};
   Config::init();
   const auto args = get_args(argc, argv);

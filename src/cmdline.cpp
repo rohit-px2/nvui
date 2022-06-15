@@ -313,9 +313,9 @@ static std::tuple<float, float> draw_pos(
 
 int CmdlineQ::fitting_height() const
 {
+  QFontMetricsF fm {cmd_font, this};
   int maxwidth = width() - (border_width + padding) * 2;
   auto contentstring = get_content_string();
-  QFontMetricsF fm {cmd_font};
   auto maxheight = fm.height() * contentstring.size();
   QRectF constraint(0, 0, maxwidth, maxheight);
   float pad = border_width + padding;
@@ -341,7 +341,7 @@ void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
   QString contentstring = get_content_string();
   int upto = contentstring.size() - cur_content_length + cursor_pos;
   float pad = border_width + padding;
-  QFontMetricsF fm {cmd_font};
+  const auto fm = p.fontMetrics();
   float left = pad;
   float top = pad;
   const auto adv_x = [&](float adv) {
@@ -352,7 +352,7 @@ void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
     if (contentstring[i] == '\n') { left = pad; top += fm.height(); }
     else
     {
-      adv_x(fm.horizontalAdvance(contentstring[i]));
+      adv_x(p.fontMetrics().horizontalAdvance(contentstring[i]));
     }
   }
   auto [rect, id, drawtext, opacity] = cursor.rect(
@@ -366,10 +366,10 @@ void CmdlineQ::draw_cursor(QPainter& p, const Cursor& cursor)
 
 void CmdlineQ::paintEvent(QPaintEvent*)
 {
-  QFontMetricsF fm {cmd_font};
-  int offset = fm.ascent();
   QPainter p(this);
   p.setFont(cmd_font);
+  const auto fm = p.fontMetrics();
+  int offset = fm.ascent();
   auto contentstring = get_content_string();
   QColor bg = inner_bg.value_or(hl_state.default_bg()).qcolor();
   QColor fg = inner_fg.value_or(hl_state.default_fg()).qcolor();

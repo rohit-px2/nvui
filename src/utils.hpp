@@ -133,7 +133,7 @@ msgpack::object_handle pack(const T& obj)
 inline QString default_font_family()
 {
 #if defined(Q_OS_MAC)
-  return "Courier New";
+  return "Menlo";
 #elif defined(Q_OS_WIN)
   return "Consolas";
 #else

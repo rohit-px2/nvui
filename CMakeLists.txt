@@ -147,7 +147,7 @@ if(BUILD_TESTS)
     list(APPEND TEST_SOURCES ${WINONLYTESTSOURCES})
   endif()
   add_executable(nvui_test ${SOURCES} ${TEST_SOURCES})
-  target_link_libraries(nvui_test PRIVATE Catch2::Catch2)
+  target_link_libraries(nvui_test PRIVATE Catch2::Catch2 Catch2::Catch2WithMain)
   target_link_libraries(nvui_test PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
   target_link_libraries(nvui_test PRIVATE fmt::fmt)
   if (WIN32)
@@ -166,7 +166,6 @@ if(BUILD_TESTS)
     target_include_directories(nvui_test PRIVATE ${Boost_INCLUDE_DIR})
   endif()
   target_link_libraries(nvui_test PRIVATE
-    Boost::thread
     Boost::filesystem
   )
   include(CTest)

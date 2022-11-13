@@ -1,6 +1,6 @@
 #include "nvim.hpp"
 #include "utils.hpp"
-#include <catch2/catch.hpp>
+#include <catch2/catch_all.hpp>
 #include <atomic>
 #include <chrono>
 #include <iostream>

@@ -256,7 +256,6 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake"
           Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}"
           Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
-      - name: Add Qt to path
       - name: Restore deps from cache if they exist
         uses: actions/cache@v2
         with:

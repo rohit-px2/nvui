@@ -148,8 +148,6 @@ jobs:
       - name: Build nvui and nvui_test using vcpkg
         if: matrix.use_vcpkg
         run: |
-          ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
-          ./vcpkg/vcpkg install fmt qt5-base qt5-svg boost-container boost-process msgpack
           cmake -B build . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} ${{ matrix.cmakeflags }}
           cmake --build build --config ${{ matrix.buildtype }}
 
@@ -238,29 +236,13 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
-
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           sdk: 10.0.19041.0
-
       - name: Install Neovim Stable
         run: choco install -y neovim
-
       - name: Add Neovim to PATH
         run: echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      # Step was taken from Neovim-Qt's github actions workflow file
-      # at https://github.com/equalsraf/neovim-qt/blob/master/.github/workflows/build-test.yml
-      - name: Install Qt5
-        env:
-          QT_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64}}
-        run: |
-          python -m pip install aqtinstall
-          python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64
-          Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake"
-          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}"
-          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
-
       - name: Restore deps from cache if they exist
         uses: actions/cache@v2
         with:
@@ -269,15 +251,8 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-build-debug-${{ hashFiles('vcpkg.json') }}
-
-      - name: Install vcpkg dependencies
-        run: |
-          .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-          .\vcpkg\vcpkg install fmt msgpack boost-process boost-container catch2
-
       - name: Build nvui and nvui_test
         run: .\scripts\windows\build-debug.ps1
-
       - name: Run tests
         run: |
           cd build
@@ -305,28 +280,8 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-build-release-${{ hashFiles('vcpkg.json') }}
-
-      # Step was taken from Neovim-Qt's github actions workflow file
-      # at https://github.com/equalsraf/neovim-qt/blob/master/.github/workflows/build-test.yml
-      - name: Install Qt5
-        env:
-          QT_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64}}
-        run: |
-          python -m pip install aqtinstall
-          python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64
-          Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake"
-          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}"
-          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
-
-      - name: Install vcpkg dependencies and build
-        run: |
-          .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-          vcpkg install fmt msgpack boost-process boost-container
-          .\scripts\windows\build-release.ps1
-
       - name: Package into a zip
         run: .\scripts\windows\package.ps1
-
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:

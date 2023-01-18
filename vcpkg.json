@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
   "name": "nvui",
   "version-string": "0.1.4",
-  "builtin-baseline": "03ca9b59af1506a86840e3a3a01a092f3333a29b",
+  "builtin-baseline": "5908d702d61cea1429b223a0b7a10ab86bad4c78",
   "dependencies": [
     "fmt",
     "msgpack",

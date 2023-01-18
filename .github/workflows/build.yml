@@ -76,9 +76,7 @@ jobs:
       - name: Ubuntu - Install vcpkg dependencies
         if: startsWith(matrix.os, 'ubuntu') && matrix.use_vcpkg
         run: >
-          sudo apt-get update
-          sudo apt-get update
-          sudo apt-get install gperf autoconf build-essential libtool
+          sudo apt-get update && sudo apt-get update && sudo apt-get install gperf autoconf build-essential libtool
           libgl1-mesa-dev libxi-dev libx11-dev libxext-dev
           libxkbcommon-x11-dev libglu1-mesa-dev libx11-xcb-dev
           '^libxcb.*-dev' libxrender-dev ninja-build curl
@@ -268,7 +266,9 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
 
       - name: Build nvui and nvui_test
-        run: .\scripts\windows\build-debug.ps1
+        run: |
+          .\vcpkg\vcpkg install
+          .\scripts\windows\build-debug.ps1
       - name: Run tests
         run: |
           cd build

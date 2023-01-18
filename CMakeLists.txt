@@ -97,7 +97,7 @@ if (WIN32)
   )
   list(APPEND SOURCES ${WINONLYSOURCES})
 endif()
-find_package(Boost COMPONENTS filesystem thread REQUIRED)
+find_package(Boost COMPONENTS filesystem REQUIRED)
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
   add_executable(nvui WIN32 "assets/icons/desktop/neovim_icon.rc" "src/main.cpp" ${SOURCES})
 else()
@@ -166,8 +166,7 @@ if(BUILD_TESTS)
     target_include_directories(nvui_test PRIVATE ${Boost_INCLUDE_DIR})
   endif()
   target_link_libraries(nvui_test PRIVATE
-    Boost::thread
-    Boost::filesystem
+    ${Boost_LIBRARIES}
   )
   include(CTest)
   include(Catch)

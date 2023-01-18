@@ -13,3 +13,4 @@ CMakeLists.txt.user
 .ccls-cache/
 CMakeSettings.json
 .ignore
+vcpkg_installed/

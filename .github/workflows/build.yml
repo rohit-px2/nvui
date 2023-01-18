@@ -243,6 +243,7 @@ jobs:
         run: choco install -y neovim
       - name: Add Neovim to PATH
         run: echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Restore deps from cache if they exist
         uses: actions/cache@v2
         with:
@@ -251,6 +252,19 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-build-debug-${{ hashFiles('vcpkg.json') }}
+
+      # Step was taken from Neovim-Qt's github actions workflow file
+      # at https://github.com/equalsraf/neovim-qt/blob/master/.github/workflows/build-test.yml
+      - name: Install Qt5
+        env:
+          QT_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64}}
+        run: |
+          python -m pip install aqtinstall
+          python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64
+          Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake"
+          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}"
+          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
+
       - name: Build nvui and nvui_test
         run: .\scripts\windows\build-debug.ps1
       - name: Run tests
@@ -280,6 +294,19 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-build-release-${{ hashFiles('vcpkg.json') }}
+
+      # Step was taken from Neovim-Qt's github actions workflow file
+      # at https://github.com/equalsraf/neovim-qt/blob/master/.github/workflows/build-test.yml
+      - name: Install Qt5
+        env:
+          QT_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64}}
+        run: |
+          python -m pip install aqtinstall
+          python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64
+          Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake"
+          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}"
+          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
+
       - name: Package into a zip
         run: .\scripts\windows\package.ps1
       - name: Upload artifact

@@ -2,30 +2,13 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
   "name": "nvui",
   "version-string": "0.1.4",
-  "builtin-baseline": "5908d702d61cea1429b223a0b7a10ab86bad4c78",
   "dependencies": [
     "fmt",
     "msgpack",
-    {
-      "name": "qt5-base",
-      "platform": "!windows"
-    },
-    {
-      "name": "qt5-svg",
-      "platform": "!windows"
-    },
+    "qt5-base",
+    "qt5-svg",
     "boost-process",
     "boost-container"
-  ],
-  "overrides": [
-    {
-      "name": "boost-process",
-      "version": "1.77.0"
-    },
-    {
-      "name": "boost-container",
-      "version": "1.77.0"
-    }
   ],
   "features": {
     "tests": {

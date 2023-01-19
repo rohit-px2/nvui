@@ -257,7 +257,7 @@ jobs:
       # at https://github.com/equalsraf/neovim-qt/blob/master/.github/workflows/build-test.yml
       - name: Install Qt5
         env:
-          QT_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64}}
+          QT_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64
         run: |
           python -m pip install aqtinstall
           python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64
@@ -302,7 +302,7 @@ jobs:
       # at https://github.com/equalsraf/neovim-qt/blob/master/.github/workflows/build-test.yml
       - name: Install Qt5
         env:
-          QT_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64}}
+          QT_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64
         run: |
           python -m pip install aqtinstall
           python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64

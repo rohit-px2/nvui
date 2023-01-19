@@ -6,12 +6,10 @@
     "fmt",
     "msgpack",
     {
-      "name": "qt5-base",
-      "platform": "!windows"
+      "name": "qt5-base"
     },
     {
-      "name": "qt5-svg",
-      "platform": "!windows"
+      "name": "qt5-svg"
     },
     "boost-process",
     "boost-container"

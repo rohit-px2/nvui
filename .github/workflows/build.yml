@@ -267,7 +267,10 @@ jobs:
         shell: pwsh
 
       - name: Build nvui and nvui_test
+        env:
+          CMAKE_PREFIX_PATH: ${{ env.CMAKE_PREFIX_PATH }}
         run: |
+          echo $env
           echo $env:GITHUB_ENV
           .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
           .\vcpkg\vcpkg install
@@ -314,9 +317,14 @@ jobs:
         shell: pwsh
 
       - name: Package into a zip
+        env:
+          CMAKE_PREFIX_PATH: ${{ env.CMAKE_PREFIX_PATH }}
         run: |
+          echo $env
           echo $env:GITHUB_ENV
+          .\scripts\windows\build-release.ps1
           .\scripts\windows\package.ps1
+
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:

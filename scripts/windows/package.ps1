@@ -1,4 +1,3 @@
-./scripts/windows/build-release.ps1
 cd build
 mkdir nvui
 cd nvui

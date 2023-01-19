@@ -239,8 +239,8 @@ jobs:
           - name: Windows Release
             os: windows-latest
             buildtype: 'Release'
-            debug: true
-            upload: false
+            debug: false
+            upload: true
             cmakeflags: ''
             c: clang
             cpp: clang++
@@ -249,8 +249,8 @@ jobs:
           - name: Windows Debug
             os: windows-latest
             buildtype: 'Debug'
-            debug: false
-            upload: true
+            debug: true
+            upload: false
             cmakeflags: '-DBUILD_TESTS=ON'
             c: clang
             cpp: clang++
@@ -296,10 +296,9 @@ jobs:
           "${{ env.qt_dir }}" >> $env:GITHUB_PATH
 
       - name: Build nvui (& nvui_test in Debug mode)
-        if: ${{ !matrix.debug }}
         env:
           CMAKE_PREFIX_PATH: ${{ env.CMAKE_PREFIX_PATH }}
-          Qt5_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64\lib\cmake\Qt5
+          Qt5_DIR: '.\5.15.2\msvc2019_64\lib\cmake\Qt5'
         run: |
           cmake -B build . -DQt5_DIR=${{ env.Qt5_DIR }} -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} ${{ matrix.cmakeflags }} -DCMAKE_C_COMPILER=${{ matrix.c }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp }} -G ${{ matrix.gen }}
           cmake --build build --config ${{ matrix.buildtype }}

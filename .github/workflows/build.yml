@@ -7,7 +7,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - name: Ubuntu Debug
+            os: ubuntu-latest
             buildtype: 'Debug'
             cc: clang-12
             cxx: clang++-12
@@ -15,7 +16,8 @@ jobs:
             upload: false
             cmakeflags: '-DBUILD_TESTS=ON'
 
-          - os: ubuntu-latest
+          - name: Ubuntu Release
+            os: ubuntu-latest
             buildtype: 'Release'
             cc: clang-12
             cxx: clang++-12
@@ -24,7 +26,8 @@ jobs:
             use_vcpkg: true
             cmakeflags: ''
 
-          - os: macos-10.15
+          - name: Macos Debug
+            os: macos-10.15
             buildtype: 'Debug'
             cc: clang
             cxx: clang++
@@ -32,7 +35,8 @@ jobs:
             upload: false
             cmakeflags: '-DBUILD_TESTS=ON'
 
-          - os: macos-10.15
+          - name: Macos Release
+            os: macos-10.15
             buildtype: 'Release'
             cc: clang
             cxx: clang++
@@ -232,13 +236,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
+          - name: Windows Release
+            os: windows-latest
+            buildtype: 'Release'
             debug: true
             upload: false
+            cmakeflags: ''
+            c: clang
+            cpp: clang++
+            gen: Ninja
 
-          - os: windows-latest
+          - name: Windows Debug
+            os: windows-latest
+            buildtype: 'Debug'
             debug: false
             upload: true
+            cmakeflags: '-DBUILD_TESTS=ON'
+            c: clang
+            cpp: clang++
+            gen: Ninja
     runs-on: ${{ matrix.os }}
     timeout-minutes: 500
     env:
@@ -279,28 +295,15 @@ jobs:
           "${{ env.qt_dir }}" >> $env:GITHUB_PATH
           "${{ env.qt_dir }}" >> $env:GITHUB_PATH
 
-      - name: Package into a zip (Release)
+      - name: Build nvui (& nvui_test in Debug mode)
         if: ${{ !matrix.debug }}
         env:
           CMAKE_PREFIX_PATH: ${{ env.CMAKE_PREFIX_PATH }}
           Qt5_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64\lib\cmake\Qt5
         run: |
-          echo $env
-          echo $env:GITHUB_ENV
-          .\scripts\windows\build-release.ps1
-          .\scripts\windows\package.ps1
-
-      - name: Build nvui and nvui_test (Debug)
-        if: matrix.debug
-        env:
-          CMAKE_PREFIX_PATH: ${{ env.CMAKE_PREFIX_PATH }}
-          Qt5_DIR: ${{ github.workspace }}\5.15.2\msvc2019_64\lib\cmake\Qt5
-        run: |
-          echo $env
-          echo $env:GITHUB_ENV
-          .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-          .\vcpkg\vcpkg install
-          .\scripts\windows\build-debug.ps1
+          cmake -B build . -DQt5_DIR=${{ env.Qt5_DIR }} -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} ${{ matrix.cmakeflags }} -DCMAKE_C_COMPILER=${{ matrix.c }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp }} -G ${{ matrix.gen }}
+          cmake --build build --config ${{ matrix.buildtype }}
+        shell: cmd
 
       - name: Run tests
         if: matrix.debug
@@ -308,6 +311,10 @@ jobs:
           cd build
           .\nvui_test
         shell: cmd
+
+      - name: Package nvui (Release)
+        if: ${{ !matrix.debug }}
+        run: .\scripts\windows\package.ps1
 
       - name: Upload artifact
         if: matrix.upload

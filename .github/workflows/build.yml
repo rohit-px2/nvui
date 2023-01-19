@@ -80,7 +80,7 @@ jobs:
           libgl1-mesa-dev libxi-dev libx11-dev libxext-dev
           libxkbcommon-x11-dev libglu1-mesa-dev libx11-xcb-dev
           '^libxcb.*-dev' libxrender-dev ninja-build curl
-          zip unzip tar autopoint python2
+          zip unzip tar autopoint python2 autoconf-archive
 
       - name: Mac - Install vcpkg dependencies
         if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg
@@ -101,13 +101,13 @@ jobs:
           sudo apt-get install libmsgpack-dev libfmt-dev libboost-all-dev
           mesa-common-dev libglu1-mesa-dev
 
-      - name: Ubuntu - Install Catch2
-        if: ${{ startsWith(matrix.os, 'ubuntu') && !matrix.use_vcpkg }}
+      - name: Ubuntu & MacOS Debug - Build & install Catch2 from source
+        if: ${{ !matrix.use_vcpkg }}
         run: |
           git clone https://github.com/catchorg/Catch2.git
           cd Catch2
           git checkout devel
-          cmake -B build -H. -DBUILD_TESTING=OFF
+          cmake -B build -H. -DBUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=17
           cd build
           sudo make install
 

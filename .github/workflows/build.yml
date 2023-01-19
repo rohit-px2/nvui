@@ -145,6 +145,10 @@ jobs:
           /bin/bash -c "sudo xcode-select -s /Applications/Xcode_12.app/Contents/Developer"
           brew install make
 
+      - name: Install Vcpkg packages
+        if: matrix.use_vcpkg
+        run: ./vcpkg/vcpkg install fmt msgpack qt5-base qt5-svg boost-process boost-container
+
       - name: Build nvui and nvui_test using vcpkg
         if: matrix.use_vcpkg
         run: |
@@ -265,10 +269,11 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}"
           Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
 
+      - name: Install Vcpkg Packages (not Qt5)
+        run: .\vcpkg\vcpkg install fmt msgpack boost-process boost-container
+
       - name: Build nvui and nvui_test
         run: |
-          .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-          .\vcpkg\vcpkg install
           .\scripts\windows\build-debug.ps1
       - name: Run tests
         run: |
@@ -309,6 +314,9 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake"
           Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}"
           Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
+
+      - name: Install Vcpkg Packages (not Qt5)
+        run: .\vcpkg\vcpkg install fmt msgpack boost-process boost-container
 
       - name: Package into a zip
         run: .\scripts\windows\package.ps1

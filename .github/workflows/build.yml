@@ -130,7 +130,7 @@ jobs:
       - name: Mac - Install dependencies
         if: ${{ startsWith(matrix.os, 'macos') && !matrix.use_vcpkg }}
         run: |
-          brew install fmt boost qt@5 msgpack-cxx catch2
+          brew install fmt boost qt@5 msgpack-cxx
           sudo ln -s /usr/local/Cellar/qt@5/5.15.2/plugins /usr/local/plugins
 
       - name: Mac - Set environment variables
@@ -147,7 +147,9 @@ jobs:
 
       - name: Install Vcpkg packages
         if: matrix.use_vcpkg
-        run: ./vcpkg/vcpkg install fmt msgpack qt5-base qt5-svg boost-process boost-container
+        run: |
+          ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          ./vcpkg/vcpkg install fmt msgpack qt5-base qt5-svg boost-process boost-container
 
       - name: Build nvui and nvui_test using vcpkg
         if: matrix.use_vcpkg
@@ -270,7 +272,9 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
 
       - name: Install Vcpkg Packages (not Qt5)
-        run: .\vcpkg\vcpkg install fmt msgpack boost-process boost-container
+        run: |
+          .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+          .\vcpkg\vcpkg install fmt msgpack boost-process boost-container
 
       - name: Build nvui and nvui_test
         run: |
@@ -316,7 +320,9 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
 
       - name: Install Vcpkg Packages (not Qt5)
-        run: .\vcpkg\vcpkg install fmt msgpack boost-process boost-container
+        run: |
+          .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+          .\vcpkg\vcpkg install fmt msgpack boost-process boost-container
 
       - name: Package into a zip
         run: .\scripts\windows\package.ps1

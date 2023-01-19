@@ -261,7 +261,7 @@ jobs:
         run: |
           python -m pip install aqtinstall
           python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64
-          "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake;$env:QT_DIR\lib\cmake\Qt5" >> $env:GITHUB_ENV
+          "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake" >> $env:GITHUB_ENV
           "${{ env.qt_dir }}" >> $env:GITHUB_PATH
           "${{ env.qt_dir }}" >> $env:GITHUB_PATH
         shell: pwsh
@@ -308,7 +308,7 @@ jobs:
         run: |
           python -m pip install aqtinstall
           python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64
-          "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake;$env:QT_DIR\lib\cmake\Qt5" >> $env:GITHUB_ENV
+          "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake" >> $env:GITHUB_ENV
           "${{ env.qt_dir }}" >> $env:GITHUB_PATH
           "${{ env.qt_dir }}" >> $env:GITHUB_PATH
         shell: pwsh

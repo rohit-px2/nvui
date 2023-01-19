@@ -87,13 +87,13 @@ jobs:
         run: |
           brew install automake autoconf-archive libtool
 
-      - name: Restore vcpkg packages
-        if: matrix.use_vcpkg
-        uses: actions/cache@v2
-        with:
-          path: |
-            build/vcpkg_installed
-          key: ${{ matrix.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
+      #- name: Restore vcpkg packages
+        #if: matrix.use_vcpkg
+        #uses: actions/cache@v2
+        #with:
+          #path: |
+            #build/vcpkg_installed
+          #key: ${{ matrix.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
 
       - name: Ubuntu - Install dependencies from system package manager
         if: ${{ startsWith(matrix.os, 'ubuntu') && !matrix.use_vcpkg }}
@@ -244,14 +244,14 @@ jobs:
       - name: Add Neovim to PATH
         run: echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Restore deps from cache if they exist
-        uses: actions/cache@v2
-        with:
-          path: |
-            build/vcpkg_installed
-          key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-debug-${{ hashFiles('vcpkg.json') }}
+      #- name: Restore deps from cache if they exist
+        #uses: actions/cache@v2
+        #with:
+          #path: |
+            #build/vcpkg_installed
+          #key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          #restore-keys: |
+            #${{ runner.os }}-build-debug-${{ hashFiles('vcpkg.json') }}
 
       # Step was taken from Neovim-Qt's github actions workflow file
       # at https://github.com/equalsraf/neovim-qt/blob/master/.github/workflows/build-test.yml
@@ -289,14 +289,14 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           sdk: 10.0.19041.0
-      - name: Restore deps from cache if they exist
-        uses: actions/cache@v2
-        with:
-          path: |
-            build/vcpkg_installed
-          key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-release-${{ hashFiles('vcpkg.json') }}
+      #- name: Restore deps from cache if they exist
+        #uses: actions/cache@v2
+        #with:
+          #path: |
+            #build/vcpkg_installed
+          #key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          #restore-keys: |
+            #${{ runner.os }}-build-release-${{ hashFiles('vcpkg.json') }}
 
       # Step was taken from Neovim-Qt's github actions workflow file
       # at https://github.com/equalsraf/neovim-qt/blob/master/.github/workflows/build-test.yml

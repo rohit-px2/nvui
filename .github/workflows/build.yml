@@ -261,12 +261,14 @@ jobs:
         run: |
           python -m pip install aqtinstall
           python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64
-          Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake;$env:QT_DIR\lib\cmake\Qt5"
-          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}"
-          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
+          "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake;$env:QT_DIR\lib\cmake\Qt5" >> $env:GITHUB_ENV
+          "${{ env.qt_dir }}" >> $env:GITHUB_PATH
+          "${{ env.qt_dir }}" >> $env:GITHUB_PATH
+        shell: pwsh
 
       - name: Build nvui and nvui_test
         run: |
+          echo $env:GITHUB_ENV
           .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
           .\vcpkg\vcpkg install
           .\scripts\windows\build-debug.ps1
@@ -306,12 +308,15 @@ jobs:
         run: |
           python -m pip install aqtinstall
           python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64
-          Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake;$env:QT_DIR\lib\cmake\Qt5"
-          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}"
-          Add-Content -Path $env:GITHUB_PATH -Value "${{ env.qt_dir }}\bin"
+          "CMAKE_PREFIX_PATH=$env:QT_DIR;$env:QT_DIR\lib\cmake;$env:QT_DIR\lib\cmake\Qt5" >> $env:GITHUB_ENV
+          "${{ env.qt_dir }}" >> $env:GITHUB_PATH
+          "${{ env.qt_dir }}" >> $env:GITHUB_PATH
+        shell: pwsh
 
       - name: Package into a zip
-        run: .\scripts\windows\package.ps1
+        run: |
+          echo $env:GITHUB_ENV
+          .\scripts\windows\package.ps1
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:

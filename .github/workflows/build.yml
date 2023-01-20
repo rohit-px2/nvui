@@ -80,13 +80,21 @@ jobs:
       - name: Ubuntu - Install vcpkg dependencies
         if: startsWith(matrix.os, 'ubuntu') && matrix.use_vcpkg
         run: >
-          sudo apt-get install gperf autoconf build-essential libtool
-          libgl1-mesa-dev libxi-dev libx11-dev libxext-dev
-          libxkbcommon-x11-dev libglu1-mesa-dev libx11-xcb-dev
-          '^libxcb.*-dev' libxrender-dev ninja-build curl
-          zip unzip tar autopoint python2 autoconf-archive
-          libfreetype6-dev libfontconfig1-dev libxfixes-dev
-          libxkbcommon-dev libwayland-dev nodejs
+          sudo apt-get install git curl zip unzip tar at libxt-dev gperf libxaw7-dev cifs-utils 
+          build-essential g++ gfortran libx11-dev libxkbcommon-x11-dev libxi-dev 
+          libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev libxinerama-dev libxxf86vm-dev 
+          libxcursor-dev yasm libnuma1 libnuma-dev libtool-bin 
+          flex bison libbison-dev autoconf libudev-dev libncurses5-dev libtool libxrandr-dev 
+          xutils-dev dh-autoreconf autoconf-archive libgles2-mesa-dev ruby-full 
+          libxext-dev libxfixes-dev libxrender-dev
+          libxcb1-dev libx11-xcb-dev libxcb-glx0-dev libxcb-util0-devpkg-config meson nasm cmake ninja-build
+          libxkbcommon-dev libxcb-keysyms1-dev
+          libxcb-image0-dev libxcb-shm0-dev libxcb-icccm4-dev libxcb-sync-dev 
+          libxcb-xfixes0-dev libxcb-shape0-dev libxcb-randr0-dev 
+          libxcb-render-util0-dev libxcb-xinerama0-dev libxcb-xkb-dev libxcb-xinput-dev
+          libxcb-cursor-dev libkrb5-dev libxcb-res0-dev libxcb-keysyms1-dev libxcb-xkb-dev libxcb-record0-dev
+          python3-setuptools python3-mako python3-pip python3-venv nodejs libwayland-dev python2 python-is-python3
+          guile-2.2-dev libxdamage-dev libdbus-1-dev libxtst-dev haskell-stack python-yaml libkrb5-3 zlib1g libicu66
 
       - name: Mac - Install vcpkg dependencies
         if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg
@@ -258,11 +266,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 500
     steps:
+      - name: Set last commit hash as environment variable (push)
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          "COMMIT_SHA=${{ github.sha }}" >> $env:GITHUB_ENV
+      - name: Set last commit hash as environment variable (pull request)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          "COMMIT_SHA=${{ github.event.pull_request.head.sha }}" >> $env:GITHUB_ENV
+
       - name: Clone repo to C drive
         run: |
           git clone --recurse-submodules https://github.com/rohit-px2/nvui.git C:\nvui
           cd C:\nvui
-          git checkout ${{ github.sha }}
+          git checkout $env:COMMIT_SHA
           git submodule init
           git submodule update
 

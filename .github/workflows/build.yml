@@ -87,14 +87,15 @@ jobs:
           flex bison libbison-dev autoconf libudev-dev libncurses5-dev libtool libxrandr-dev 
           xutils-dev dh-autoreconf autoconf-archive libgles2-mesa-dev ruby-full 
           libxext-dev libxfixes-dev libxrender-dev
-          libxcb1-dev libx11-xcb-dev libxcb-glx0-dev libxcb-util0-devpkg-config meson nasm cmake ninja-build
+          libxcb1-dev libx11-xcb-dev libxcb-glx0-dev meson nasm cmake ninja-build
           libxkbcommon-dev libxcb-keysyms1-dev
           libxcb-image0-dev libxcb-shm0-dev libxcb-icccm4-dev libxcb-sync-dev 
           libxcb-xfixes0-dev libxcb-shape0-dev libxcb-randr0-dev 
           libxcb-render-util0-dev libxcb-xinerama0-dev libxcb-xkb-dev libxcb-xinput-dev
           libxcb-cursor-dev libkrb5-dev libxcb-res0-dev libxcb-keysyms1-dev libxcb-xkb-dev libxcb-record0-dev
           python3-setuptools python3-mako python3-pip python3-venv nodejs libwayland-dev python2 python-is-python3
-          guile-2.2-dev libxdamage-dev libdbus-1-dev libxtst-dev haskell-stack python-yaml libkrb5-3 zlib1g libicu66
+          guile-2.2-dev libxdamage-dev libdbus-1-dev libxtst-dev haskell-stack libkrb5-3 zlib1g
+          # libicu66 python-yaml libxcb-util0-devpkg-config
 
       - name: Mac - Install vcpkg dependencies
         if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg
@@ -294,7 +295,7 @@ jobs:
       - name: Add Neovim to PATH
         if: matrix.debug
         run: |
-          "C:\tools\neovim\Neovim\bin" >> $env:GITHUB_PATH
+          echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       #- name: Restore deps from cache if they exist
         #uses: actions/cache@v2
         #with:

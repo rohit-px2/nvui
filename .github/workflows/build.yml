@@ -257,12 +257,15 @@ jobs:
             gen: Ninja
     runs-on: ${{ matrix.os }}
     timeout-minutes: 500
-    env:
-      buildDir: '${{ github.workspace }}/build'
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
+      - name: Move repo to C drive (apparently, has more space?)
+        run: |
+          cd ..
+          Move-Item -Path .\nvui -Destination C:\nvui
+
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           sdk: 10.0.19041.0
@@ -273,7 +276,8 @@ jobs:
 
       - name: Add Neovim to PATH
         if: matrix.debug
-        run: echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        run: |
+          "C:\tools\neovim\Neovim\bin" >> $env:GITHUB_PATH
       #- name: Restore deps from cache if they exist
         #uses: actions/cache@v2
         #with:
@@ -297,20 +301,24 @@ jobs:
 
       - name: Build nvui (& nvui_test in Debug mode)
         run: |
-          cmake -B build . -DQt5_DIR=${{ env.Qt5_DIR }} -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} ${{ matrix.cmakeflags }} -DCMAKE_C_COMPILER=${{ matrix.c }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp }} -G ${{ matrix.gen }}
+          cd C:\nvui
+          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} ${{ matrix.cmakeflags }} -DCMAKE_C_COMPILER=${{ matrix.c }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp }} -G ${{ matrix.gen }}
           cmake --build build --config ${{ matrix.buildtype }}
         shell: cmd
 
       - name: Run tests
         if: matrix.debug
         run: |
+          cd C:\nvui
           cd build
           .\nvui_test
         shell: cmd
 
       - name: Package nvui (Release)
         if: ${{ !matrix.debug }}
-        run: .\scripts\windows\package.ps1
+        run: |
+          cd C:\nvui
+          .\scripts\windows\package.ps1
 
       - name: Upload artifact
         if: matrix.upload
@@ -318,18 +326,20 @@ jobs:
         with:
           name: nvui-win64
           if-no-files-found: ignore
-          path: build/nvui
+          path: C:/nvui/build/nvui
 
       - name: Rename nvui.zip to nvui-win64.zip for release upload
         if: ${{ startsWith(github.ref, 'refs/tags/') && matrix.upload }}
-        run: ren nvui.zip nvui-win64.zip
+        run: |
+          cd C:\nvui
+          ren nvui.zip nvui-win64.zip
 
       - name: Upload Release asset
         if: ${{ startsWith(github.ref, 'refs/tags/') && matrix.upload }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: nvui-win64.zip
+          file: C:\nvui\nvui-win64.zip
           tag: ${{ github.ref }}
           overwrite: false
           body: "Automated release by Github Actions."

@@ -265,7 +265,6 @@ jobs:
           git checkout ${{ github.sha }}
 
       - uses: ilammy/msvc-dev-cmd@v1
-        working-directory: C:/nvui
         with:
           sdk: 10.0.19041.0
 
@@ -320,7 +319,6 @@ jobs:
           .\scripts\windows\package.ps1
 
       - name: Upload artifact
-        working-directory: C:/nvui
         if: matrix.upload
         uses: actions/upload-artifact@v2
         with:
@@ -335,12 +333,11 @@ jobs:
           ren nvui.zip nvui-win64.zip
 
       - name: Upload Release asset
-        working-directory: C:/nvui
         if: ${{ startsWith(github.ref, 'refs/tags/') && matrix.upload }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: nvui-win64.zip
+          file: C:\nvui\nvui-win64.zip
           tag: ${{ github.ref }}
           overwrite: false
           body: "Automated release by Github Actions."

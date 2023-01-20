@@ -300,6 +300,7 @@ jobs:
       - name: Build nvui (& nvui_test in Debug mode)
         working-directory: C:/nvui
         run: |
+          .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
           cmake -B build . -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} ${{ matrix.cmakeflags }} -DCMAKE_C_COMPILER=${{ matrix.c }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp }} -G ${{ matrix.gen }}
           cmake --build build --config ${{ matrix.buildtype }}
         shell: cmd

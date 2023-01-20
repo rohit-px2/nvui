@@ -263,6 +263,8 @@ jobs:
           git clone --recurse-submodules https://github.com/rohit-px2/nvui.git C:\nvui
           cd C:\nvui
           git checkout ${{ github.sha }}
+          git submodule init
+          git submodule update
 
       - uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -297,10 +299,13 @@ jobs:
           #"${{ env.qt_dir }}" >> $env:GITHUB_PATH
           #"${{ env.qt_dir }}" >> $env:GITHUB_PATH
 
+      - name: Bootstrap vcpkg before build
+        working-directory: C:/nvui
+        run: .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+
       - name: Build nvui (& nvui_test in Debug mode)
         working-directory: C:/nvui
         run: |
-          .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
           cmake -B build . -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} ${{ matrix.cmakeflags }} -DCMAKE_C_COMPILER=${{ matrix.c }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp }} -G ${{ matrix.gen }}
           cmake --build build --config ${{ matrix.buildtype }}
         shell: cmd

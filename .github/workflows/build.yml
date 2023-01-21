@@ -27,7 +27,7 @@ jobs:
             cmakeflags: ''
 
           - name: Macos Debug
-            os: macos-11
+            os: macos-10.15
             buildtype: 'Debug'
             cc: clang
             cxx: clang++
@@ -36,7 +36,7 @@ jobs:
             cmakeflags: '-DBUILD_TESTS=ON'
 
           - name: Macos Release
-            os: macos-11
+            os: macos-10.15
             buildtype: 'Release'
             cc: clang
             cxx: clang++

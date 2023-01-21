@@ -8,7 +8,7 @@ jobs:
       matrix:
         include:
           - name: Ubuntu Debug
-            os: ubuntu-latest
+            os: ubuntu-20.04
             buildtype: 'Debug'
             cc: clang-12
             cxx: clang++-12
@@ -17,7 +17,7 @@ jobs:
             cmakeflags: '-DBUILD_TESTS=ON'
 
           - name: Ubuntu Release
-            os: ubuntu-latest
+            os: ubuntu-20.04
             buildtype: 'Release'
             cc: clang-12
             cxx: clang++-12
@@ -27,7 +27,7 @@ jobs:
             cmakeflags: ''
 
           - name: Macos Debug
-            os: macos-10.15
+            os: macos-11
             buildtype: 'Debug'
             cc: clang
             cxx: clang++
@@ -36,7 +36,7 @@ jobs:
             cmakeflags: '-DBUILD_TESTS=ON'
 
           - name: Macos Release
-            os: macos-10.15
+            os: macos-11
             buildtype: 'Release'
             cc: clang
             cxx: clang++
@@ -296,7 +296,7 @@ jobs:
       - name: Add Neovim to PATH
         if: matrix.debug
         run: |
-          echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "C:\tools\neovim\nvim-win64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       #- name: Restore deps from cache if they exist
         #uses: actions/cache@v2
         #with:

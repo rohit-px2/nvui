@@ -95,8 +95,8 @@ jobs:
           libxcb-cursor-dev libkrb5-dev libxcb-res0-dev libxcb-keysyms1-dev libxcb-xkb-dev libxcb-record0-dev
           python3-setuptools python3-mako python3-pip python3-venv nodejs libwayland-dev python2 python-is-python3
           guile-2.2-dev libxdamage-dev libdbus-1-dev libxtst-dev haskell-stack libkrb5-3 zlib1g
-          libxcb-util0-dev pkg-config
-          # libicu66 python-yaml
+          libxcb-util0-dev pkg-config libicu66
+          # python-yaml
 
       - name: Mac - Install vcpkg dependencies
         if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg

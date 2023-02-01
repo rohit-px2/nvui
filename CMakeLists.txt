@@ -122,6 +122,12 @@ endif()
 target_link_libraries(nvui PRIVATE
   ${Boost_LIBRARIES}
 )
+if(APPLE)
+  set_target_properties(nvui PROPERTIES
+    MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/assets/resources/macos/Info.plist
+  )
+endif()
 include(CheckIPOSupported)
 check_ipo_supported(RESULT LTOAvailable)
 if(LTOAvailable)
@@ -160,8 +166,7 @@ if(BUILD_TESTS)
     target_include_directories(nvui_test PRIVATE ${Boost_INCLUDE_DIR})
   endif()
   target_link_libraries(nvui_test PRIVATE
-    Boost::thread
-    Boost::filesystem
+    ${Boost_LIBRARIES}
   )
   include(CTest)
   include(Catch)

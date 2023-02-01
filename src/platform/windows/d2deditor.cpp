@@ -39,7 +39,8 @@ D2DEditor::D2DEditor(
 )
 : QWidget(parent),
   QtEditorUIBase(*this, cols, rows, std::move(capabilities),
-    std::move(nvim_path), std::move(nvim_args))
+    std::move(nvim_path), std::move(nvim_args)),
+  win_dpi(GetDpiForWindow((HWND) winId()))
 {
   setAttribute(Qt::WA_PaintOnScreen);
   setAttribute(Qt::WA_InputMethodEnabled);
@@ -80,6 +81,12 @@ D2DEditor::~D2DEditor() = default;
 void D2DEditor::resizeEvent(QResizeEvent* event)
 {
   Base::handle_nvim_resize(event);
+  auto maybe_new_dpi = GetDpiForWindow((HWND) winId());
+  if (maybe_new_dpi != win_dpi)
+  {
+    win_dpi = maybe_new_dpi;
+    set_fonts(guifonts);
+  }
   hwnd_target->Resize(D2D1::SizeU(width(), height()));
   QWidget::resizeEvent(event);
 }
@@ -139,6 +146,7 @@ D2DEditor::create_render_target(u32 width, u32 height)
     D2D1_DEVICE_CONTEXT_OPTIONS_ENABLE_MULTITHREADED_OPTIMIZATIONS,
     &target
   );
+  target->SetDpi(default_dpi, default_dpi);
   target->CreateBitmap(
     size, nullptr, 0,
     D2D1::BitmapProperties1(
@@ -153,7 +161,6 @@ D2DEditor::create_render_target(u32 width, u32 height)
   target->SetTarget(bitmap.Get());
   target->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
   target->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
-  target->SetDpi(default_dpi, default_dpi);
   return {target, bitmap};
 }
 
@@ -290,7 +297,7 @@ void D2DEditor::set_fonts(std::span<FontDesc> fontlist)
       continue;
     }
     dw_formats.emplace_back(
-      dwrite_factory(), wcname, current_point_size, default_dpi,
+      dwrite_factory(), wcname, current_point_size * scale_factor(), default_dpi,
       default_font_weight(), default_font_style()
     );
     dw_fonts.emplace_back(std::move(font));
@@ -301,12 +308,17 @@ void D2DEditor::set_fonts(std::span<FontDesc> fontlist)
     static const auto default_font_name = default_font_family().toStdWString();
     dw_fonts.push_back(font_from_name(default_font_name, font_collection.Get()));
     dw_formats.emplace_back(
-      dwrite_factory(), default_font_name, current_point_size, default_dpi,
-      default_font_weight(), default_font_style()
+      dwrite_factory(), default_font_name, current_point_size * scale_factor(),
+      default_dpi, default_font_weight(), default_font_style()
     );
   }
   update_font_metrics();
   emit layouts_invalidated();
+}
+
+float D2DEditor::scale_factor() const
+{
+  return win_dpi / default_dpi;
 }
 
 void D2DEditor::linespace_changed(float)
@@ -335,7 +347,7 @@ void D2DEditor::update_font_metrics()
   format->GetFontFamilyName(name.data(), (UINT32) name.size());
   QFont f;
   f.setFamily(QString::fromWCharArray(name.c_str()));
-  f.setPointSizeF(current_point_size);
+  f.setPointSizeF(current_point_size * scale_factor());
   f.setLetterSpacing(QFont::AbsoluteSpacing, charspace);
   popup->font_changed(f, font_dimensions());
 }

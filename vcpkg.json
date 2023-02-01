@@ -5,8 +5,12 @@
   "dependencies": [
     "fmt",
     "msgpack",
-    "qt5-base",
-    "qt5-svg",
+    {
+      "name": "qt5-base"
+    },
+    {
+      "name": "qt5-svg"
+    },
     "boost-process",
     "boost-container"
   ],

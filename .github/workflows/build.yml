@@ -7,7 +7,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - name: Ubuntu Debug
+            os: ubuntu-20.04
             buildtype: 'Debug'
             cc: clang-12
             cxx: clang++-12
@@ -15,7 +16,8 @@ jobs:
             upload: false
             cmakeflags: '-DBUILD_TESTS=ON'
 
-          - os: ubuntu-latest
+          - name: Ubuntu Release
+            os: ubuntu-20.04
             buildtype: 'Release'
             cc: clang-12
             cxx: clang++-12
@@ -24,7 +26,8 @@ jobs:
             use_vcpkg: true
             cmakeflags: ''
 
-          - os: macos-10.15
+          - name: Macos Debug
+            os: macos-10.15
             buildtype: 'Debug'
             cc: clang
             cxx: clang++
@@ -32,7 +35,8 @@ jobs:
             upload: false
             cmakeflags: '-DBUILD_TESTS=ON'
 
-          - os: macos-10.15
+          - name: Macos Release
+            os: macos-10.15
             buildtype: 'Release'
             cc: clang
             cxx: clang++
@@ -76,24 +80,36 @@ jobs:
       - name: Ubuntu - Install vcpkg dependencies
         if: startsWith(matrix.os, 'ubuntu') && matrix.use_vcpkg
         run: >
-          sudo apt-get install gperf autoconf build-essential libtool
-          libgl1-mesa-dev libxi-dev libx11-dev libxext-dev
-          libxkbcommon-x11-dev libglu1-mesa-dev libx11-xcb-dev
-          '^libxcb.*-dev' libxrender-dev ninja-build curl
-          zip unzip tar autopoint python
+          sudo apt-get install git curl zip unzip tar at libxt-dev gperf libxaw7-dev cifs-utils 
+          build-essential g++ gfortran libx11-dev libxkbcommon-x11-dev libxi-dev 
+          libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev libxinerama-dev libxxf86vm-dev 
+          libxcursor-dev yasm libnuma1 libnuma-dev libtool-bin 
+          flex bison libbison-dev autoconf libudev-dev libncurses5-dev libtool libxrandr-dev 
+          xutils-dev dh-autoreconf autoconf-archive libgles2-mesa-dev ruby-full 
+          libxext-dev libxfixes-dev libxrender-dev
+          libxcb1-dev libx11-xcb-dev libxcb-glx0-dev meson nasm cmake ninja-build
+          libxkbcommon-dev libxcb-keysyms1-dev
+          libxcb-image0-dev libxcb-shm0-dev libxcb-icccm4-dev libxcb-sync-dev 
+          libxcb-xfixes0-dev libxcb-shape0-dev libxcb-randr0-dev 
+          libxcb-render-util0-dev libxcb-xinerama0-dev libxcb-xkb-dev libxcb-xinput-dev
+          libxcb-cursor-dev libkrb5-dev libxcb-res0-dev libxcb-keysyms1-dev libxcb-xkb-dev libxcb-record0-dev
+          python3-setuptools python3-mako python3-pip python3-venv nodejs libwayland-dev python2 python-is-python3
+          guile-2.2-dev libxdamage-dev libdbus-1-dev libxtst-dev haskell-stack libkrb5-3 zlib1g
+          libxcb-util0-dev pkg-config libicu66
+          # python-yaml
 
       - name: Mac - Install vcpkg dependencies
         if: startsWith(matrix.os, 'macos') && matrix.use_vcpkg
         run: |
-          brew install automake
+          brew install automake autoconf-archive libtool
 
-      - name: Restore vcpkg packages
-        if: matrix.use_vcpkg
-        uses: actions/cache@v2
-        with:
-          path: |
-            build/vcpkg_installed
-          key: ${{ matrix.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
+      #- name: Restore vcpkg packages
+        #if: matrix.use_vcpkg
+        #uses: actions/cache@v2
+        #with:
+          #path: |
+            #build/vcpkg_installed
+          #key: ${{ matrix.os }}-${{ hashFiles('vcpkg.json') }}-${{ env.CC }}-${{ env.CXX }}
 
       - name: Ubuntu - Install dependencies from system package manager
         if: ${{ startsWith(matrix.os, 'ubuntu') && !matrix.use_vcpkg }}
@@ -101,13 +117,13 @@ jobs:
           sudo apt-get install libmsgpack-dev libfmt-dev libboost-all-dev
           mesa-common-dev libglu1-mesa-dev
 
-      - name: Ubuntu - Install Catch2
-        if: ${{ startsWith(matrix.os, 'ubuntu') && !matrix.use_vcpkg }}
+      - name: Ubuntu & MacOS Debug - Build & install Catch2 from source
+        if: ${{ !matrix.use_vcpkg }}
         run: |
           git clone https://github.com/catchorg/Catch2.git
           cd Catch2
-          git checkout v2.x
-          cmake -B build -H. -DBUILD_TESTING=OFF
+          git checkout devel
+          cmake -B build -H. -DBUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=17
           cd build
           sudo make install
 
@@ -130,7 +146,7 @@ jobs:
       - name: Mac - Install dependencies
         if: ${{ startsWith(matrix.os, 'macos') && !matrix.use_vcpkg }}
         run: |
-          brew install fmt boost qt@5 msgpack-cxx catch2
+          brew install fmt boost qt@5 msgpack-cxx
           sudo ln -s /usr/local/Cellar/qt@5/5.15.2/plugins /usr/local/plugins
 
       - name: Mac - Set environment variables
@@ -160,12 +176,21 @@ jobs:
         if: matrix.test
         run: ./build/nvui_test
 
-      - name: Package (Ubuntu & Mac)
-        if: matrix.upload
+      - name: Package (Ubuntu)
+        if: matrix.upload && startsWith(matrix.os, 'ubuntu')
         run: |
           ls build
           chmod +x ./scripts/linux/package.sh
           ./scripts/linux/package.sh
+
+      - name: Package (macOS)
+        if: matrix.upload && startsWith(matrix.os, 'macos')
+        run: |
+          cd build
+          mkdir packaged
+          mkdir packaged/bin
+          cp -r nvui.app packaged/bin
+          cp -r ../vim packaged
 
       - name: Ubuntu - Upload artifact
         uses: actions/upload-artifact@v2
@@ -216,78 +241,128 @@ jobs:
           tag: ${{ github.ref }}
           overwrite: false
           body: "Automated release by Github Actions."
-  windows-debug:
-    runs-on: windows-latest
+  windows:
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - name: Windows Release
+            os: windows-latest
+            buildtype: 'Release'
+            debug: false
+            upload: true
+            cmakeflags: ''
+            c: clang
+            cpp: clang++
+            gen: Ninja
+
+          - name: Windows Debug
+            os: windows-latest
+            buildtype: 'Debug'
+            debug: true
+            upload: false
+            cmakeflags: '-DBUILD_TESTS=ON'
+            c: clang
+            cpp: clang++
+            gen: Ninja
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 500
-    env:
-      buildDir: '${{ github.workspace }}/build'
     steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: 'recursive'
+      - name: Set last commit hash as environment variable (push)
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          "COMMIT_SHA=${{ github.sha }}" >> $env:GITHUB_ENV
+      - name: Set last commit hash as environment variable (pull request)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          "COMMIT_SHA=${{ github.event.pull_request.head.sha }}" >> $env:GITHUB_ENV
+
+      - name: Clone repo to C drive
+        run: |
+          git clone --recurse-submodules https://github.com/rohit-px2/nvui.git C:\nvui
+          cd C:\nvui
+          git checkout $env:COMMIT_SHA
+          git submodule init
+          git submodule update
+
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           sdk: 10.0.19041.0
+
       - name: Install Neovim Stable
+        if: matrix.debug
         run: choco install -y neovim
+
       - name: Add Neovim to PATH
-        run: echo "C:\tools\neovim\Neovim\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Restore deps from cache if they exist
-        uses: actions/cache@v2
-        with:
-          path: |
-            build/vcpkg_installed
-          key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-debug-${{ hashFiles('vcpkg.json') }}
-      - name: Build nvui and nvui_test
-        run: .\scripts\windows\build-debug.ps1
+        if: matrix.debug
+        run: |
+          echo "C:\tools\neovim\nvim-win64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      #- name: Restore deps from cache if they exist
+        #uses: actions/cache@v2
+        #with:
+          #path: |
+            #build/vcpkg_installed
+          #key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          #restore-keys: |
+            #${{ runner.os }}-build-release-${{ hashFiles('vcpkg.json') }}
+
+      # Step was taken from Neovim-Qt's github actions workflow file
+      # at https://github.com/equalsraf/neovim-qt/blob/master/.github/workflows/build-test.yml
+      #- name: Install Qt5
+        #env:
+          #QT_DIR: ${{ github.workspace }}\Qt\5.15.2\msvc2019_64
+        #run: |
+          #python -m pip install aqtinstall
+          #python -m aqt install-qt -O ./Qt windows desktop 5.15.2 win64_msvc2019_64
+          #"Qt5_DIR=$env:QT_DIR\lib\cmake\Qt5" >> $env:GITHUB_ENV
+          #"${{ env.qt_dir }}" >> $env:GITHUB_PATH
+          #"${{ env.qt_dir }}" >> $env:GITHUB_PATH
+
+      - name: Bootstrap vcpkg before build
+        working-directory: C:/nvui
+        run: .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+
+      - name: Build nvui (& nvui_test in Debug mode)
+        working-directory: C:/nvui
+        run: |
+          cmake -B build . -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} ${{ matrix.cmakeflags }} -DCMAKE_C_COMPILER=${{ matrix.c }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp }} -G ${{ matrix.gen }}
+          cmake --build build --config ${{ matrix.buildtype }}
+        shell: cmd
+
       - name: Run tests
+        working-directory: C:/nvui
+        if: matrix.debug
         run: |
           cd build
           .\nvui_test
         shell: cmd
-  windows-release:
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-    timeout-minutes: 500
-    env:
-      buildDir: '${{ github.workspace }}/build'
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: 'recursive'
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          sdk: 10.0.19041.0
-      - name: Restore deps from cache if they exist
-        uses: actions/cache@v2
-        with:
-          path: |
-            build/vcpkg_installed
-          key: ${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-release-${{ hashFiles('vcpkg.json') }}
-      - name: Package into a zip
-        run: .\scripts\windows\package.ps1
+
+      - name: Package nvui (Release)
+        working-directory: C:/nvui
+        if: ${{ !matrix.debug }}
+        run: |
+          .\scripts\windows\package.ps1
+
       - name: Upload artifact
+        if: matrix.upload
         uses: actions/upload-artifact@v2
         with:
           name: nvui-win64
           if-no-files-found: ignore
           path: build/nvui
+
       - name: Rename nvui.zip to nvui-win64.zip for release upload
-        if: startsWith(github.ref, 'refs/tags/')
-        run: ren nvui.zip nvui-win64.zip
+        working-directory: C:/nvui
+        if: ${{ startsWith(github.ref, 'refs/tags/') && matrix.upload }}
+        run: |
+          ren nvui.zip nvui-win64.zip
+
       - name: Upload Release asset
-        if: startsWith(github.ref, 'refs/tags/')
+        if: ${{ startsWith(github.ref, 'refs/tags/') && matrix.upload }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: nvui-win64.zip
+          file: C:\nvui\nvui-win64.zip
           tag: ${{ github.ref }}
           overwrite: false
           body: "Automated release by Github Actions."

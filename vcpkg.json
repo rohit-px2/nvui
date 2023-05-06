@@ -8,7 +8,9 @@
     "qt5-base",
     "qt5-svg",
     "boost-process",
-    "boost-container"
+    "boost-container",
+    "boost-thread",
+    "boost-filesystem"
   ],
   "features": {
     "tests": {
